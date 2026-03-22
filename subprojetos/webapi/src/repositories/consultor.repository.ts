@@ -9,7 +9,8 @@ export default class ConsultorRepository {
                 seq_consultor,
                 nome,
                 meta_mensal
-            FROM omni.consultor
+            FROM omni.consultor 
+            WHERE perfil_indicacao IS NOT NULL
             ORDER BY nome
         `;
 
@@ -18,38 +19,34 @@ export default class ConsultorRepository {
     }
 
     async buscarConsultorPorSeq(seq: number) {
-
         const query = `
-        SELECT
-            seq_consultor,
-            nome,
-            email,
-            meta_mensal
-        FROM omni.consultor
-        WHERE seq_consultor = $1
-    `;
+            SELECT
+                seq_consultor,
+                nome,
+                email,
+                meta_mensal
+            FROM omni.consultor
+            WHERE seq_consultor = $1 AND perfil_indicacao IS NOT NULL
+        `;
 
         const result = await pool.query(query, [seq]);
-
         return result.rows[0];
     }
 
     async buscarMetaMensalPorSeq(seq: number) {
-
         const query = `
-        SELECT
-            seq_consultor_meta,
-            seq_consultor,
-            data_referencia,
-            valor_dia
-        FROM omni.consultor_metas
-        WHERE seq_consultor = $1
-        AND date_trunc('month', data_referencia) = date_trunc('month', CURRENT_DATE)
-        ORDER BY data_referencia
-    `;
+            SELECT
+                seq_consultor_meta,
+                seq_consultor,
+                data_referencia,
+                valor_dia
+            FROM omni.consultor_metas
+            WHERE seq_consultor = $1
+            AND date_trunc('month', data_referencia) = date_trunc('month', CURRENT_DATE)
+            ORDER BY data_referencia
+        `;
 
         const result = await pool.query(query, [seq]);
-
         return result.rows;
     }
 
