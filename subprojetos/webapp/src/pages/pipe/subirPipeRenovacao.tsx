@@ -10,7 +10,6 @@ import { ITelaDetalhesProps } from "./subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import { integrarServicosPipeRun } from "@/helpers/api_piperun";
 
-
 export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
     const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
@@ -22,26 +21,70 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     
     const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe';
 
+    // Utilitário para formatação segura de data (Evita crash de renderização)
+    const formatarDataSegura = (dataString: string | Date | undefined | null) => {
+        if (!dataString) return "Não informado";
+        try {
+            const dateObj = new Date(dataString);
+            if (isNaN(dateObj.getTime())) {
+                throw new Error("Formato de data inválido detectado.");
+            }
+            return dateObj.toLocaleDateString('pt-BR');
+        } catch (error) {
+            console.error("🚨 [Render/Data] Exception ao formatar a data:", { dataRecebida: dataString, erro: error });
+            return "Data Inválida";
+        }
+    };
+
     useEffect(() => {
         async function fetchConsultores() {
             try {
                 setIsCarregandoConsultores(true);
                 const cacheKey = "consultores_geral_cache"; 
-                const cachedData = sessionStorage.getItem(cacheKey);
-
-                if (cachedData) {
-                    setConsultores(JSON.parse(cachedData));
-                    return;
+                
+                let cachedData: string | null = null;
+                
+                // Tenta acessar o sessionStorage de forma segura
+                try {
+                    cachedData = sessionStorage.getItem(cacheKey);
+                } catch (storageError) {
+                    console.error("🚨 [useEffect/Storage] Exception ao acessar sessionStorage:", storageError);
                 }
 
+                if (cachedData) {
+                    try {
+                        const parsedCache = JSON.parse(cachedData);
+                        if (Array.isArray(parsedCache)) {
+                            setConsultores(parsedCache);
+                            console.info("✅ [useEffect/Cache] Consultores carregados do cache com sucesso.");
+                            return;
+                        } else {
+                            throw new Error("Cache não é um array válido.");
+                        }
+                    } catch (parseError) {
+                        console.error("🚨 [useEffect/Parse] Exception ao fazer parse do JSON em cache. O cache será invalidado.", parseError);
+                        sessionStorage.removeItem(cacheKey); // Limpa o cache corrompido
+                    }
+                }
+
+                console.info("🔄 [useEffect/API] Buscando consultores via API...");
                 const response = await API.get("/api/consultores");
                 const listaConsultores = response.data?.dados ?? [];
 
+                if (!Array.isArray(listaConsultores)) {
+                    throw new Error("A resposta da API para '/api/consultores' não conteve uma estrutura de array em 'dados'.");
+                }
+
                 setConsultores(listaConsultores);
-                sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
+                
+                try {
+                    sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
+                } catch (setItemError) {
+                    console.error("🚨 [useEffect/Storage] Exception ao salvar cache no sessionStorage. Dados muito grandes?", setItemError);
+                }
 
             } catch (error) {
-                console.error("Erro ao buscar consultores para renovação:", error);
+                console.error("🚨 [useEffect/API] Exception crítica ao buscar consultores para renovação:", error);
             } finally {
                 setIsCarregandoConsultores(false);
             }
@@ -51,39 +94,89 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     }, []);
 
     const handleConsultorChange = (id: string) => {
-        setConsultorSelecionado(id === "todos" ? null : Number(id));
+        try {
+            setConsultorSelecionado(id === "todos" ? null : Number(id));
+        } catch (error) {
+            console.error("🚨 [handleConsultorChange] Exception ao alterar o consultor:", error);
+        }
     };
 
     const handleAddConsultorEnvio = (idStr: string) => {
-        const id = Number(idStr);
-        if (!consultoresEnvio.includes(id)) {
-            setConsultoresEnvio((prev) => [...prev, id]);
+        try {
+            const id = Number(idStr);
+            if (isNaN(id)) throw new Error(`O ID fornecido (${idStr}) não é um número válido.`);
+            
+            if (!consultoresEnvio.includes(id)) {
+                setConsultoresEnvio((prev) => [...prev, id]);
+            }
+        } catch (error) {
+            console.error("🚨 [handleAddConsultorEnvio] Exception ao adicionar consultor na lista de envio:", error);
         }
     };
 
     const handleRemoverConsultorEnvio = (idToRemove: number) => {
-        setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
+        try {
+            setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
+        } catch (error) {
+            console.error("🚨 [handleRemoverConsultorEnvio] Exception ao remover consultor da lista de envio:", error);
+        }
     };
 
-    const consultorAtual = consultores.find(c => c.seq_consultor === consultorSelecionado);
+    const consultorAtual = useMemo(() => {
+        try {
+            if (!Array.isArray(consultores)) return undefined;
+            return consultores.find(c => c.seq_consultor === consultorSelecionado);
+        } catch (error) {
+            console.error("🚨 [useMemo/consultorAtual] Exception ao calcular o consultor atual:", error);
+            return undefined;
+        }
+    }, [consultores, consultorSelecionado]);
 
     const mapaConsultores = useMemo(() => {
-        const mapa = new Map<number, string>();
-        consultores.forEach(c => mapa.set(Number(c.seq_consultor), c.nome));
-        return mapa;
+        try {
+            const mapa = new Map<number, string>();
+            if (!Array.isArray(consultores)) {
+                console.warn("⚠️ [useMemo/mapaConsultores] A lista de consultores não é um array válido. Retornando mapa vazio.");
+                return mapa;
+            }
+            consultores.forEach(c => {
+                if (c && c.seq_consultor) {
+                    mapa.set(Number(c.seq_consultor), c.nome || "Sem Nome");
+                }
+            });
+            return mapa;
+        } catch (error) {
+            console.error("🚨 [useMemo/mapaConsultores] Exception ao processar o mapa de consultores:", error);
+            return new Map<number, string>();
+        }
     }, [consultores]);
 
     const dadosFiltrados = useMemo(() => {
-        if (!consultorSelecionado) return dados;
-        return dados.filter(item => item.seq_consultor === consultorSelecionado);
+        try {
+            if (!Array.isArray(dados)) {
+                console.warn("⚠️ [useMemo/dadosFiltrados] A prop 'dados' recebida não é um array válido.");
+                return [];
+            }
+            if (!consultorSelecionado) return dados;
+            return dados.filter(item => item.seq_consultor === consultorSelecionado);
+        } catch (error) {
+            console.error("🚨 [useMemo/dadosFiltrados] Exception ao processar o filtro de dados:", error);
+            return [];
+        }
     }, [dados, consultorSelecionado]);
 
     const dadosGrafico = useMemo(() => {
-        return dadosFiltrados.map(item => ({
-            empresa: item.razao || "Empresa sem Razão",
-            linhas: item.qtd_servico_claro || 0,
-            cnpj: item.cnpj
-        }));
+        try {
+            if (!Array.isArray(dadosFiltrados)) return [];
+            return dadosFiltrados.map(item => ({
+                empresa: item.razao || "Empresa sem Razão",
+                linhas: typeof item.qtd_servico_claro === 'number' ? item.qtd_servico_claro : 0,
+                cnpj: item.cnpj || "Sem CNPJ"
+            }));
+        } catch (error) {
+            console.error("🚨 [useMemo/dadosGrafico] Exception ao estruturar dados para o gráfico:", error);
+            return [];
+        }
     }, [dadosFiltrados]);
 
     const handleSubirServicos = async () => {
@@ -95,10 +188,19 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         try {
             setIsEnviando(true);
             
+            if (!Array.isArray(dados)) {
+                throw new Error("A prop global 'dados' não é um iterável válido para envio.");
+            }
+
             // 1. Filtra os dados globais para pegar apenas os serviços dos consultores selecionados
-            let servicosParaEnviar = dados.filter(item => 
-                consultoresEnvio.includes(Number(item.seq_consultor))
-            );
+            let servicosParaEnviar = dados.filter(item => {
+                try {
+                    return consultoresEnvio.includes(Number(item.seq_consultor));
+                } catch (filterError) {
+                    console.error("🚨 [handleSubirServicos] Exception ao filtrar item específico:", item, filterError);
+                    return false;
+                }
+            });
 
             // Valida se há serviços para subir
             if (servicosParaEnviar.length === 0) {
@@ -112,14 +214,22 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 servicosParaEnviar = servicosParaEnviar.slice(0, limiteEnvio);
             }
 
-            console.log(`Iniciando a orquestração de ${servicosParaEnviar.length} serviços de renovação...`);
+            console.info(`🚀 [handleSubirServicos] Iniciando a orquestração de ${servicosParaEnviar.length} serviços de renovação...`);
 
             let sucessosConfirmados = 0;
             let falhasConfirmadas = 0;
 
-            // 3. Loop sequencial de envio (1 a 1)
+            // 3. Loop sequencial de envio (1 a 1) com controle de exceção granular
             for (const servico of servicosParaEnviar) {
                 try {
+                    if (!servico || !servico.seq_claro) {
+                        console.warn("⚠️ [handleSubirServicos] Serviço iterado não possui 'seq_claro' válido. Pulando...", servico);
+                        falhasConfirmadas++;
+                        continue;
+                    }
+
+                    console.info(`⏳ [handleSubirServicos] Enviando serviço seq_claro: ${servico.seq_claro}`);
+
                     // Sobe o dado de Renovação para o PipeRun
                     const resultadoPipe = await integrarServicosPipeRun({
                         servicos: [servico],
@@ -127,28 +237,34 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     });
 
                     // 4. ATUALIZAÇÃO DO BANCO LOCAL (Status CRM = true)
-                    if (resultadoPipe.sucessos > 0) {
-                        // Dispara a rota da sua API para atualizar o seq_claro
-                        await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
-                        sucessosConfirmados++;
+                    if (resultadoPipe && resultadoPipe.sucessos > 0) {
+                        try {
+                            await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
+                            sucessosConfirmados++;
+                            console.info(`✅ [handleSubirServicos] Sucesso absoluto no serviço seq_claro: ${servico.seq_claro}`);
+                        } catch (patchError) {
+                            console.error(`🚨 [handleSubirServicos/PATCH] Falha ao atualizar status no banco local para o seq_claro ${servico.seq_claro}. Integração ocorreu no PipeRun, mas o DB interno falhou.`, patchError);
+                            falhasConfirmadas++;
+                        }
                     } else {
+                        console.error(`🚨 [handleSubirServicos/PIPERUN] Falha relatada pelo utilitário do PipeRun para o seq_claro ${servico.seq_claro}. Retorno:`, resultadoPipe);
                         falhasConfirmadas++;
                     }
                 } catch (error) {
-                    console.error(`Falha isolada ao processar o seq_claro ${servico.seq_claro} (Renovação):`, error);
+                    console.error(`🚨 [handleSubirServicos/LOOP] Exception isolada (Crash) ao processar o seq_claro ${servico?.seq_claro} (Renovação):`, error, "\nObjeto Base:", servico);
                     falhasConfirmadas++;
                 }
             }
 
             // 5. Finalização
+            console.info(`🏁 [handleSubirServicos] Processo finalizado. Sucessos: ${sucessosConfirmados} | Falhas: ${falhasConfirmadas}`);
             alert(`Processo de Renovação Finalizado!\n✅ Integrados com Sucesso: ${sucessosConfirmados}\n❌ Falhas: ${falhasConfirmadas}`);
 
         } catch (error) {
-            console.error("Erro crítico ao processar o envio em massa de renovação:", error);
-            alert("Ocorreu um erro estrutural durante a execução da integração.");
+            console.error("🚨 [handleSubirServicos/GLOBAL] Exception crítica e estrutural ao processar o envio em massa de renovação:", error);
+            alert("Ocorreu um erro estrutural durante a execução da integração. Verifique o console para mais detalhes.");
         } finally {
             setIsEnviando(false);
-            // Reseta a fila e o limite
             setConsultoresEnvio([]);
             setLimiteEnvio("");
         }
@@ -208,7 +324,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                     </SelectTrigger>
                                     <SelectContent className="bg-popover border-border text-popover-foreground">
                                         {consultores.map((c) => (
-                                            <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
+                                            <SelectItem key={`envio-${c.seq_consultor}`} value={String(c.seq_consultor)}>
                                                 {c.nome}
                                             </SelectItem>
                                         ))}
@@ -254,7 +370,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                             </h2>
 
                             <div className="w-64">
-                                {/* Correção aplicada aqui: alterado de h-20 para h-10 */}
                                 <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
                                     <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
                                         <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
@@ -262,7 +377,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                     <SelectContent className="bg-popover border-border text-popover-foreground">
                                         <SelectItem value="todos">Todos os Consultores</SelectItem>
                                         {consultores.map((c) => (
-                                            <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
+                                            <SelectItem key={`filtro-${c.seq_consultor}`} value={String(c.seq_consultor)}>
                                                 {c.nome}
                                             </SelectItem>
                                         ))}
@@ -330,7 +445,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                                         {item.qtd_servico_claro}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        {item.dt_fim_contrato ? new Date(item.dt_fim_contrato).toLocaleDateString('pt-BR') : "Não informado"}
+                                                        {formatarDataSegura(item.dt_fim_contrato)}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}

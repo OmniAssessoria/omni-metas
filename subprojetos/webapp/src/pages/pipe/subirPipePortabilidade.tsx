@@ -21,26 +21,69 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     // Hash do Funil do PipeRun
     const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe';
 
+    // Função encapsulada para mitigar falhas de parse de data
+    const formatarDataSegura = (dataString: string | Date | undefined | null) => {
+        if (!dataString) return "Não informado";
+        try {
+            const dateObj = new Date(dataString);
+            if (isNaN(dateObj.getTime())) {
+                throw new Error("Data inválida detectada pelo construtor.");
+            }
+            return dateObj.toLocaleDateString('pt-BR');
+        } catch (error) {
+            console.error("🚨 [Render/Data] Exception ao processar data de fim de contrato:", { dado: dataString, erro: error });
+            return "Data Inválida";
+        }
+    };
+
     useEffect(() => {
         async function fetchConsultores() {
             try {
                 setIsCarregandoConsultores(true);
                 const cacheKey = "consultores_portabilidade_cache";
-                const cachedData = sessionStorage.getItem(cacheKey);
+                
+                let cachedData: string | null = null;
 
-                if (cachedData) {
-                    setConsultores(JSON.parse(cachedData));
-                    return;
+                try {
+                    cachedData = sessionStorage.getItem(cacheKey);
+                } catch (storageError) {
+                    console.error("🚨 [useEffect/Storage] Exception ao tentar ler do sessionStorage:", storageError);
                 }
 
+                if (cachedData) {
+                    try {
+                        const parsedCache = JSON.parse(cachedData);
+                        if (Array.isArray(parsedCache)) {
+                            setConsultores(parsedCache);
+                            console.info("✅ [useEffect/Cache] Consultores de portabilidade carregados da sessão.");
+                            return;
+                        } else {
+                            throw new Error("O cache de portabilidade não contém um array iterável.");
+                        }
+                    } catch (parseError) {
+                        console.error("🚨 [useEffect/Parse] Exception de parse JSON. Invalidando cache de portabilidade.", parseError);
+                        sessionStorage.removeItem(cacheKey);
+                    }
+                }
+
+                console.info("🔄 [useEffect/API] Requisição de consultores disparada...");
                 const response = await API.get("/api/consultores");
                 const listaConsultores = response.data?.dados ?? [];
 
+                if (!Array.isArray(listaConsultores)) {
+                    throw new Error("Contrato de API violado: '/api/consultores' não retornou um array.");
+                }
+
                 setConsultores(listaConsultores);
-                sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
+                
+                try {
+                    sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
+                } catch (setItemError) {
+                    console.error("🚨 [useEffect/Storage] Erro ao alocar memória no sessionStorage:", setItemError);
+                }
 
             } catch (error) {
-                console.error("Erro ao buscar consultores:", error);
+                console.error("🚨 [useEffect/API] Falha crítica na busca de consultores:", error);
             } finally {
                 setIsCarregandoConsultores(false);
             }
@@ -48,40 +91,91 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
         fetchConsultores();
     }, []);
+
     const handleConsultorChange = (id: string) => {
-        setConsultorSelecionado(id === "todos" ? null : Number(id));
+        try {
+            setConsultorSelecionado(id === "todos" ? null : Number(id));
+        } catch (error) {
+            console.error("🚨 [handleConsultorChange] Exception ao processar ID do consultor:", error);
+        }
     };
 
     const handleAddConsultorEnvio = (idStr: string) => {
-        const id = Number(idStr);
-        if (!consultoresEnvio.includes(id)) {
-            setConsultoresEnvio((prev) => [...prev, id]);
+        try {
+            const id = Number(idStr);
+            if (isNaN(id)) throw new Error(`Input de consultor inválido: ${idStr}`);
+            
+            if (!consultoresEnvio.includes(id)) {
+                setConsultoresEnvio((prev) => [...prev, id]);
+            }
+        } catch (error) {
+            console.error("🚨 [handleAddConsultorEnvio] Erro ao enfileirar consultor:", error);
         }
     };
 
     const handleRemoverConsultorEnvio = (idToRemove: number) => {
-        setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
+        try {
+            setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
+        } catch (error) {
+            console.error("🚨 [handleRemoverConsultorEnvio] Erro ao remover consultor da fila:", error);
+        }
     };
 
-    const consultorAtual = consultores.find(c => c.seq_consultor === consultorSelecionado);
+    const consultorAtual = useMemo(() => {
+        try {
+            if (!Array.isArray(consultores)) return undefined;
+            return consultores.find(c => c.seq_consultor === consultorSelecionado);
+        } catch (error) {
+            console.error("🚨 [useMemo/consultorAtual] Erro de indexação:", error);
+            return undefined;
+        }
+    }, [consultores, consultorSelecionado]);
 
     const mapaConsultores = useMemo(() => {
-        const mapa = new Map<number, string>();
-        consultores.forEach(c => mapa.set(Number(c.seq_consultor), c.nome));
-        return mapa;
+        try {
+            const mapa = new Map<number, string>();
+            if (!Array.isArray(consultores)) {
+                console.warn("⚠️ [useMemo/mapaConsultores] Fallback acionado. Array corrompido.");
+                return mapa;
+            }
+            consultores.forEach(c => {
+                if (c && c.seq_consultor) {
+                    mapa.set(Number(c.seq_consultor), c.nome || "Não Identificado");
+                }
+            });
+            return mapa;
+        } catch (error) {
+            console.error("🚨 [useMemo/mapaConsultores] Quebra estrutural ao montar dicionário:", error);
+            return new Map<number, string>();
+        }
     }, [consultores]);
 
     const dadosFiltrados = useMemo(() => {
-        if (!consultorSelecionado) return dados; 
-        return dados.filter(item => item.seq_consultor === consultorSelecionado);
+        try {
+            if (!Array.isArray(dados)) {
+                console.warn("⚠️ [useMemo/dadosFiltrados] A propriedade 'dados' injetada não é iterável.");
+                return [];
+            }
+            if (!consultorSelecionado) return dados; 
+            return dados.filter(item => item.seq_consultor === consultorSelecionado);
+        } catch (error) {
+            console.error("🚨 [useMemo/dadosFiltrados] Erro ao aplicar filtro hierárquico:", error);
+            return [];
+        }
     }, [dados, consultorSelecionado]);
 
     const dadosGrafico = useMemo(() => {
-        return dadosFiltrados.map(item => ({
-            empresa: item.razao || "Empresa sem Razão",
-            linhas: item.qtd_servico_claro || 0,
-            cnpj: item.cnpj
-        }));
+        try {
+            if (!Array.isArray(dadosFiltrados)) return [];
+            return dadosFiltrados.map(item => ({
+                empresa: item.razao || "Empresa sem Razão",
+                linhas: typeof item.qtd_servico_claro === 'number' ? item.qtd_servico_claro : 0,
+                cnpj: item.cnpj || "N/D"
+            }));
+        } catch (error) {
+            console.error("🚨 [useMemo/dadosGrafico] Quebra de projeção de dados para o Recharts:", error);
+            return [];
+        }
     }, [dadosFiltrados]);
 
     const handleSubirServicos = async () => {
@@ -93,64 +187,83 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         try {
             setIsEnviando(true);
             
-            // 1. Filtra os dados globais. 
-            // Se o consultor selecionado não tem serviços cadastrados nos `dados`, ele é automaticamente ignorado aqui.
-            let servicosParaEnviar = dados.filter(item => 
-                consultoresEnvio.includes(Number(item.seq_consultor))
-            );
+            if (!Array.isArray(dados)) {
+                throw new Error("Matriz principal de dados de portabilidade está inválida/indisponível.");
+            }
+
+            // 1. Filtra os dados globais.
+            let servicosParaEnviar = dados.filter(item => {
+                try {
+                    return consultoresEnvio.includes(Number(item.seq_consultor));
+                } catch (filterError) {
+                    console.error("🚨 [handleSubirServicos/Filtro] Avaliação de serviço falhou:", item, filterError);
+                    return false;
+                }
+            });
 
             // Valida se sobrou algum serviço para subir
             if (servicosParaEnviar.length === 0) {
-                alert("Os consultores selecionados não possuem serviços disponíveis para integração.");
+                alert("Os consultores selecionados não possuem serviços de portabilidade disponíveis para integração.");
                 setIsEnviando(false);
                 return;
             }
 
-            // 2. Aplica o limite global de envio, se houver
+            // 2. Aplica o limite global de envio
             if (limiteEnvio && typeof limiteEnvio === "number" && limiteEnvio > 0) {
                 servicosParaEnviar = servicosParaEnviar.slice(0, limiteEnvio);
             }
 
-            console.log(`Iniciando a orquestração de ${servicosParaEnviar.length} serviços...`);
+            console.info(`🚀 [handleSubirServicos] Pipeline de Portabilidade iniciado com ${servicosParaEnviar.length} payloads ativos.`);
             
             let sucessosConfirmados = 0;
             let falhasConfirmadas = 0;
 
-            // 3. Loop sequencial 
-            // Processamos 1 a 1 para garantir que só atualizaremos o DB local se o PipeRun retornar sucesso real.
+            // 3. Loop sequencial assíncrono blindado
             for (const servico of servicosParaEnviar) {
                 try {
+                    if (!servico || !servico.seq_claro) {
+                        console.warn("⚠️ [handleSubirServicos] Item na esteira não possui 'seq_claro'. Ignorando...", servico);
+                        falhasConfirmadas++;
+                        continue;
+                    }
+
+                    console.info(`⏳ [handleSubirServicos] Transacionando Oportunidade (Portabilidade) - seq_claro: ${servico.seq_claro}`);
+
                     // Sobe a Oportunidade/Empresa/Decisor para o PipeRun
                     const resultadoPipe = await integrarServicosPipeRun({
-                        servicos: [servico], // Array de 1 posição para validação isolada
+                        servicos: [servico],
                         hashFunil: hashConsultores
                     });
 
-                    if (resultadoPipe.sucessos > 0) {
+                    if (resultadoPipe && resultadoPipe.sucessos > 0) {
                         // 4. ATUALIZAÇÃO DO BANCO LOCAL (Status CRM = true)
-                        // Dispara patch/put passando o seq_claro na URL da sua API
-                        await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
-                        
-                        sucessosConfirmados++;
+                        try {
+                            await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
+                            sucessosConfirmados++;
+                            console.info(`✅ [handleSubirServicos] Commit absoluto. Seq_claro: ${servico.seq_claro}`);
+                        } catch (patchError) {
+                            console.error(`🚨 [handleSubirServicos/PATCH] Timeout ou anomalia ao registrar no DB local o seq_claro ${servico.seq_claro}. A oportunidade FOI gerada no PipeRun.`, patchError);
+                            falhasConfirmadas++;
+                        }
                     } else {
-                        // Se falhou no PipeRun, incrementamos as falhas e pulamos a requisição do BD local
+                        console.error(`🚨 [handleSubirServicos/PIPERUN] Recusa de payload pelo gateway do PipeRun. Serviço: ${servico.seq_claro}. Dump:`, resultadoPipe);
                         falhasConfirmadas++;
                     }
                 } catch (error) {
-                    console.error(`Falha isolada ao processar o seq_claro ${servico.seq_claro}:`, error);
+                    console.error(`🚨 [handleSubirServicos/LOOP] Crash de bloco na thread do seq_claro ${servico?.seq_claro}:`, error);
                     falhasConfirmadas++;
                 }
             }
 
             // 5. Finalização e feedback visual
+            console.info(`🏁 [handleSubirServicos] Encerramento da esteira de Portabilidade. Sucesso: ${sucessosConfirmados} | Falhas: ${falhasConfirmadas}`);
             alert(`Processo Finalizado!\n✅ Integrados com Sucesso no PipeRun e BD: ${sucessosConfirmados}\n❌ Falhas: ${falhasConfirmadas}`);
 
         } catch (error) {
-            console.error("Erro crítico ao processar o envio em massa:", error);
-            alert("Ocorreu um erro estrutural durante a execução da integração.");
+            console.error("🚨 [handleSubirServicos/GLOBAL] Exception sistêmica durante a orquestração em lote:", error);
+            alert("Ocorreu um erro estrutural durante a execução da integração. Consulte o log para rastreabilidade.");
         } finally {
             setIsEnviando(false);
-            // Reseta a fila de preparo de consultores e limite (opcional, pode ser removido caso prefira manter a seleção após subir)
             setConsultoresEnvio([]);
             setLimiteEnvio("");
         }
@@ -182,7 +295,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                     const nomeConsultor = mapaConsultores.get(id) || "Desconhecido";
                                     return (
                                         <span 
-                                            key={id} 
+                                            key={`badge-${id}`} 
                                             className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                                         >
                                             {nomeConsultor}
@@ -207,7 +320,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                     </SelectTrigger>
                                     <SelectContent className="bg-popover border-border text-popover-foreground">
                                         {consultores.map((c) => (
-                                            <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
+                                            <SelectItem key={`add-${c.seq_consultor}`} value={String(c.seq_consultor)}>
                                                 {c.nome}
                                             </SelectItem>
                                         ))}
@@ -259,7 +372,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                     <SelectContent className="bg-popover border-border text-popover-foreground">
                                         <SelectItem value="todos">Todos os Consultores</SelectItem>
                                         {consultores.map((c) => (
-                                            <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
+                                            <SelectItem key={`filtro-${c.seq_consultor}`} value={String(c.seq_consultor)}>
                                                 {c.nome}
                                             </SelectItem>
                                         ))}
@@ -302,8 +415,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                         </TableHeader>
                                         <TableBody>
                                             {dadosFiltrados.map((item) => (
-                                                <TableRow key={`${item.seq_empresa}-${item.seq_claro}`}>
-                                                    <TableCell className="font-medium max-w-[200px] truncate">{item.razao}</TableCell>
+                                                <TableRow key={`row-${item.seq_empresa}-${item.seq_claro}`}>
+                                                    <TableCell className="font-medium max-w-[200px] truncate" title={item.razao}>
+                                                        {item.razao}
+                                                    </TableCell>
                                                     <TableCell>{item.cnpj}</TableCell>
                                                     {!consultorSelecionado && (
                                                         <TableCell className="text-muted-foreground">
@@ -319,7 +434,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                                         {item.qtd_servico_claro}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        {item.dt_fim_contrato ? new Date(item.dt_fim_contrato).toLocaleDateString('pt-BR') : "Não informado"}
+                                                        {formatarDataSegura(item.dt_fim_contrato)}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
