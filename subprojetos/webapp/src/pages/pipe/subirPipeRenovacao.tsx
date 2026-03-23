@@ -9,6 +9,7 @@ import API from "@/helpers/api";
 import { ITelaDetalhesProps } from "./subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 
+
 export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
@@ -122,21 +123,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="w-64">
-                            <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
-                                <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
-                                    <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
-                                </SelectTrigger>
-                                <SelectContent className="bg-popover border-border text-popover-foreground">
-                                    <SelectItem value="todos">Todos os Consultores</SelectItem>
-                                    {consultores.map((c) => (
-                                        <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
-                                            {c.nome}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
 
                         <Button
                             onClick={handleSubirServicos}
@@ -151,18 +137,36 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                             {isEnviando ? "Processando..." : "Subir Renovações"}
                         </Button>
                     </div>
+                    
                 </header>
 
                 <div className="space-y-6">
                     <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                         <div className="flex items-center gap-2 mb-6 border-b pb-4">
-                            {consultorSelecionado ? <Users size={20} className="text-blue-500" /> : <LayoutList size={20} className="text-blue-500" />}
-                            <h2 className="text-lg font-semibold">
+                                {consultorSelecionado ? <Users size={20} className="text-blue-500" /> : <LayoutList size={20} className="text-blue-500" />}
+                            <h2 className="text-lg font-semibold mr-10 flex align-center text-center justify-center">
                                 {consultorAtual
                                     ? `Carteira do Consultor: ${consultorAtual.nome} (Renovação)`
                                     : "Todos os Serviços de Renovação"}
                             </h2>
+
+                            <div className="w-64">
+                                <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
+                                    <SelectTrigger className="h-20 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
+                                        <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                                        <SelectItem value="todos">Todos os Consultores</SelectItem>
+                                        {consultores.map((c) => (
+                                            <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
+                                                {c.nome}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
+
 
                         {dadosFiltrados.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">

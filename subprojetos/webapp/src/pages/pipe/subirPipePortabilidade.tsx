@@ -119,22 +119,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="w-64">
-                            <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
-                                <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-primary text-foreground">
-                                    <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
-                                </SelectTrigger>
-                                <SelectContent className="bg-popover border-border text-popover-foreground">
-                                    <SelectItem value="todos">Todos os Consultores</SelectItem>
-                                    {consultores.map((c) => (
-                                        <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
-                                            {c.nome}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
                         <Button
                             onClick={handleSubirServicos}
                             disabled={!consultorSelecionado || dadosFiltrados.length === 0 || isEnviando}
@@ -151,20 +135,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 </header>
 
                 <div className="space-y-6">        
-                    <div className="h-[300px] w-full border rounded-lg p-4 bg-muted/5">
-                        <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                            <Building2 size={16} /> Volume de Linhas por Empresa
-                        </h3>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
-                                <XAxis dataKey="empresa" tick={{ fontSize: 12 }} hide={dadosFiltrados.length > 20} />
-                                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                                <Tooltip cursor={{ fill: '#88888811' }} />
-                                <Bar dataKey="linhas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                  
                     <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                         <div className="flex items-center gap-2 mb-6 border-b pb-4">
                             {consultorSelecionado ? <Users size={20} className="text-primary" /> : <LayoutList size={20} className="text-blue-500" />}
@@ -173,7 +144,24 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                     ? `Carteira do Consultor: ${consultorAtual.nome}`
                                     : "Todos os Serviços Disponíveis"}
                             </h2>
+                            <div className="w-64">
+                                <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
+                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-primary text-foreground">
+                                        <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                                        <SelectItem value="todos">Todos os Consultores</SelectItem>
+                                        {consultores.map((c) => (
+                                            <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
+                                                {c.nome}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
+
+                   
 
                         {dadosFiltrados.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -181,6 +169,20 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             </div>
                         ) : (
                             <div className="space-y-8">
+                                <div className="h-[300px] w-full border rounded-lg p-4 bg-muted/5">
+                                    <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                                            <Building2 size={16} /> Volume de Linhas por Empresa
+                                            </h3>
+                                            <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
+                                            <XAxis dataKey="empresa" tick={{ fontSize: 12 }} hide={dadosFiltrados.length > 20} />
+                                            <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                                            <Tooltip cursor={{ fill: '#88888811' }} />
+                                            <Bar dataKey="linhas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
                                 <div className="rounded-md border overflow-hidden">
                                     <Table>
                                         <TableHeader className="bg-muted/50">

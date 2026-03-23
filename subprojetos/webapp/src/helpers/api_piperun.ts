@@ -1,6 +1,8 @@
 import API from "@/helpers/api";
 import { IServicoPipeRun } from "@/pages/pipe/subirPipeGeral";
 
+// Hash pra testar e015a67d-bab4-403a-a0f6-5b2cfbc35ebe
+
 export interface IPipeRunIntegrationParams {
     servicos: IServicoPipeRun[];
     emailConsultor: string;
@@ -12,10 +14,6 @@ export interface IPipeRunIntegrationResult {
     sucessos: number;
     falhas: number;
 }
-
-// ---------------------------------------------------------------------------
-// FUNÇÕES AUXILIARES
-// ---------------------------------------------------------------------------
 
 const extrairDDD = (observacao: string | null): string => {
     if (!observacao) return "";
@@ -34,10 +32,6 @@ const formatarData = (dataStr: string | null): string | null => {
     }
 };
 
-// ---------------------------------------------------------------------------
-// FUNÇÃO PRINCIPAL DE ORQUESTRAÇÃO (UPSERT E CRIAÇÃO)
-// ---------------------------------------------------------------------------
-
 export const integrarServicosPipeRun = async ({
     servicos,
     emailConsultor,
@@ -49,22 +43,14 @@ export const integrarServicosPipeRun = async ({
 
     for (const servico of servicos) {
         try {
-            // 1. Preparação de Dados de Contato
             const ddd = extrairDDD(servico.observacao);
             const telefoneFormatado = servico.decisor_numero ? `+55 (${ddd}) ${servico.decisor_numero}` : "";
             const contactPhones = telefoneFormatado ? [telefoneFormatado] : [];
             const contactEmails = servico.decisor_email ? [servico.decisor_email] : [];
             const managerId = servico.codigo_crm || undefined; // O ID do dono da conta
-
-            // ====================================================================
-            // ETAPA 1: VERIFICAR E CRIAR/ATUALIZAR DECISOR (PERSON)
-            // ====================================================================
             const decisorNome = servico.decisor_nome?.trim() ? servico.decisor_nome.trim() : "Umbrella";
             let personId = null;
-
-            // Busca pessoa por CPF (se existir)
             if (servico.decisor_cpf) {
-                // OBS: Note que chamamos a sua API local (localhost:3000) para ela fazer o proxy
                 const resPerson = await API.get("/api/piperun/persons", { params: { cpf: servico.decisor_cpf } });
                 if (resPerson.data?.data && resPerson.data.data.length > 0) {
                     personId = resPerson.data.data[0].id;
@@ -81,17 +67,12 @@ export const integrarServicosPipeRun = async ({
             };
 
             if (personId) {
-                // Atualiza Decisor
                 await API.put(`/api/piperun/persons/${personId}`, payloadPerson);
             } else {
-                // Cria Decisor Umbrella ou Novo
                 const createPerson = await API.post("/api/piperun/persons", payloadPerson);
                 personId = createPerson.data?.data?.id || null;
             }
 
-            // ====================================================================
-            // ETAPA 2: VERIFICAR E CRIAR/ATUALIZAR EMPRESA (COMPANY)
-            // ====================================================================
             let companyId = null;
             
             if (servico.cnpj) {
@@ -123,14 +104,11 @@ export const integrarServicosPipeRun = async ({
                 observacaoCompleta = `${observacaoCompleta} ULTIMO CONSULTOR: ${servico.consultor_nome}`;
             }
 
-            // Usamos o Integrador JSON para a Oportunidade, conforme sua estrutura anterior
             const leadPipeRun = {
                 user: emailConsultor,
                 cnpj: servico.cnpj, 
                 title: titleCard,
                 company: servico.razao,
-                // Como já vinculamos a Pessoa e a Empresa via API REST acima, o Integrador do PipeRun 
-                // fará o match automático na criação do card por causa do CNPJ/Email.
                 custom_fields: {
                     "Final do Contrato": formatarData(servico.dt_fim_contrato),
                     "Observacao": observacaoCompleta,
