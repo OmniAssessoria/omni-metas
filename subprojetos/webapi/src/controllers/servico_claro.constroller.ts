@@ -47,7 +47,7 @@ class ServicoClaroController {
 
     async atualizarStatusCrm(req: Request, res: Response): Promise<void> {
         try {
-            const seq_claro = req.params;
+            const { seq_claro } = req.params;
             const idServico = Number(seq_claro);
 
             const servicoAtualizado = await this.servicoClaroService.marcarComoEnviadoCrm(idServico);

@@ -3,18 +3,24 @@ import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Users, UploadCloud, Loader2, Building2, RefreshCw, LayoutList } from "lucide-react";
+import { ArrowLeft, Users, UploadCloud, Loader2, Building2, RefreshCw, LayoutList, X } from "lucide-react"; 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import API from "@/helpers/api";
 import { ITelaDetalhesProps } from "./subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
+import { integrarServicosPipeRun } from "@/helpers/api_piperun";
 
 
 export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
+    const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
+    const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
+
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
     const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
     const [isEnviando, setIsEnviando] = useState(false);
+    
+    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe';
 
     useEffect(() => {
         async function fetchConsultores() {
@@ -48,9 +54,19 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         setConsultorSelecionado(id === "todos" ? null : Number(id));
     };
 
+    const handleAddConsultorEnvio = (idStr: string) => {
+        const id = Number(idStr);
+        if (!consultoresEnvio.includes(id)) {
+            setConsultoresEnvio((prev) => [...prev, id]);
+        }
+    };
+
+    const handleRemoverConsultorEnvio = (idToRemove: number) => {
+        setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
+    };
+
     const consultorAtual = consultores.find(c => c.seq_consultor === consultorSelecionado);
 
-    // Mapeamento otimizado para buscar o nome do consultor na tabela de forma rápida
     const mapaConsultores = useMemo(() => {
         const mapa = new Map<number, string>();
         consultores.forEach(c => mapa.set(Number(c.seq_consultor), c.nome));
@@ -71,32 +87,70 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     }, [dadosFiltrados]);
 
     const handleSubirServicos = async () => {
-        if (!consultorSelecionado || dadosFiltrados.length === 0) return;
+        if (consultoresEnvio.length === 0) {
+            alert("Selecione pelo menos um consultor na lista de envio.");
+            return;
+        }
 
         try {
             setIsEnviando(true);
-            let sucessos = 0;
-            let falhas = 0;
+            
+            // 1. Filtra os dados globais para pegar apenas os serviços dos consultores selecionados
+            let servicosParaEnviar = dados.filter(item => 
+                consultoresEnvio.includes(Number(item.seq_consultor))
+            );
 
-            for (const servico of dadosFiltrados) {
+            // Valida se há serviços para subir
+            if (servicosParaEnviar.length === 0) {
+                alert("Os consultores selecionados não possuem serviços de renovação disponíveis para integração.");
+                setIsEnviando(false);
+                return;
+            }
+
+            // 2. Aplica o limite global de envio, se estipulado
+            if (limiteEnvio && typeof limiteEnvio === "number" && limiteEnvio > 0) {
+                servicosParaEnviar = servicosParaEnviar.slice(0, limiteEnvio);
+            }
+
+            console.log(`Iniciando a orquestração de ${servicosParaEnviar.length} serviços de renovação...`);
+
+            let sucessosConfirmados = 0;
+            let falhasConfirmadas = 0;
+
+            // 3. Loop sequencial de envio (1 a 1)
+            for (const servico of servicosParaEnviar) {
                 try {
-                    await API.post("/api/piperun/integrar_renovacao", {
-                        dados_servico: servico,
-                        id_consultor: consultorSelecionado,
-                        tipo_operacao: "RENOVACAO"
+                    // Sobe o dado de Renovação para o PipeRun
+                    const resultadoPipe = await integrarServicosPipeRun({
+                        servicos: [servico],
+                        hashFunil: hashConsultores 
                     });
-                    sucessos++;
-                } catch (err) {
-                    console.error(`Erro ao subir serviço de renovação:`, err);
-                    falhas++;
+
+                    // 4. ATUALIZAÇÃO DO BANCO LOCAL (Status CRM = true)
+                    if (resultadoPipe.sucessos > 0) {
+                        // Dispara a rota da sua API para atualizar o seq_claro
+                        await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
+                        sucessosConfirmados++;
+                    } else {
+                        falhasConfirmadas++;
+                    }
+                } catch (error) {
+                    console.error(`Falha isolada ao processar o seq_claro ${servico.seq_claro} (Renovação):`, error);
+                    falhasConfirmadas++;
                 }
             }
-            alert(`Processo de Renovação finalizado!\nSucesso: ${sucessos}\nFalhas: ${falhas}`);
+
+            // 5. Finalização
+            alert(`Processo de Renovação Finalizado!\n✅ Integrados com Sucesso: ${sucessosConfirmados}\n❌ Falhas: ${falhasConfirmadas}`);
+
         } catch (error) {
-            console.error("Erro geral:", error);
-            alert("Ocorreu um erro crítico ao tentar subir os dados.");
+            console.error("Erro crítico ao processar o envio em massa de renovação:", error);
+            alert("Ocorreu um erro estrutural durante a execução da integração.");
         } finally {
             setIsEnviando(false);
+            // Reseta a fila e o limite
+            setConsultoresEnvio([]);
+            setLimiteEnvio("");
         }
     };
 
@@ -111,8 +165,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao Painel Geral
                 </Button>
 
-                <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div>
+                <header className="mb-8 flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="mt-2">
                         <div className="flex items-center gap-3 mb-2">
                             <RefreshCw className="h-8 w-8 text-blue-500" />
                             <h1 className="text-3xl font-bold tracking-tight">Detalhes de Renovação</h1>
@@ -122,22 +176,71 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-end gap-3">
+                        {consultoresEnvio.length > 0 && (
+                            <div className="flex flex-wrap justify-end gap-2 max-w-lg">
+                                {consultoresEnvio.map((id) => {
+                                    const nomeConsultor = mapaConsultores.get(id) || "Desconhecido";
+                                    return (
+                                        <span 
+                                            key={id} 
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700 shadow-sm dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
+                                        >
+                                            {nomeConsultor}
+                                            <button 
+                                                onClick={() => handleRemoverConsultorEnvio(id)}
+                                                className="rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 p-0.5 transition-colors"
+                                                title="Remover"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        )}
 
-                        <Button
-                            onClick={handleSubirServicos}
-                            disabled={!consultorSelecionado || dadosFiltrados.length === 0 || isEnviando}
-                            className="h-10 px-6 shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                            {isEnviando ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <UploadCloud className="mr-2 h-4 w-4" />
-                            )}
-                            {isEnviando ? "Processando..." : "Subir Renovações"}
-                        </Button>
+                        <div className="flex items-center gap-3">
+                            <div className="w-56">
+                                <Select onValueChange={handleAddConsultorEnvio} value="" disabled={isCarregandoConsultores}>
+                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
+                                        <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Adicionar para Envio"} />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                                        {consultores.map((c) => (
+                                            <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
+                                                {c.nome}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="w-32">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    placeholder="Qtd Limite"
+                                    value={limiteEnvio}
+                                    onChange={(e) => setLimiteEnvio(e.target.value === "" ? "" : Number(e.target.value))}
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                />
+                            </div>
+
+                            <Button
+                                onClick={handleSubirServicos}
+                                disabled={consultoresEnvio.length === 0 || isEnviando}
+                                className="h-10 px-6 shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                {isEnviando ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <UploadCloud className="mr-2 h-4 w-4" />
+                                )}
+                                {isEnviando ? "Processando..." : "Subir Renovações"}
+                            </Button>
+                        </div>
                     </div>
-                    
                 </header>
 
                 <div className="space-y-6">
@@ -151,8 +254,9 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                             </h2>
 
                             <div className="w-64">
+                                {/* Correção aplicada aqui: alterado de h-20 para h-10 */}
                                 <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
-                                    <SelectTrigger className="h-20 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
+                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
                                         <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
                                     </SelectTrigger>
                                     <SelectContent className="bg-popover border-border text-popover-foreground">
@@ -166,7 +270,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                 </Select>
                             </div>
                         </div>
-
 
                         {dadosFiltrados.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -200,7 +303,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                             <TableRow>
                                                 <TableHead>Empresa (Razão Social)</TableHead>
                                                 <TableHead>CNPJ</TableHead>
-                                                {/* CONDICIONAL: Mostra Consultor se estiver na visão geral */}
                                                 {!consultorSelecionado && <TableHead>Consultor Responsável</TableHead>}
                                                 <TableHead>Classificação</TableHead>
                                                 <TableHead className="text-center">Qtd. Linhas</TableHead>
@@ -214,7 +316,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                                         {item.razao}
                                                     </TableCell>
                                                     <TableCell>{item.cnpj}</TableCell>
-                                                    {/* CONDICIONAL: Busca nome no Map criado no useMemo */}
                                                     {!consultorSelecionado && (
                                                         <TableCell className="text-muted-foreground">
                                                             {mapaConsultores.get(Number(item.seq_consultor)) || "Não Atribuído"}

@@ -1,13 +1,26 @@
-import API from "@/helpers/api";
-import { IServicoPipeRun } from "@/pages/pipe/subirPipeGeral";
+import axios from "axios";
+import { IServicoPipeRun } from "@/pages/pipe/subirPipeGeral"; // Ajuste o caminho se necessário
 
-// Hash pra testar e015a67d-bab4-403a-a0f6-5b2cfbc35ebe
+const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
 
+// Instância Axios para a API REST (Decisores e Empresas)
+const apiPipeRunRest = axios.create({
+    baseURL: "https://api.pipe.run/v1",
+    headers: {
+        "accept": "application/json",
+        "token": TOKEN_PIPERUN,
+    },
+});
+
+// URL direta para o Integrador JSON (Oportunidades)
+const URL_INTEGRADOR_PIPERUN = "https://app.pipe.run/webservice/integradorJson";
+
+// ============================================================================
+// INTERFACES
+// ============================================================================
 export interface IPipeRunIntegrationParams {
     servicos: IServicoPipeRun[];
-    emailConsultor: string;
     hashFunil: string;
-    indicacao: string;
 }
 
 export interface IPipeRunIntegrationResult {
@@ -15,11 +28,9 @@ export interface IPipeRunIntegrationResult {
     falhas: number;
 }
 
-const extrairDDD = (observacao: string | null): string => {
-    if (!observacao) return "";
-    const matches = observacao.match(/\d+/);
-    return matches ? matches[0] : "";
-};
+// ============================================================================
+// FUNÇÕES AUXILIARES DE FORMATAÇÃO
+// ============================================================================
 
 const formatarData = (dataStr: string | null): string | null => {
     if (!dataStr) return null;
@@ -32,26 +43,63 @@ const formatarData = (dataStr: string | null): string | null => {
     }
 };
 
+const extrairTelefonesEDDD = (obs: string | null): { telefones: string[], dddPrincipal: string } => {
+    if (!obs) return { telefones: [], dddPrincipal: "" };
+    const regex = /\b(\d{2})(\d{8,9})\b/g;
+    let match;
+    const contagemDDD: Record<string, number> = {};
+    const telefonesUnicos = new Set<string>();
+
+    while ((match = regex.exec(obs)) !== null) {
+        const ddd = match[1];
+        const numero = match[2];
+        if (numero.length === 9) {
+            telefonesUnicos.add(`+55 (${ddd}) ${numero.slice(0, 5)}-${numero.slice(5)}`);
+        } else {
+            telefonesUnicos.add(`+55 (${ddd}) ${numero.slice(0, 4)}-${numero.slice(4)}`);
+        }
+        contagemDDD[ddd] = (contagemDDD[ddd] || 0) + 1;
+    }
+
+    let dddPrincipal = "";
+    let maxCount = 0;
+    for (const [ddd, count] of Object.entries(contagemDDD)) {
+        if (count > maxCount) {
+            maxCount = count;
+            dddPrincipal = ddd;
+        }
+    }
+
+    return {
+        telefones: Array.from(telefonesUnicos),
+        dddPrincipal
+    };
+};
+
+// ============================================================================
+// FUNÇÃO PRINCIPAL DE INTEGRAÇÃO (ORQUESTRAÇÃO)
+// ============================================================================
+
 export const integrarServicosPipeRun = async ({
     servicos,
-    emailConsultor,
     hashFunil,
-    indicacao
 }: IPipeRunIntegrationParams): Promise<IPipeRunIntegrationResult> => {
     let sucessos = 0;
     let falhas = 0;
 
     for (const servico of servicos) {
         try {
-            const ddd = extrairDDD(servico.observacao);
-            const telefoneFormatado = servico.decisor_numero ? `+55 (${ddd}) ${servico.decisor_numero}` : "";
-            const contactPhones = telefoneFormatado ? [telefoneFormatado] : [];
+            const { telefones, dddPrincipal } = extrairTelefonesEDDD(servico.observacao);
             const contactEmails = servico.decisor_email ? [servico.decisor_email] : [];
-            const managerId = servico.codigo_crm || undefined; // O ID do dono da conta
             const decisorNome = servico.decisor_nome?.trim() ? servico.decisor_nome.trim() : "Umbrella";
             let personId = null;
+            
+            // Se houver CPF, tenta encontrar no PipeRun
             if (servico.decisor_cpf) {
-                const resPerson = await API.get("/api/piperun/persons", { params: { cpf: servico.decisor_cpf } });
+                const resPerson = await apiPipeRunRest.get("/persons", { 
+                    params: { cpf: servico.decisor_cpf } 
+                });
+                
                 if (resPerson.data?.data && resPerson.data.data.length > 0) {
                     personId = resPerson.data.data[0].id;
                 }
@@ -60,23 +108,32 @@ export const integrarServicosPipeRun = async ({
             const payloadPerson = {
                 name: decisorNome,
                 cpf: servico.decisor_cpf || "",
-                manager_id: managerId,
-                contactPhones: contactPhones,
-                contactEmails: contactEmails,
+                contactPhones: telefones,
+                contactEmails: contactEmails || [],
                 observation: servico.decisor_num_obs || ""
+                // Nota: Removido manager_id intencionalmente, a Pessoa não precisa ser vinculada a um dono na sua regra.
             };
 
             if (personId) {
-                await API.put(`/api/piperun/persons/${personId}`, payloadPerson);
+                // Atualiza a pessoa existente
+                await apiPipeRunRest.put(`/persons/${personId}`, payloadPerson);
             } else {
-                const createPerson = await API.post("/api/piperun/persons", payloadPerson);
+                // Cria uma nova pessoa
+                const createPerson = await apiPipeRunRest.post("/persons", payloadPerson);
                 personId = createPerson.data?.data?.id || null;
             }
 
+            // ----------------------------------------------------------------
+            // PASSO 2: EMPRESA (COMPANY) - VINCULAR AO DECISOR (PERSON)
+            // ----------------------------------------------------------------
             let companyId = null;
             
+            // Se houver CNPJ, tenta encontrar a empresa no PipeRun
             if (servico.cnpj) {
-                const resCompany = await API.get("/api/piperun/companies", { params: { cnpj: servico.cnpj } });
+                const resCompany = await apiPipeRunRest.get("/companies", { 
+                    params: { cnpj: servico.cnpj } 
+                });
+                
                 if (resCompany.data?.data && resCompany.data.data.length > 0) {
                     companyId = resCompany.data.data[0].id;
                 }
@@ -85,34 +142,41 @@ export const integrarServicosPipeRun = async ({
             const payloadCompany = {
                 name: servico.razao,
                 cnpj: servico.cnpj,
-                manager_id: managerId,
-                contactPhones: contactPhones,
-                contactEmails: contactEmails,
+                manager_id: personId, 
             };
 
             if (companyId) {
-
-                await API.put(`/api/piperun/companies/${companyId}`, payloadCompany);
+                // Atualiza a empresa existente
+                await apiPipeRunRest.put(`/companies/${companyId}`, payloadCompany);
             } else {
-                const createCompany = await API.post("/api/piperun/companies", payloadCompany);
+                // Cria uma nova empresa
+                const createCompany = await apiPipeRunRest.post("/companies", payloadCompany);
                 companyId = createCompany.data?.data?.id || null;
             }
 
-            const titleCard = `(${ddd}) ${indicacao} >> ${servico.razao}`;
+            // ----------------------------------------------------------------
+            // PASSO 3: OPORTUNIDADE (DEAL) - VINCULAR AO CONSULTOR (OWNER)
+            // ----------------------------------------------------------------
+            
+            // Monta o título idêntico ao Python
+            const dddTitulo = dddPrincipal || "00"; 
+            const titleCard = `(${dddTitulo}) ${servico.indicacao} >> ${servico.razao}`;
+            
             let observacaoCompleta = servico.observacao || "";
             if (servico.consultor_nome && servico.consultor_nome.trim().toLowerCase() !== "none") {
-                observacaoCompleta = `${observacaoCompleta} ULTIMO CONSULTOR: ${servico.consultor_nome}`;
+                observacaoCompleta += ` ULTIMO CONSULTOR: ${servico.consultor_nome}`;
             }
 
+            // Montagem estrita do Lead JSON esperado pelo Integrador
             const leadPipeRun = {
-                user: emailConsultor,
+                user: servico.codigo_crm, 
                 cnpj: servico.cnpj, 
                 title: titleCard,
                 company: servico.razao,
                 custom_fields: {
                     "Final do Contrato": formatarData(servico.dt_fim_contrato),
                     "Observacao": observacaoCompleta,
-                    "Indicacao": indicacao,
+                    "Indicacao": servico.indicacao,
                     "Classificacao": servico.classificacao_contrato || "",
                     "Quantidade de linhas móveis": servico.qtd_servico_claro || 0,
                     "DOC DRIVE": servico.servico_docdrive || "",
@@ -123,15 +187,20 @@ export const integrarServicosPipeRun = async ({
                 leads: [leadPipeRun]
             };
 
-            // Dispara para a criação da Oportunidade
-            await API.post("/api/piperun/integrar", {
-                hash_etapa: hashFunil,
-                payload_piperun: payloadIntegrador
+            // Dispara para o Endpoint de Integração (usando axios puro pois a Base URL e headers mudam)
+            await axios.post(URL_INTEGRADOR_PIPERUN, payloadIntegrador, {
+                params: {
+                    hash: hashFunil 
+                },
+                headers: {
+                    "Content-Type": "application/json"
+                }
             });
 
             sucessos++;
+            
         } catch (err) {
-            console.error(`Falha ao integrar pipeline completo para: ${servico.razao}`, err);
+            console.error(`[PipeRun API Error] Falha ao integrar pipeline completo para a empresa: ${servico.razao}`, err);
             falhas++;
         }
     }

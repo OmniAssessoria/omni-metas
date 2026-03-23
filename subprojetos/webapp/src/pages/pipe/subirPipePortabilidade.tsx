@@ -3,17 +3,23 @@ import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Users, UploadCloud, Loader2, Building2, LayoutList } from "lucide-react";
+import { ArrowLeft, Users, UploadCloud, Loader2, Building2, LayoutList, X } from "lucide-react"; 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import API from "@/helpers/api";
 import { ITelaDetalhesProps } from "./subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
+import { integrarServicosPipeRun } from "@/helpers/api_piperun";
 
 export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
+    const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
+    const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
     const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
     const [isEnviando, setIsEnviando] = useState(false);
+    
+    // Hash do Funil do PipeRun
+    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe';
 
     useEffect(() => {
         async function fetchConsultores() {
@@ -42,14 +48,23 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
         fetchConsultores();
     }, []);
-
     const handleConsultorChange = (id: string) => {
         setConsultorSelecionado(id === "todos" ? null : Number(id));
     };
 
+    const handleAddConsultorEnvio = (idStr: string) => {
+        const id = Number(idStr);
+        if (!consultoresEnvio.includes(id)) {
+            setConsultoresEnvio((prev) => [...prev, id]);
+        }
+    };
+
+    const handleRemoverConsultorEnvio = (idToRemove: number) => {
+        setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
+    };
+
     const consultorAtual = consultores.find(c => c.seq_consultor === consultorSelecionado);
 
-    // Mapeamento otimizado para a tabela (Portabilidade)
     const mapaConsultores = useMemo(() => {
         const mapa = new Map<number, string>();
         consultores.forEach(c => mapa.set(Number(c.seq_consultor), c.nome));
@@ -70,32 +85,74 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     }, [dadosFiltrados]);
 
     const handleSubirServicos = async () => {
-        if (!consultorSelecionado || dadosFiltrados.length === 0) return;
+        if (consultoresEnvio.length === 0) {
+            alert("Selecione pelo menos um consultor na lista de envio.");
+            return;
+        }
 
         try {
             setIsEnviando(true);
-            let sucessos = 0;
-            let falhas = 0;
+            
+            // 1. Filtra os dados globais. 
+            // Se o consultor selecionado não tem serviços cadastrados nos `dados`, ele é automaticamente ignorado aqui.
+            let servicosParaEnviar = dados.filter(item => 
+                consultoresEnvio.includes(Number(item.seq_consultor))
+            );
 
-            for (const servico of dadosFiltrados) {
+            // Valida se sobrou algum serviço para subir
+            if (servicosParaEnviar.length === 0) {
+                alert("Os consultores selecionados não possuem serviços disponíveis para integração.");
+                setIsEnviando(false);
+                return;
+            }
+
+            // 2. Aplica o limite global de envio, se houver
+            if (limiteEnvio && typeof limiteEnvio === "number" && limiteEnvio > 0) {
+                servicosParaEnviar = servicosParaEnviar.slice(0, limiteEnvio);
+            }
+
+            console.log(`Iniciando a orquestração de ${servicosParaEnviar.length} serviços...`);
+            
+            let sucessosConfirmados = 0;
+            let falhasConfirmadas = 0;
+
+            // 3. Loop sequencial 
+            // Processamos 1 a 1 para garantir que só atualizaremos o DB local se o PipeRun retornar sucesso real.
+            for (const servico of servicosParaEnviar) {
                 try {
-                    await API.post("/api/piperun/integrar", {
-                        dados_servico: servico,
-                        id_consultor: consultorSelecionado
+                    // Sobe a Oportunidade/Empresa/Decisor para o PipeRun
+                    const resultadoPipe = await integrarServicosPipeRun({
+                        servicos: [servico], // Array de 1 posição para validação isolada
+                        hashFunil: hashConsultores
                     });
-                    sucessos++;
-                } catch (err) {
-                    console.error(`Erro ao subir serviço da empresa ${servico.razao}:`, err);
-                    falhas++;
+
+                    if (resultadoPipe.sucessos > 0) {
+                        // 4. ATUALIZAÇÃO DO BANCO LOCAL (Status CRM = true)
+                        // Dispara patch/put passando o seq_claro na URL da sua API
+                        await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
+                        
+                        sucessosConfirmados++;
+                    } else {
+                        // Se falhou no PipeRun, incrementamos as falhas e pulamos a requisição do BD local
+                        falhasConfirmadas++;
+                    }
+                } catch (error) {
+                    console.error(`Falha isolada ao processar o seq_claro ${servico.seq_claro}:`, error);
+                    falhasConfirmadas++;
                 }
             }
 
-            alert(`Processo finalizado!\nSucesso: ${sucessos}\nFalhas: ${falhas}`);
+            // 5. Finalização e feedback visual
+            alert(`Processo Finalizado!\n✅ Integrados com Sucesso no PipeRun e BD: ${sucessosConfirmados}\n❌ Falhas: ${falhasConfirmadas}`);
+
         } catch (error) {
-            console.error("Erro geral ao processar a subida:", error);
-            alert("Ocorreu um erro crítico ao tentar subir os dados.");
+            console.error("Erro crítico ao processar o envio em massa:", error);
+            alert("Ocorreu um erro estrutural durante a execução da integração.");
         } finally {
             setIsEnviando(false);
+            // Reseta a fila de preparo de consultores e limite (opcional, pode ser removido caso prefira manter a seleção após subir)
+            setConsultoresEnvio([]);
+            setLimiteEnvio("");
         }
     };
 
@@ -110,36 +167,86 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao Painel Geral
                 </Button>
 
-                <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div>
+                <header className="mb-8 flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="mt-2">
                         <h1 className="text-3xl font-bold mb-2 tracking-tight">Detalhes de Portabilidade</h1>
                         <p className="text-muted-foreground">
                             Visualizando <span className="font-semibold text-primary">{dadosFiltrados.length}</span> serviços {consultorSelecionado ? "deste consultor" : "no total"}.
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <Button
-                            onClick={handleSubirServicos}
-                            disabled={!consultorSelecionado || dadosFiltrados.length === 0 || isEnviando}
-                            className="h-10 px-6 shadow-sm"
-                        >
-                            {isEnviando ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <UploadCloud className="mr-2 h-4 w-4" />
-                            )}
-                            {isEnviando ? "Processando..." : "Subir Serviços"}
-                        </Button>
+                    <div className="flex flex-col items-end gap-3">
+                        {consultoresEnvio.length > 0 && (
+                            <div className="flex flex-wrap justify-end gap-2 max-w-lg">
+                                {consultoresEnvio.map((id) => {
+                                    const nomeConsultor = mapaConsultores.get(id) || "Desconhecido";
+                                    return (
+                                        <span 
+                                            key={id} 
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-sm text-foreground shadow-sm"
+                                        >
+                                            {nomeConsultor}
+                                            <button 
+                                                onClick={() => handleRemoverConsultorEnvio(id)}
+                                                className="rounded-full hover:bg-muted p-0.5 text-muted-foreground transition-colors"
+                                                title="Remover"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-3">
+                            <div className="w-56">
+                                <Select onValueChange={handleAddConsultorEnvio} value="" disabled={isCarregandoConsultores}>
+                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-primary text-foreground">
+                                        <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Adicionar para Envio"} />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                                        {consultores.map((c) => (
+                                            <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
+                                                {c.nome}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="w-32">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    placeholder="Qtd Limite"
+                                    value={limiteEnvio}
+                                    onChange={(e) => setLimiteEnvio(e.target.value === "" ? "" : Number(e.target.value))}
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                />
+                            </div>
+
+                            <Button
+                                onClick={handleSubirServicos}
+                                disabled={consultoresEnvio.length === 0 || isEnviando}
+                                className="h-10 px-6 shadow-sm"
+                            >
+                                {isEnviando ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <UploadCloud className="mr-2 h-4 w-4" />
+                                )}
+                                {isEnviando ? "Processando..." : "Subir Serviços"}
+                            </Button>
+                        </div>
                     </div>
                 </header>
 
                 <div className="space-y-6">        
-                  
                     <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                         <div className="flex items-center gap-2 mb-6 border-b pb-4">
                             {consultorSelecionado ? <Users size={20} className="text-primary" /> : <LayoutList size={20} className="text-blue-500" />}
-                            <h2 className="text-lg font-semibold">
+                            <h2 className="text-lg font-semibold flex-1">
                                 {consultorAtual
                                     ? `Carteira do Consultor: ${consultorAtual.nome}`
                                     : "Todos os Serviços Disponíveis"}
@@ -161,8 +268,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             </div>
                         </div>
 
-                   
-
                         {dadosFiltrados.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                                 <p>Não há serviços de portabilidade para exibir.</p>
@@ -171,10 +276,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             <div className="space-y-8">
                                 <div className="h-[300px] w-full border rounded-lg p-4 bg-muted/5">
                                     <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                                            <Building2 size={16} /> Volume de Linhas por Empresa
-                                            </h3>
-                                            <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <Building2 size={16} /> Volume de Linhas por Empresa
+                                    </h3>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
                                             <XAxis dataKey="empresa" tick={{ fontSize: 12 }} hide={dadosFiltrados.length > 20} />
                                             <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
@@ -189,7 +294,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                             <TableRow>
                                                 <TableHead>Empresa (Razão Social)</TableHead>
                                                 <TableHead>CNPJ</TableHead>
-                                                {/* CONDICIONAL DA COLUNA DE CONSULTOR */}
                                                 {!consultorSelecionado && <TableHead>Consultor Responsável</TableHead>}
                                                 <TableHead>Classificação</TableHead>
                                                 <TableHead className="text-center">Qtd. Linhas</TableHead>
@@ -201,7 +305,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                                 <TableRow key={`${item.seq_empresa}-${item.seq_claro}`}>
                                                     <TableCell className="font-medium max-w-[200px] truncate">{item.razao}</TableCell>
                                                     <TableCell>{item.cnpj}</TableCell>
-                                                    {/* CELULA DO CONSULTOR RENDERIZADA CONDICIONALMENTE */}
                                                     {!consultorSelecionado && (
                                                         <TableCell className="text-muted-foreground">
                                                             {mapaConsultores.get(Number(item.seq_consultor)) || "Não Atribuído"}
