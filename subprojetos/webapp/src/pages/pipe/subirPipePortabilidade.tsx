@@ -3,12 +3,11 @@ import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Users, UploadCloud, Loader2, Building2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Users, UploadCloud, Loader2, Building2, LayoutList } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import API from "@/helpers/api";
 import { ITelaDetalhesProps } from "./subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
-
 
 export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
@@ -16,12 +15,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
     const [isEnviando, setIsEnviando] = useState(false);
 
-    // 1. Busca de Consultores com Cache (SessionStorage)
     useEffect(() => {
         async function fetchConsultores() {
             try {
                 setIsCarregandoConsultores(true);
-                // Verifica se já existe cache na sessão atual para evitar bater no banco
                 const cacheKey = "consultores_portabilidade_cache";
                 const cachedData = sessionStorage.getItem(cacheKey);
 
@@ -30,12 +27,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     return;
                 }
 
-                // Se não tiver cache, busca da API
                 const response = await API.get("/api/consultores");
                 const listaConsultores = response.data?.dados ?? [];
 
                 setConsultores(listaConsultores);
-                // Salva no cache para as próximas renderizações
                 sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
 
             } catch (error) {
@@ -48,20 +43,24 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         fetchConsultores();
     }, []);
 
-    // 2. Manipulação de Estado Derivado
     const handleConsultorChange = (id: string) => {
-        setConsultorSelecionado(Number(id));
+        setConsultorSelecionado(id === "todos" ? null : Number(id));
     };
 
     const consultorAtual = consultores.find(c => c.seq_consultor === consultorSelecionado);
 
-    // Filtra os serviços apenas do consultor selecionado usando useMemo para performance
+    // Mapeamento otimizado para a tabela (Portabilidade)
+    const mapaConsultores = useMemo(() => {
+        const mapa = new Map<number, string>();
+        consultores.forEach(c => mapa.set(Number(c.seq_consultor), c.nome));
+        return mapa;
+    }, [consultores]);
+
     const dadosFiltrados = useMemo(() => {
-        if (!consultorSelecionado) return [];
+        if (!consultorSelecionado) return dados; 
         return dados.filter(item => item.seq_consultor === consultorSelecionado);
     }, [dados, consultorSelecionado]);
 
-    // Prepara os dados para o Gráfico do Recharts
     const dadosGrafico = useMemo(() => {
         return dadosFiltrados.map(item => ({
             empresa: item.razao || "Empresa sem Razão",
@@ -70,21 +69,16 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         }));
     }, [dadosFiltrados]);
 
-    // 3. Função de Envio para a API do PipeRun
     const handleSubirServicos = async () => {
         if (!consultorSelecionado || dadosFiltrados.length === 0) return;
 
         try {
             setIsEnviando(true);
-
-            // Exemplo de iteração sequencial. Em CRMs, enviar um por um (ou em chunks) 
-            // evita derrubar a API destino ou tomar bloqueio de Rate Limit.
             let sucessos = 0;
             let falhas = 0;
 
             for (const servico of dadosFiltrados) {
                 try {
-                    // Substitua pela rota real de subida do seu backend que comunica com o PipeRun
                     await API.post("/api/piperun/integrar", {
                         dados_servico: servico,
                         id_consultor: consultorSelecionado
@@ -97,8 +91,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             }
 
             alert(`Processo finalizado!\nSucesso: ${sucessos}\nFalhas: ${falhas}`);
-            // Aqui você poderia atualizar o estado global ou recarregar os dados para remover os que já subiram
-
         } catch (error) {
             console.error("Erro geral ao processar a subida:", error);
             alert("Ocorreu um erro crítico ao tentar subir os dados.");
@@ -122,11 +114,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     <div>
                         <h1 className="text-3xl font-bold mb-2 tracking-tight">Detalhes de Portabilidade</h1>
                         <p className="text-muted-foreground">
-                            Gerenciando <span className="font-semibold text-primary">{dados.length}</span> serviços globais aguardando subida ao PipeRun.
+                            Visualizando <span className="font-semibold text-primary">{dadosFiltrados.length}</span> serviços {consultorSelecionado ? "deste consultor" : "no total"}.
                         </p>
                     </div>
 
-                    {/* Área de Ação Principal */}
                     <div className="flex items-center gap-3">
                         <div className="w-64">
                             <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
@@ -134,6 +125,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                     <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
                                 </SelectTrigger>
                                 <SelectContent className="bg-popover border-border text-popover-foreground">
+                                    <SelectItem value="todos">Todos os Consultores</SelectItem>
                                     {consultores.map((c) => (
                                         <SelectItem key={c.seq_consultor} value={String(c.seq_consultor)}>
                                             {c.nome}
@@ -158,65 +150,45 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     </div>
                 </header>
 
-                <div className="space-y-6">
-                    {/* Visualização de Dados */}
+                <div className="space-y-6">        
+                    <div className="h-[300px] w-full border rounded-lg p-4 bg-muted/5">
+                        <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                            <Building2 size={16} /> Volume de Linhas por Empresa
+                        </h3>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
+                                <XAxis dataKey="empresa" tick={{ fontSize: 12 }} hide={dadosFiltrados.length > 20} />
+                                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                                <Tooltip cursor={{ fill: '#88888811' }} />
+                                <Bar dataKey="linhas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                     <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                         <div className="flex items-center gap-2 mb-6 border-b pb-4">
-                            <Users size={20} className="text-primary" />
+                            {consultorSelecionado ? <Users size={20} className="text-primary" /> : <LayoutList size={20} className="text-blue-500" />}
                             <h2 className="text-lg font-semibold">
                                 {consultorAtual
                                     ? `Carteira do Consultor: ${consultorAtual.nome}`
-                                    : "Visão do Consultor"}
+                                    : "Todos os Serviços Disponíveis"}
                             </h2>
                         </div>
 
-                        {!consultorSelecionado ? (
-                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                                <AlertCircle size={48} className="mb-4 opacity-20" />
-                                <p>Nenhum dado carregado no momento.</p>
-                                <p className="text-sm">Escolha um consultor no menu acima para exibir os clientes.</p>
-                            </div>
-                        ) : dadosFiltrados.length === 0 ? (
+                        {dadosFiltrados.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                                <p>Este consultor não possui serviços de portabilidade na fila no momento.</p>
+                                <p>Não há serviços de portabilidade para exibir.</p>
                             </div>
                         ) : (
                             <div className="space-y-8">
-                                {/* GRÁFICO: Linhas por Empresa */}
-                                <div className="h-[300px] w-full border rounded-lg p-4 bg-muted/5">
-                                    <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                                        <Building2 size={16} /> Volume de Linhas por Empresa
-                                    </h3>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
-                                            <XAxis
-                                                dataKey="empresa"
-                                                tick={{ fontSize: 12 }}
-                                                tickFormatter={(value) => value.substring(0, 15) + "..."}
-                                            />
-                                            <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                                            <Tooltip
-                                                cursor={{ fill: '#88888811' }}
-                                                contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                            />
-                                            <Bar
-                                                dataKey="linhas"
-                                                fill="hsl(var(--primary))"
-                                                radius={[4, 4, 0, 0]}
-                                                name="Qtd de Linhas"
-                                            />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-
-                                {/* TABELA: Detalhamento dos Serviços */}
                                 <div className="rounded-md border overflow-hidden">
                                     <Table>
                                         <TableHeader className="bg-muted/50">
                                             <TableRow>
                                                 <TableHead>Empresa (Razão Social)</TableHead>
                                                 <TableHead>CNPJ</TableHead>
+                                                {/* CONDICIONAL DA COLUNA DE CONSULTOR */}
+                                                {!consultorSelecionado && <TableHead>Consultor Responsável</TableHead>}
                                                 <TableHead>Classificação</TableHead>
                                                 <TableHead className="text-center">Qtd. Linhas</TableHead>
                                                 <TableHead className="text-right">Fim Contrato</TableHead>
@@ -225,10 +197,14 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                         <TableBody>
                                             {dadosFiltrados.map((item) => (
                                                 <TableRow key={`${item.seq_empresa}-${item.seq_claro}`}>
-                                                    <TableCell className="font-medium max-w-[200px] truncate" title={item.razao}>
-                                                        {item.razao}
-                                                    </TableCell>
+                                                    <TableCell className="font-medium max-w-[200px] truncate">{item.razao}</TableCell>
                                                     <TableCell>{item.cnpj}</TableCell>
+                                                    {/* CELULA DO CONSULTOR RENDERIZADA CONDICIONALMENTE */}
+                                                    {!consultorSelecionado && (
+                                                        <TableCell className="text-muted-foreground">
+                                                            {mapaConsultores.get(Number(item.seq_consultor)) || "Não Atribuído"}
+                                                        </TableCell>
+                                                    )}
                                                     <TableCell>
                                                         <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
                                                             {item.classificacao_contrato || "N/A"}
