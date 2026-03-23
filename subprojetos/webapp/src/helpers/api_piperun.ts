@@ -12,6 +12,16 @@ const apiPipeRunRest = axios.create({
     },
 });
 
+
+// curl --request PUT \
+//     --url https://api.pipe.run/v1/deals/deal_id/persons/person_id \ -> subir o person para a oportunidade
+//     --header 'accept: application/json' \
+//     --header 'token: 3dfa1682a3832478cb29a7b9a4c86233'
+
+
+// Só a oportunidade e o empresa vai subir assim:
+// 
+
 // URL direta para o Integrador JSON (Oportunidades)
 const URL_INTEGRADOR_PIPERUN = "https://app.pipe.run/webservice/integradorJson";
 
@@ -87,95 +97,100 @@ export const integrarServicosPipeRun = async ({
     let sucessos = 0;
     let falhas = 0;
 
+    console.log(`[PipeRun] Iniciando integração. Total de serviços a processar: ${servicos.length}`);
+
     for (const servico of servicos) {
+        console.log(`\n----------------------------------------------------------------`);
+        console.log(`[PipeRun] Processando serviço/empresa: ${servico.razao} (CNPJ: ${servico.cnpj})`);
+        
         try {
             const { telefones, dddPrincipal } = extrairTelefonesEDDD(servico.observacao);
             const contactEmails = servico.decisor_email ? [servico.decisor_email] : [];
             const decisorNome = servico.decisor_nome?.trim() ? servico.decisor_nome.trim() : "Umbrella";
-            let personId = null;
             
-            // Se houver CPF, tenta encontrar no PipeRun
-            if (servico.decisor_cpf) {
-                const resPerson = await apiPipeRunRest.get("/persons", { 
-                    params: { cpf: servico.decisor_cpf } 
-                });
-                
-                if (resPerson.data?.data && resPerson.data.data.length > 0) {
-                    personId = resPerson.data.data[0].id;
-                }
-            }
-
-            const payloadPerson = {
-                name: decisorNome,
-                cpf: servico.decisor_cpf || "",
-                contactPhones: telefones,
-                contactEmails: contactEmails || [],
-                observation: servico.decisor_num_obs || ""
-                // Nota: Removido manager_id intencionalmente, a Pessoa não precisa ser vinculada a um dono na sua regra.
-            };
-
-            if (personId) {
-                // Atualiza a pessoa existente
-                await apiPipeRunRest.put(`/persons/${personId}`, payloadPerson);
-            } else {
-                // Cria uma nova pessoa
-                const createPerson = await apiPipeRunRest.post("/persons", payloadPerson);
-                personId = createPerson.data?.data?.id || null;
-            }
-
             // ----------------------------------------------------------------
-            // PASSO 2: EMPRESA (COMPANY) - VINCULAR AO DECISOR (PERSON)
+            // PASSO 1: EMPRESA (COMPANY) - Deve ser criada PRIMEIRO
             // ----------------------------------------------------------------
+            console.log(`[PipeRun - Passo 1] Verificando Empresa: ${servico.razao}`);
             let companyId = null;
             
-            // Se houver CNPJ, tenta encontrar a empresa no PipeRun
             if (servico.cnpj) {
+                console.log(`[PipeRun - Passo 1] Buscando Empresa por CNPJ: ${servico.cnpj}`);
                 const resCompany = await apiPipeRunRest.get("/companies", { 
                     params: { cnpj: servico.cnpj } 
                 });
                 
                 if (resCompany.data?.data && resCompany.data.data.length > 0) {
                     companyId = resCompany.data.data[0].id;
+                    console.log(`[PipeRun - Passo 1] Empresa encontrada. ID: ${companyId}`);
                 }
             }
 
             const payloadCompany = {
                 name: servico.razao,
-                cnpj: servico.cnpj,
-                manager_id: personId, 
+                cnpj: servico.cnpj
             };
 
             if (companyId) {
-                // Atualiza a empresa existente
+                console.log(`[PipeRun - Passo 1] Atualizando Empresa ID: ${companyId}...`);
                 await apiPipeRunRest.put(`/companies/${companyId}`, payloadCompany);
             } else {
-                // Cria uma nova empresa
+                console.log(`[PipeRun - Passo 1] Criando nova Empresa...`);
                 const createCompany = await apiPipeRunRest.post("/companies", payloadCompany);
                 companyId = createCompany.data?.data?.id || null;
+                console.log(`[PipeRun - Passo 1] Nova Empresa criada. ID: ${companyId}`);
             }
 
             // ----------------------------------------------------------------
-            // PASSO 3: OPORTUNIDADE (DEAL) - VINCULAR AO CONSULTOR (OWNER)
+            // PASSO 2: DECISOR (PERSON) - Criado com vínculo à Empresa
             // ----------------------------------------------------------------
+            let personId = null;
+            console.log(`[PipeRun - Passo 2] Verificando Pessoa (Decisor): ${decisorNome}`);
             
-            // Monta o título idêntico ao Python
+            if (servico.decisor_cpf) {
+                console.log(`[PipeRun - Passo 2] Buscando Pessoa por CPF: ${servico.decisor_cpf}`);
+                const resPerson = await apiPipeRunRest.get("/persons", { 
+                    params: { cpf: servico.decisor_cpf } 
+                });
+                
+                if (resPerson.data?.data && resPerson.data.data.length > 0) {
+                    personId = resPerson.data.data[0].id;
+                    console.log(`[PipeRun - Passo 2] Pessoa encontrada. ID: ${personId}`);
+                }
+            }
+
+            const payloadPerson = {
+                name: decisorNome,
+                cpf: servico.decisor_cpf || "",
+                company_id: companyId, 
+                contactPhones: telefones,
+                contactEmails: contactEmails,
+                observation: servico.decisor_num_obs || ""
+            };
+
+            if (personId) {
+                console.log(`[PipeRun - Passo 2] Atualizando Pessoa ID: ${personId}...`);
+                await apiPipeRunRest.put(`/persons/${personId}`, payloadPerson);
+            } else {
+                console.log(`[PipeRun - Passo 2] Criando nova Pessoa...`);
+                const createPerson = await apiPipeRunRest.post("/persons", payloadPerson);
+                personId = createPerson.data?.data?.id || null;
+                console.log(`[PipeRun - Passo 2] Nova Pessoa criada. ID: ${personId}`);
+            }
+
+
+            console.log(`[PipeRun - Passo 3] Montando payload para o Integrador JSON...`);
+            
             const dddTitulo = dddPrincipal || "00"; 
             const titleCard = `(${dddTitulo}) ${servico.indicacao} >> ${servico.razao}`;
-            
-            let observacaoCompleta = servico.observacao || "";
-            if (servico.consultor_nome && servico.consultor_nome.trim().toLowerCase() !== "none") {
-                observacaoCompleta += ` ULTIMO CONSULTOR: ${servico.consultor_nome}`;
-            }
 
-            // Montagem estrita do Lead JSON esperado pelo Integrador
             const leadPipeRun = {
-                user: servico.codigo_crm, 
-                cnpj: servico.cnpj, 
+                user: servico.codigo_crm,
                 title: titleCard,
-                company: servico.razao,
+                company: servico.razao,   
                 custom_fields: {
                     "Final do Contrato": formatarData(servico.dt_fim_contrato),
-                    "Observacao": observacaoCompleta,
+                    "Observacao": servico.observacao,
                     "Indicacao": servico.indicacao,
                     "Classificacao": servico.classificacao_contrato || "",
                     "Quantidade de linhas móveis": servico.qtd_servico_claro || 0,
@@ -187,8 +202,10 @@ export const integrarServicosPipeRun = async ({
                 leads: [leadPipeRun]
             };
 
-            // Dispara para o Endpoint de Integração (usando axios puro pois a Base URL e headers mudam)
-            await axios.post(URL_INTEGRADOR_PIPERUN, payloadIntegrador, {
+            console.log(`[PipeRun - Passo 3] Disparando para URL do Integrador com Hash: ${hashFunil}`);
+            console.log(`[PipeRun - Passo 3] Payload completo:`, JSON.stringify(payloadIntegrador, null, 2));
+
+            const responseIntegrador = await axios.post(URL_INTEGRADOR_PIPERUN, payloadIntegrador, {
                 params: {
                     hash: hashFunil 
                 },
@@ -197,13 +214,36 @@ export const integrarServicosPipeRun = async ({
                 }
             });
 
+            console.log(`[PipeRun - Sucesso] Integração concluída com sucesso para: ${servico.razao}. Resposta:`, responseIntegrador.status);
             sucessos++;
             
         } catch (err) {
-            console.error(`[PipeRun API Error] Falha ao integrar pipeline completo para a empresa: ${servico.razao}`, err);
             falhas++;
+            console.error(`\n[!!! ERRO CRÍTICO !!!] Falha ao integrar pipeline para a empresa: ${servico.razao}`);
+            
+            if (axios.isAxiosError(err)) {
+                console.error(`[Axios Error Details] Status Code: ${err.response?.status}`);
+                console.error(`[Axios Error Details] URL Requisitada: ${err.config?.url}`);
+                console.error(`[Axios Error Details] Método: ${err.config?.method?.toUpperCase()}`);
+                
+                if (err.response?.data) {
+                    console.error(`[Axios Error Details] Resposta da API (Body):`, JSON.stringify(err.response.data, null, 2));
+                } else {
+                    console.error(`[Axios Error Details] Mensagem: ${err.message}`);
+                }
+                
+                if (err.config?.data) {
+                    console.error(`[Axios Error Details] Payload Enviado:`, err.config.data);
+                }
+            } else {
+                console.error(`[Standard Error Details] Mensagem:`, err instanceof Error ? err.message : err);
+                console.error(`[Standard Error Details] Stacktrace:`, err instanceof Error ? err.stack : "Sem stacktrace disponível");
+            }
+            console.log(`----------------------------------------------------------------\n`);
         }
     }
 
+    console.log(`\n[PipeRun] Integração Finalizada. Sucessos: ${sucessos} | Falhas: ${falhas}`);
     return { sucessos, falhas };
 };
+

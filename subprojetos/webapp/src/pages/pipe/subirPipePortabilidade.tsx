@@ -19,7 +19,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     const [isEnviando, setIsEnviando] = useState(false);
     
     // Hash do Funil do PipeRun
-    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe';
+    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe'; 
 
     // Função encapsulada para mitigar falhas de parse de data
     const formatarDataSegura = (dataString: string | Date | undefined | null) => {

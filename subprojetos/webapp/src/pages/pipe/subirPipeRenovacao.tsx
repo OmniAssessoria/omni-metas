@@ -18,10 +18,9 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
     const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
     const [isEnviando, setIsEnviando] = useState(false);
-    
-    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe';
+     
+    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe'; 
 
-    // Utilitário para formatação segura de data (Evita crash de renderização)
     const formatarDataSegura = (dataString: string | Date | undefined | null) => {
         if (!dataString) return "Não informado";
         try {
