@@ -1,7 +1,7 @@
 import { useState } from "react";
-import API from "@/helpers/api";
+import API from "@/services/api";
 import { IServicoPipeRun } from "@/interfaces/servicoPipeRun.interface";
-import { API_PIPERUN } from "@/helpers/apiPiperun";
+import { API_PIPERUN } from "@/services/apiPiperun";
 
 interface UseIntegracaoProps {
     tipoOperacao: "Renovação" | "Portabilidade";

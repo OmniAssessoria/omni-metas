@@ -7,8 +7,8 @@ import { ArrowLeft, Users, UploadCloud, Loader2, Building2, RefreshCw, LayoutLis
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
-import API from "@/helpers/api";
-import { useIntegracaoPipeRun } from "@/helpers/hookApiRun";
+import API from "@/services/api";
+import { useIntegracaoPipeRun } from "@/services/hookApiRun";
 
 
 export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {

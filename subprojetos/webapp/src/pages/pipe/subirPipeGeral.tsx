@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserCircle, Briefcase, RefreshCcw, ArrowRightLeft, Bell, RotateCw } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
-import API from "@/helpers/api";
+import API from "@/services/api";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { PipeSubirPortabilidade } from "./subir_pipe/subirPipePortabilidade";
 import { PipeSubirRenovacao } from "./subir_pipe/subirPipeRenovacao";

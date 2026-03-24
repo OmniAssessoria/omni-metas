@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Target, CalendarDays, Coins, Users, Send } from "lucide-react"
-import API from "@/helpers/api"
+import API from "@/services/api"
 import ConsultorBD from "@/interfaces/consutorDb.interface"
 
 

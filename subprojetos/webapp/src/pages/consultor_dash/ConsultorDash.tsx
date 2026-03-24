@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout_tela_consultores/layout_principal
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { UserCircle, BarChart3 } from "lucide-react"
 import { useState, useEffect } from "react"
-import API from "@/helpers/api"
+import API from "@/services/api"
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor"
 
 export default function ConsultorDash() {

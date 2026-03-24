@@ -4,7 +4,7 @@ import { Logo } from "../logo_layout/logo"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Users, ChevronDown } from "lucide-react" // Adicionado ChevronDown
 import ConsultorBD from "@/interfaces/consutorDb.interface"
-import API from "@/helpers/api"
+import API from "@/services/api"
 
 export function Sidebar() {
     const navigate = useNavigate()
