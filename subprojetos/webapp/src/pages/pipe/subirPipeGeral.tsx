@@ -1,8 +1,8 @@
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserCircle, ArrowLeft, Briefcase, RefreshCcw, ArrowRightLeft, Bell } from "lucide-react";
-import { useState, useEffect } from "react";
+import { UserCircle, Briefcase, RefreshCcw, ArrowRightLeft, Bell, RotateCw } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import API from "@/helpers/api";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { PipeSubirPortabilidade } from "./subir_pipe/subirPipePortabilidade";
@@ -25,45 +25,39 @@ type ViewState = 'geral' | 'renovacao' | 'portabilidade';
 export default function PipeSubirGeral() {
     const { id } = useParams();
     const [view, setView] = useState<ViewState>('geral');
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(false);
     const [renovacoes, setRenovacoes] = useState<IServicoPipeRun[]>([]);
     const [portabilidades, setPortabilidades] = useState<IServicoPipeRun[]>([]);
     const [notification, setNotification] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (renovacoes.length > 0 || portabilidades.length > 0) return;
+    // Função de busca memorizada para evitar recriações desnecessárias
+    const fetchServicos = useCallback(async (isManualRefresh = false) => {
+        setLoading(true);
+        try {
+            const [resRenovacao, resPortabilidade] = await Promise.all([
+                API.get<IApiResponse>('/api/servico-claro/piperun/renovacao'),
+                API.get<IApiResponse>('/api/servico-claro/piperun/portabilidade')
+            ]);
 
-        let isMounted = true;
-
-        const fetchServicos = async () => {
-            setLoading(true);
-            try {
-                const resRenovacao = await API.get<IApiResponse>('/api/servico-claro/piperun/renovacao');
-                const resPortabilidade = await API.get<IApiResponse>('/api/servico-claro/piperun/portabilidade');
-                
-                if (isMounted) {
-                    setRenovacoes(resRenovacao.data.dados || []);
-                    setPortabilidades(resPortabilidade.data.dados || []);
-                    setNotification("Serviços sincronizados com sucesso.");
-                    setTimeout(() => setNotification(null), 5000);
-                }
-            } catch (error) {
-                if (isMounted) {
-                    console.error("Erro ao buscar serviços do PipeRun:", error);
-                    setNotification("Falha ao buscar os serviços. Verifique a conexão.");
-                    setTimeout(() => setNotification(null), 5000);
-                }
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        };
-
-        fetchServicos();
-
-        return () => {
-            isMounted = false;
-        };
+            setRenovacoes(resRenovacao.data.dados || []);
+            setPortabilidades(resPortabilidade.data.dados || []);
+            
+            const msg = isManualRefresh ? "Dados atualizados com sucesso!" : "Serviços sincronizados com sucesso.";
+            setNotification(msg);
+            setTimeout(() => setNotification(null), 5000);
+        } catch (error) {
+            console.error("Erro ao buscar serviços do PipeRun:", error);
+            setNotification("Falha ao buscar os serviços. Verifique a conexão.");
+            setTimeout(() => setNotification(null), 5000);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    // Efeito inicial para carregar os dados
+    useEffect(() => {
+        fetchServicos();
+    }, [fetchServicos]);
 
     const totalRenovacao = renovacoes.length;
     const totalPortabilidade = portabilidades.length;
@@ -96,15 +90,28 @@ export default function PipeSubirGeral() {
                     </div>
                 )}
 
-                <div className="flex pt-20 w-full items-center gap-4 border-b border-border pb-6">
-                    <div className="p-4 bg-primary/10 rounded-full border border-primary/20">
-                        <UserCircle size={40} className="text-primary" />
+                {/* Header com Botão de Refresh */}
+                <div className="flex pt-20 w-full items-center justify-between border-b border-border pb-6">
+                    <div className="flex items-center gap-4">
+                        <div className="p-4 bg-primary/10 rounded-full border border-primary/20">
+                            <UserCircle size={40} className="text-primary" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold text-foreground">{nomeConsultor}</h1>
+                            <p className="text-muted-foreground">Visão Geral dos Serviços Disponíveis ao PipeRun</p>
+                        </div>
                     </div>
 
-                    <div>
-                        <h1 className="text-3xl font-bold text-foreground">{nomeConsultor}</h1>
-                        <p className="text-muted-foreground">Visão Geral dos Serviços Disponíveis ao PipeRun</p>
-                    </div>
+                    <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className={`rounded-full h-12 w-12 transition-all shadow-sm ${loading ? 'opacity-50' : ''}`}
+                        onClick={() => fetchServicos(true)}
+                        disabled={loading}
+                        title="Atualizar dados"
+                    >
+                        <RotateCw className={`h-5 w-5 ${loading ? 'animate-spin text-primary' : 'text-muted-foreground'}`} />
+                    </Button>
                 </div>
 
                 <div className="flex w-full flex-col gap-8 mt-8 max-w-6xl">
@@ -118,7 +125,7 @@ export default function PipeSubirGeral() {
                             </CardHeader>
                             <CardContent>
                                 <p className="text-4xl font-bold">
-                                    {loading ? "..." : totalRenovacao}
+                                    {loading && totalRenovacao === 0 ? "..." : totalRenovacao}
                                 </p>
                             </CardContent>
                         </Card>
@@ -132,7 +139,7 @@ export default function PipeSubirGeral() {
                             </CardHeader>
                             <CardContent>
                                 <p className="text-4xl font-bold">
-                                    {loading ? "..." : totalPortabilidade}
+                                    {loading && totalPortabilidade === 0 ? "..." : totalPortabilidade}
                                 </p>
                             </CardContent>
                         </Card>
@@ -146,7 +153,7 @@ export default function PipeSubirGeral() {
                             </CardHeader>
                             <CardContent>
                                 <p className="text-4xl font-bold text-primary-foreground">
-                                    {loading ? "..." : totalServicos}
+                                    {loading && totalServicos === 0 ? "..." : totalServicos}
                                 </p>
                             </CardContent>
                         </Card>

@@ -13,8 +13,6 @@ export interface IServicoPipeRun {
     observacao_fechamento: string | null;
     dt_ultima_leitura: string | null;
     servico_docdrive: string | null;
-    
-    // Novos campos adicionados do Serviço Claro
     servico_claro_situacao: string | null;
     servico_claro_edoc: boolean | null;
     servico_claro_cpc: boolean | null;
@@ -27,7 +25,6 @@ export interface IServicoPipeRun {
     cnpj: string;
     razao: string;
     qtd_servico_claro: number | null;
-    
     empresa_seq_empresa: number | null;
     empresa_seq_decisor: number | null;
     empresa_faturamento: number | string | null;
