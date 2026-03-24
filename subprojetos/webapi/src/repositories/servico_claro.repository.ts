@@ -4,14 +4,11 @@ export default class ServicoClaroRepository {
 
     /**
      * Busca os serviços de RENOVAÇÃO qualificados para integração com o CRM.
-     * Ordenado de forma crescente pela data da última leitura.
-     * Os registros sem data de leitura (NULL) serão posicionados no final do retorno.
      */
     async buscarServicosClaroPipeRenovacao() {
         const query = `
             SELECT *
-            FROM omni.api_subir_renovacao
-            ORDER BY dt_ultima_leitura ASC NULLS LAST;
+            FROM omni.api_subir_renovacao;
         `;
 
         try {
@@ -25,14 +22,11 @@ export default class ServicoClaroRepository {
 
     /**
      * Busca os serviços de PORTABILIDADE qualificados para integração com o CRM.
-     * Ordenado de forma crescente pela data da última leitura.
-     * Os registros sem data de leitura (NULL) serão posicionados no final do retorno.
      */
     async buscarServicosClaroPipePortabilidade() {
         const query = `
             SELECT *
-            FROM omni.api_subir_portabilidade
-            ORDER BY dt_ultima_leitura ASC NULLS LAST;
+            FROM omni.api_subir_portabilidade;
         `;
 
         try {

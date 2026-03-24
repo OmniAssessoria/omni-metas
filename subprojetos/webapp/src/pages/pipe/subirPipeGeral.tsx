@@ -5,32 +5,9 @@ import { UserCircle, ArrowLeft, Briefcase, RefreshCcw, ArrowRightLeft, Bell } fr
 import { useState, useEffect } from "react";
 import API from "@/helpers/api";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
-import { PipeSubirPortabilidade } from "./subirPipePortabilidade";
-import { PipeSubirRenovacao } from "./subirPipeRenovacao";
-
-export interface IServicoPipeRun {
-    seq_claro: number;
-    seq_empresa: number;
-    seq_consultor: number;
-    observacao: string;
-    classificacao_contrato: string;
-    dt_fim_contrato: string;
-    indicacao: string;
-    dt_fechamento: string | null;
-    observacao_fechamento: string | null;
-    dt_ultima_leitura: string | null;
-    servico_docdrive: string;
-    cnpj: string;
-    razao: string;
-    qtd_servico_claro: number;
-    decisor_nome: string | null;
-    decisor_cpf: string | null;
-    decisor_numero: string | null;
-    decisor_num_obs: string | null;
-    decisor_email: string | null;
-    codigo_crm: number | null;
-    consultor_nome: string | null;
-}
+import { PipeSubirPortabilidade } from "./subir_pipe/subirPipePortabilidade";
+import { PipeSubirRenovacao } from "./subir_pipe/subirPipeRenovacao";
+import { IServicoPipeRun } from "@/interfaces/servicoPipeRun.interface";
 
 export interface ITelaDetalhesProps {
     dados: IServicoPipeRun[];
@@ -54,33 +31,38 @@ export default function PipeSubirGeral() {
     const [notification, setNotification] = useState<string | null>(null);
 
     useEffect(() => {
+        if (renovacoes.length > 0 || portabilidades.length > 0) return;
+
+        let isMounted = true;
+
         const fetchServicos = async () => {
             setLoading(true);
             try {
-                const [resRenovacao, resPortabilidade] = await Promise.all([
-                    API.get<IApiResponse>('/api/servico-claro/piperun/renovacao'),
-                    API.get<IApiResponse>('/api/servico-claro/piperun/portabilidade')
-                ]);
-                setRenovacoes(resRenovacao.data.dados || []);
-                setPortabilidades(resPortabilidade.data.dados || []);
-                setNotification("Serviços de Renovação e Portabilidade sincronizados com sucesso.");
-
-                setTimeout(() => {
-                    setNotification(null);
-                }, 10000);
+                const resRenovacao = await API.get<IApiResponse>('/api/servico-claro/piperun/renovacao');
+                const resPortabilidade = await API.get<IApiResponse>('/api/servico-claro/piperun/portabilidade');
+                
+                if (isMounted) {
+                    setRenovacoes(resRenovacao.data.dados || []);
+                    setPortabilidades(resPortabilidade.data.dados || []);
+                    setNotification("Serviços sincronizados com sucesso.");
+                    setTimeout(() => setNotification(null), 5000);
+                }
             } catch (error) {
-                console.error("Erro ao buscar serviços do PipeRun:", error);
-                setNotification("Falha ao buscar os serviços. Verifique a conexão.");
-
-                setTimeout(() => {
-                    setNotification(null);
-                }, 10000);
+                if (isMounted) {
+                    console.error("Erro ao buscar serviços do PipeRun:", error);
+                    setNotification("Falha ao buscar os serviços. Verifique a conexão.");
+                    setTimeout(() => setNotification(null), 5000);
+                }
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
 
         fetchServicos();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const totalRenovacao = renovacoes.length;

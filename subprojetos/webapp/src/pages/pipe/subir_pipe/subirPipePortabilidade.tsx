@@ -5,10 +5,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Users, UploadCloud, Loader2, Building2, LayoutList, X } from "lucide-react"; 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import API from "@/helpers/api";
-import { ITelaDetalhesProps } from "./subirPipeGeral";
+import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
-import { integrarServicosPipeRun } from "@/helpers/api_piperun";
+import API from "@/helpers/api";
+import { useIntegracaoPipeRun } from "@/helpers/hookApiRun";
+
 
 export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
@@ -16,12 +17,12 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
     const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
-    const [isEnviando, setIsEnviando] = useState(false);
     
-    // Hash do Funil do PipeRun
     const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe'; 
 
-    // Função encapsulada para mitigar falhas de parse de data
+    // INICIALIZAÇÃO CORRETA DO HOOK
+    const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
+
     const formatarDataSegura = (dataString: string | Date | undefined | null) => {
         if (!dataString) return "Não informado";
         try {
@@ -178,97 +179,21 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         }
     }, [dadosFiltrados]);
 
-    const handleSubirServicos = async () => {
-        if (consultoresEnvio.length === 0) {
-            alert("Selecione pelo menos um consultor na lista de envio.");
-            return;
-        }
-
-        try {
-            setIsEnviando(true);
-            
-            if (!Array.isArray(dados)) {
-                throw new Error("Matriz principal de dados de portabilidade está inválida/indisponível.");
+    // WRAPPER DE CLIQUE: Passando os parâmetros exatos para o Hook
+    const onClickSubirServicos = () => {
+        handleSubirServicos({
+            tipoOperacao: "Portabilidade",
+            hashFunil: hashConsultores,
+            dadosGlobais: dados,
+            consultoresEnvio: consultoresEnvio,
+            limiteEnvio: limiteEnvio,
+            onSuccessCb: () => {
+                setConsultoresEnvio([]);
+                setLimiteEnvio("");
             }
-
-            // 1. Filtra os dados globais.
-            let servicosParaEnviar = dados.filter(item => {
-                try {
-                    return consultoresEnvio.includes(Number(item.seq_consultor));
-                } catch (filterError) {
-                    console.error("🚨 [handleSubirServicos/Filtro] Avaliação de serviço falhou:", item, filterError);
-                    return false;
-                }
-            });
-
-            // Valida se sobrou algum serviço para subir
-            if (servicosParaEnviar.length === 0) {
-                alert("Os consultores selecionados não possuem serviços de portabilidade disponíveis para integração.");
-                setIsEnviando(false);
-                return;
-            }
-
-            // 2. Aplica o limite global de envio
-            if (limiteEnvio && typeof limiteEnvio === "number" && limiteEnvio > 0) {
-                servicosParaEnviar = servicosParaEnviar.slice(0, limiteEnvio);
-            }
-
-            console.info(`🚀 [handleSubirServicos] Pipeline de Portabilidade iniciado com ${servicosParaEnviar.length} payloads ativos.`);
-            
-            let sucessosConfirmados = 0;
-            let falhasConfirmadas = 0;
-
-            // 3. Loop sequencial assíncrono blindado
-            for (const servico of servicosParaEnviar) {
-                try {
-                    if (!servico || !servico.seq_claro) {
-                        console.warn("⚠️ [handleSubirServicos] Item na esteira não possui 'seq_claro'. Ignorando...", servico);
-                        falhasConfirmadas++;
-                        continue;
-                    }
-
-                    console.info(`⏳ [handleSubirServicos] Transacionando Oportunidade (Portabilidade) - seq_claro: ${servico.seq_claro}`);
-
-                    // Sobe a Oportunidade/Empresa/Decisor para o PipeRun
-                    const resultadoPipe = await integrarServicosPipeRun({
-                        servicos: [servico],
-                        hashFunil: hashConsultores
-                    });
-
-                    if (resultadoPipe && resultadoPipe.sucessos > 0) {
-                        // 4. ATUALIZAÇÃO DO BANCO LOCAL (Status CRM = true)
-                        try {
-                            await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
-                            sucessosConfirmados++;
-                            console.info(`✅ [handleSubirServicos] Commit absoluto. Seq_claro: ${servico.seq_claro}`);
-                        } catch (patchError) {
-                            console.error(`🚨 [handleSubirServicos/PATCH] Timeout ou anomalia ao registrar no DB local o seq_claro ${servico.seq_claro}. A oportunidade FOI gerada no PipeRun.`, patchError);
-                            falhasConfirmadas++;
-                        }
-                    } else {
-                        console.error(`🚨 [handleSubirServicos/PIPERUN] Recusa de payload pelo gateway do PipeRun. Serviço: ${servico.seq_claro}. Dump:`, resultadoPipe);
-                        falhasConfirmadas++;
-                    }
-                } catch (error) {
-                    console.error(`🚨 [handleSubirServicos/LOOP] Crash de bloco na thread do seq_claro ${servico?.seq_claro}:`, error);
-                    falhasConfirmadas++;
-                }
-            }
-
-            // 5. Finalização e feedback visual
-            console.info(`🏁 [handleSubirServicos] Encerramento da esteira de Portabilidade. Sucesso: ${sucessosConfirmados} | Falhas: ${falhasConfirmadas}`);
-            alert(`Processo Finalizado!\n✅ Integrados com Sucesso no PipeRun e BD: ${sucessosConfirmados}\n❌ Falhas: ${falhasConfirmadas}`);
-
-        } catch (error) {
-            console.error("🚨 [handleSubirServicos/GLOBAL] Exception sistêmica durante a orquestração em lote:", error);
-            alert("Ocorreu um erro estrutural durante a execução da integração. Consulte o log para rastreabilidade.");
-        } finally {
-            setIsEnviando(false);
-            setConsultoresEnvio([]);
-            setLimiteEnvio("");
-        }
+        });
     };
-
+    
     return (
         <div className="h-screen w-screen flex bg-background text-foreground overflow-hidden">
             <div className="w-[280px] h-full flex-shrink-0 border-r border-border">
@@ -340,7 +265,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             </div>
 
                             <Button
-                                onClick={handleSubirServicos}
+                                onClick={onClickSubirServicos}
                                 disabled={consultoresEnvio.length === 0 || isEnviando}
                                 className="h-10 px-6 shadow-sm"
                             >

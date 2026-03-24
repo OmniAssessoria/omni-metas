@@ -5,10 +5,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Users, UploadCloud, Loader2, Building2, RefreshCw, LayoutList, X } from "lucide-react"; 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import API from "@/helpers/api";
-import { ITelaDetalhesProps } from "./subirPipeGeral";
+import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
-import { integrarServicosPipeRun } from "@/helpers/api_piperun";
+import API from "@/helpers/api";
+import { useIntegracaoPipeRun } from "@/helpers/hookApiRun";
+
 
 export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
@@ -17,9 +18,9 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
     const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
-    const [isEnviando, setIsEnviando] = useState(false);
      
     const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe'; 
+    const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
 
     const formatarDataSegura = (dataString: string | Date | undefined | null) => {
         if (!dataString) return "Não informado";
@@ -43,7 +44,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 
                 let cachedData: string | null = null;
                 
-                // Tenta acessar o sessionStorage de forma segura
                 try {
                     cachedData = sessionStorage.getItem(cacheKey);
                 } catch (storageError) {
@@ -62,7 +62,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                         }
                     } catch (parseError) {
                         console.error("🚨 [useEffect/Parse] Exception ao fazer parse do JSON em cache. O cache será invalidado.", parseError);
-                        sessionStorage.removeItem(cacheKey); // Limpa o cache corrompido
+                        sessionStorage.removeItem(cacheKey);
                     }
                 }
 
@@ -178,95 +178,18 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         }
     }, [dadosFiltrados]);
 
-    const handleSubirServicos = async () => {
-        if (consultoresEnvio.length === 0) {
-            alert("Selecione pelo menos um consultor na lista de envio.");
-            return;
-        }
-
-        try {
-            setIsEnviando(true);
-            
-            if (!Array.isArray(dados)) {
-                throw new Error("A prop global 'dados' não é um iterável válido para envio.");
+    const onClickSubirServicos = () => {
+        handleSubirServicos({
+            tipoOperacao: "Renovação",
+            hashFunil: hashConsultores,
+            dadosGlobais: dados,
+            consultoresEnvio: consultoresEnvio,
+            limiteEnvio: limiteEnvio,
+            onSuccessCb: () => {
+                setConsultoresEnvio([]);
+                setLimiteEnvio("");
             }
-
-            // 1. Filtra os dados globais para pegar apenas os serviços dos consultores selecionados
-            let servicosParaEnviar = dados.filter(item => {
-                try {
-                    return consultoresEnvio.includes(Number(item.seq_consultor));
-                } catch (filterError) {
-                    console.error("🚨 [handleSubirServicos] Exception ao filtrar item específico:", item, filterError);
-                    return false;
-                }
-            });
-
-            // Valida se há serviços para subir
-            if (servicosParaEnviar.length === 0) {
-                alert("Os consultores selecionados não possuem serviços de renovação disponíveis para integração.");
-                setIsEnviando(false);
-                return;
-            }
-
-            // 2. Aplica o limite global de envio, se estipulado
-            if (limiteEnvio && typeof limiteEnvio === "number" && limiteEnvio > 0) {
-                servicosParaEnviar = servicosParaEnviar.slice(0, limiteEnvio);
-            }
-
-            console.info(`🚀 [handleSubirServicos] Iniciando a orquestração de ${servicosParaEnviar.length} serviços de renovação...`);
-
-            let sucessosConfirmados = 0;
-            let falhasConfirmadas = 0;
-
-            // 3. Loop sequencial de envio (1 a 1) com controle de exceção granular
-            for (const servico of servicosParaEnviar) {
-                try {
-                    if (!servico || !servico.seq_claro) {
-                        console.warn("⚠️ [handleSubirServicos] Serviço iterado não possui 'seq_claro' válido. Pulando...", servico);
-                        falhasConfirmadas++;
-                        continue;
-                    }
-
-                    console.info(`⏳ [handleSubirServicos] Enviando serviço seq_claro: ${servico.seq_claro}`);
-
-                    // Sobe o dado de Renovação para o PipeRun
-                    const resultadoPipe = await integrarServicosPipeRun({
-                        servicos: [servico],
-                        hashFunil: hashConsultores 
-                    });
-
-                    // 4. ATUALIZAÇÃO DO BANCO LOCAL (Status CRM = true)
-                    if (resultadoPipe && resultadoPipe.sucessos > 0) {
-                        try {
-                            await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
-                            sucessosConfirmados++;
-                            console.info(`✅ [handleSubirServicos] Sucesso absoluto no serviço seq_claro: ${servico.seq_claro}`);
-                        } catch (patchError) {
-                            console.error(`🚨 [handleSubirServicos/PATCH] Falha ao atualizar status no banco local para o seq_claro ${servico.seq_claro}. Integração ocorreu no PipeRun, mas o DB interno falhou.`, patchError);
-                            falhasConfirmadas++;
-                        }
-                    } else {
-                        console.error(`🚨 [handleSubirServicos/PIPERUN] Falha relatada pelo utilitário do PipeRun para o seq_claro ${servico.seq_claro}. Retorno:`, resultadoPipe);
-                        falhasConfirmadas++;
-                    }
-                } catch (error) {
-                    console.error(`🚨 [handleSubirServicos/LOOP] Exception isolada (Crash) ao processar o seq_claro ${servico?.seq_claro} (Renovação):`, error, "\nObjeto Base:", servico);
-                    falhasConfirmadas++;
-                }
-            }
-
-            // 5. Finalização
-            console.info(`🏁 [handleSubirServicos] Processo finalizado. Sucessos: ${sucessosConfirmados} | Falhas: ${falhasConfirmadas}`);
-            alert(`Processo de Renovação Finalizado!\n✅ Integrados com Sucesso: ${sucessosConfirmados}\n❌ Falhas: ${falhasConfirmadas}`);
-
-        } catch (error) {
-            console.error("🚨 [handleSubirServicos/GLOBAL] Exception crítica e estrutural ao processar o envio em massa de renovação:", error);
-            alert("Ocorreu um erro estrutural durante a execução da integração. Verifique o console para mais detalhes.");
-        } finally {
-            setIsEnviando(false);
-            setConsultoresEnvio([]);
-            setLimiteEnvio("");
-        }
+        });
     };
 
     return (
@@ -343,7 +266,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                             </div>
 
                             <Button
-                                onClick={handleSubirServicos}
+                                onClick={onClickSubirServicos}
                                 disabled={consultoresEnvio.length === 0 || isEnviando}
                                 className="h-10 px-6 shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
                             >

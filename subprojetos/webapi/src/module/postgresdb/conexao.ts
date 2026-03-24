@@ -3,18 +3,27 @@ import "dotenv/config";
 
 const { Pool } = pkg;
 
-// Montamos a string de conexão usando as variáveis do seu .env
-// Formato: postgres://usuario:senha@host:porta/banco
-const connectionString = `postgres://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+declare global {
+    var pgPoolGlobal: InstanceType<typeof Pool> | undefined;
+}
 
-const pool = new Pool({
+const connectionString = `postgres://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+const pool = global.pgPoolGlobal || new Pool({
     connectionString: connectionString,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    max: 10, 
+    idleTimeoutMillis: 5000,     
+    connectionTimeoutMillis: 10000, 
+    allowExitOnIdle: true,       
+    maxUses: 1000                
 });
 
-pool.on('error', (err) => {
-    console.error('Erro inesperado no cliente do Postgres', err);
-    process.exit(-1);
+if (process.env.NODE_ENV !== 'production') {
+    global.pgPoolGlobal = pool;
+}
+
+pool.on('error', (err: Error) => {
+    console.error('🚨 [PG Pool] Erro ocioso no cliente do Postgres:', err.message);
 });
 
 export default pool;

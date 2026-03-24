@@ -1,0 +1,66 @@
+export interface IServicoPipeRun {
+    // =========================================================
+    // 1. DADOS DO SERVIÇO CLARO (Tabela Principal)
+    // =========================================================
+    seq_claro: number;
+    seq_empresa: number;
+    seq_consultor: number;
+    observacao: string | null;
+    classificacao_contrato: string | null;
+    dt_fim_contrato: string | null;
+    indicacao: string;
+    dt_fechamento: string | null;
+    observacao_fechamento: string | null;
+    dt_ultima_leitura: string | null;
+    servico_docdrive: string | null;
+    
+    // Novos campos adicionados do Serviço Claro
+    servico_claro_situacao: string | null;
+    servico_claro_edoc: boolean | null;
+    servico_claro_cpc: boolean | null;
+    servico_claro_crm: string | number | null; 
+    servico_claro_ativo: boolean | null;
+
+    // =========================================================
+    // 2. DADOS DA EMPRESA
+    // =========================================================
+    cnpj: string;
+    razao: string;
+    qtd_servico_claro: number | null;
+    
+    empresa_seq_empresa: number | null;
+    empresa_seq_decisor: number | null;
+    empresa_faturamento: number | string | null;
+    empresa_qtd_servico_vivo: number | null;
+    empresa_qtd_servico_onvox: number | null;
+    empresa_docdrive: string | null;
+    empresa_cliente_ativo: boolean | null;
+
+    // =========================================================
+    // 3. DADOS DO DECISOR
+    // =========================================================
+    decisor_nome: string | null;
+    decisor_cpf: string | null;
+    decisor_numero: string | null;
+    decisor_num_obs: string | null;
+    decisor_email: string | null;
+    
+    // Novos campos adicionados do Decisor
+    decisor_seq_decisor: number | null;
+    decisor_seq_empresa: number | null;
+    decisor_email_observacao: string | null;
+
+    // =========================================================
+    // 4. DADOS DO CONSULTOR
+    // =========================================================
+    codigo_crm: number | null;
+    consultor_nome: string | null;
+    
+    // Novos campos adicionados do Consultor
+    consultor_seq_consultor: number | null;
+    consultor_email: string | null;
+    consultor_perfil_indicacao: string | null;
+    consultor_perfil_qtd_linhas_min: number | null;
+    consultor_perfil_qtd_linhas_max: number | null;
+    consultor_meta_mensal: number | string | null;
+}
