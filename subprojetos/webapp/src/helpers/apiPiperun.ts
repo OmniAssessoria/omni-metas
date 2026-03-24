@@ -68,19 +68,59 @@ const formatarDataBR = (dataStr: string | null | undefined): string => {
     }
 };
 
-const calcularMesesAteFimContrato = (dataFimStr: string | null | undefined): number => {
-    if (!dataFimStr) return 0;
-    try {
-        const fim = new Date(dataFimStr);
-        const hoje = new Date();
-        if (isNaN(fim.getTime())) return 0;
+// ----------------------------------------------------------------------------
+// NOVAS FUNÇÕES SIMPLIFICADAS DE CÁLCULO DE CONTRATO
+// ----------------------------------------------------------------------------
 
-        let meses = (fim.getFullYear() - hoje.getFullYear()) * 12;
-        meses -= hoje.getMonth();
-        meses += fim.getMonth();
-        return meses > 0 ? meses : 0;
+const obterDataInicioContrato = (dataFimStr: string | null | undefined): string => {
+    if (!dataFimStr) return "";
+    try {
+        let dataParaCalculo = dataFimStr;
+        
+        // Ajuste necessário para o JavaScript interpretar DD/MM/YYYY
+        if (dataFimStr.includes("/")) {
+            const partes = dataFimStr.split("/");
+            dataParaCalculo = `${partes[2]}-${partes[1]}-${partes[0]}T12:00:00`;
+        } else if (dataFimStr.includes("-") && dataFimStr.length === 10) {
+            dataParaCalculo = `${dataFimStr}T12:00:00`;
+        }
+
+        const dataFim = new Date(dataParaCalculo);
+        if (isNaN(dataFim.getTime())) return "";
+
+        // Regra: Data Fim menos 2 anos
+        dataFim.setFullYear(dataFim.getFullYear() - 2);
+
+        const dia = dataFim.getDate().toString().padStart(2, '0');
+        const mes = (dataFim.getMonth() + 1).toString().padStart(2, '0');
+        const ano = dataFim.getFullYear();
+        
+        return `${dia}/${mes}/${ano}`;
     } catch {
-        return 0;
+        return "";
+    }
+};
+
+const calcularMesesAteInicioContrato = (dataInicioBR: string): string => {
+    if (!dataInicioBR) return "0";
+    try {
+        // A data entra formatada como DD/MM/YYYY. Preparamos para o JS ler.
+        const partes = dataInicioBR.split("/");
+        if (partes.length !== 3) return "0";
+        
+        const dataInicio = new Date(`${partes[2]}-${partes[1]}-${partes[0]}T12:00:00`);
+        const hoje = new Date();
+
+        if (isNaN(dataInicio.getTime())) return "0";
+
+        // Regra: Subtrai a data atual da data de início para encontrar os meses
+        let meses = (hoje.getFullYear() - dataInicio.getFullYear()) * 12;
+        meses -= dataInicio.getMonth();
+        meses += hoje.getMonth();
+
+        return meses > 0 ? meses.toString() : "0";
+    } catch {
+        return "0";
     }
 };
 
@@ -218,8 +258,10 @@ export const API_PIPERUN = async ({
             const dddFinal = dddEmpresa !== "00" ? dddEmpresa : (dddDecisor !== "00" ? dddDecisor : "00");
             
             const emailsFormatados = extrairEmails(servico.decisor_email, servico.decisor_email_observacao);
+            
             const dataFimFormatada = formatarDataBR(servico.dt_fim_contrato);
-            const mesesContrato = calcularMesesAteFimContrato(servico.dt_fim_contrato);
+            const dataInicioFormatada = obterDataInicioContrato(servico.dt_fim_contrato);
+            const mesesContrato = calcularMesesAteInicioContrato(dataInicioFormatada);
 
             // ----------------------------------------------------------------
             // PASSO 1: PESSOA (DECISOR) - Condicional
@@ -321,8 +363,9 @@ export const API_PIPERUN = async ({
                     company: servico.razao,
                     cnpj: cnpjFormatado, 
                     custom_fields: {
-                        "Tempo de Contrato": mesesContrato.toString(),
+                        "Inicio do Contrato": dataInicioFormatada,
                         "Final do Contrato": dataFimFormatada,
+                        "Tempo de Contrato": mesesContrato,
                         "DDD": dddFinal,
                         "Quantidade de linhas móveis": servico.qtd_servico_claro || 0,
                         "Observacao": servico.observacao || "",
