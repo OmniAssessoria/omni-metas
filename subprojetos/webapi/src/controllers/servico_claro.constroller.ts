@@ -48,7 +48,13 @@ class ServicoClaroController {
     async atualizarStatusCrm(req: Request, res: Response): Promise<void> {
         try {
             const { seq_claro } = req.params;
+            console.log(`\n[API PATCH] Requisição recebida para atualizar DB. Params:`, req.params);
+
             const idServico = Number(seq_claro);
+            if (isNaN(idServico) || idServico <= 0) {
+                res.status(400).json({ status: false, mensagem: "Parâmetro seq_claro inválido." });
+                return;
+            }
 
             const servicoAtualizado = await this.servicoClaroService.marcarComoEnviadoCrm(idServico);
 
@@ -58,7 +64,8 @@ class ServicoClaroController {
                 dados: servicoAtualizado
             });
         } catch (error: any) {
-            res.status(400).json({
+            console.error(`[API PATCH ERROR] Falha no Controller:`, error.message);
+            res.status(500).json({
                 status: false,
                 mensagem: "Erro ao atualizar o status do CRM no banco de dados.",
                 detalhes: error.message

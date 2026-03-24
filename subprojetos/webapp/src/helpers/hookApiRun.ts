@@ -59,10 +59,6 @@ export function useIntegracaoPipeRun() {
             let sucessosConfirmados = 0;
             let falhasConfirmadas = 0;
 
-            // Chama a nova API_PIPERUN passando o lote de serviços daquele consultor
-            // Note que API_PIPERUN já processa o array, então não precisamos do laço "for" aqui no front-end,
-            // mas para manter a atualização unitária no DB local (o PATCH), fazemos um a um:
-            
             for (const servico of servicosParaEnviar) {
                 try {
                     if (!servico || !servico.seq_claro) {
@@ -79,13 +75,21 @@ export function useIntegracaoPipeRun() {
 
                     if (resultadoPipe && resultadoPipe.sucessos > 0) {
                         try {
-                            // Atualiza no banco local que o serviço subiu para o CRM
-                            await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
+                            const axiosResult = await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
                             sucessosConfirmados++;
-                            console.info(`✅ Commit absoluto. Seq_claro: ${servico.seq_claro}`);
-                        } catch (patchError) {
-                            console.error(`🚨 Timeout ao registrar DB local: ${servico.seq_claro}`, patchError);
+                            console.info(`✅ Commit absoluto no DB (Status ${axiosResult.status}). Seq_claro: ${servico.seq_claro}`);
+                        } catch (patchError: any) {
                             falhasConfirmadas++;
+                            console.error(`\n🚨 FALHA AO REGISTRAR NO DB LOCAL [Seq: ${servico.seq_claro}]`);
+                            
+                            if (patchError.response) {
+                                console.error(`Rejeição da API Express. Status: ${patchError.response.status}`);
+                                console.error(`Corpo da Resposta:`, patchError.response.data);
+                            } else if (patchError.request) {
+                                console.error(`Requisição feita, mas sem resposta do servidor. Possível bloqueio de CORS ou Servidor Offline.`);
+                            } else {
+                                console.error(`Erro estrutural no Axios:`, patchError.message);
+                            }
                         }
                     } else {
                         console.error(`🚨 Recusa pelo PipeRun. Serviço: ${servico.seq_claro}`, resultadoPipe);

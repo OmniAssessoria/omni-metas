@@ -141,7 +141,6 @@ const extrairTelefonesEmpresaDaObservacao = (observacao: string | null) => {
         const regexCapturaNumero = /P\[\d+\]\s*-\s*(\d+)/g;
         let match;
         
-        // Iteramos pelas extrações. O regex exec devolve o grupo 1 com o número isolado.
         while ((match = regexCapturaNumero.exec(trechoLinhas)) !== null) {
             const numeroLimpo = limparPontuacao(match[1]);
             
@@ -324,7 +323,7 @@ export const API_PIPERUN = async ({
                     custom_fields: {
                         "Tempo de Contrato": mesesContrato.toString(),
                         "Final do Contrato": dataFimFormatada,
-                        "DDD": dddFinal, // Injetando no Custom Field também
+                        "DDD": dddFinal,
                         "Quantidade de linhas móveis": servico.qtd_servico_claro || 0,
                         "Observacao": servico.observacao || "",
                         "Indicacao": servico.indicacao,

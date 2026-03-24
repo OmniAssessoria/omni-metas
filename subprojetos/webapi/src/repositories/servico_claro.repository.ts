@@ -51,10 +51,17 @@ export default class ServicoClaroRepository {
         `;
 
         try {
+            console.log(`[DB] Executando UPDATE no PostgreSQL para seq_claro: ${seq_claro}`);
             const result = await pool.query(query, [seq_claro]);
-            return result.rows[0] || null;
-        } catch (error) {
-            console.error(`[ServicoClaroRepository] Erro ao atualizar flag CRM para o serviço ${seq_claro}:`, error);
+            
+            if (result.rowCount === 0) {
+                console.warn(`[DB] UPDATE executado, mas nenhuma linha afetada. O seq_claro ${seq_claro} existe?`);
+                return null;
+            }
+            
+            return result.rows[0];
+        } catch (error: any) {
+            console.error(`[DB-ERROR] Erro crítico no PostgreSQL ao atualizar seq_claro ${seq_claro}:`, error.message);
             throw error;
         }
     }
