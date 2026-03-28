@@ -190,7 +190,9 @@ export default function PipeSubirGeral() {
         );
     };
 
-    const nomeConsultor = renovacoes[0]?.consultor_nome || portabilidades[0]?.consultor_nome || "Consultor";
+    const sincronizarDados = () => {
+        return ""
+    }
 
     if (view === 'renovacao') return <PipeSubirRenovacao dados={renovacoes} onBack={() => setView('geral')} />;
     if (view === 'portabilidade') return <PipeSubirPortabilidade dados={portabilidades} onBack={() => setView('geral')} />;
@@ -214,9 +216,11 @@ export default function PipeSubirGeral() {
                         <div className="p-4 bg-primary/10 rounded-full border border-primary/20">
                             <UserCircle size={40} className="text-primary" />
                         </div>
-                        <div>
-                            <h1 className="text-3xl font-bold">{nomeConsultor}</h1>
-                            <p className="text-muted-foreground">Visão Geral dos Serviços Disponíveis ao PipeRun</p>
+                        <div className="flex flex-col gap-3">
+                            <h1 className="text-3xl font-bold">Visão Geral dos Serviços Disponíveis ao PipeRun</h1>
+                            <Button size="lg" variant="outline" className="h-10 px-5 text-lg w-full sm:w-auto shadow-md" onClick={sincronizarDados}>
+                                Sincronizar dados Piperun com Banco de Dados
+                            </Button>
                         </div>
                     </div>
 
@@ -346,8 +350,8 @@ export default function PipeSubirGeral() {
                     <div className="bg-card border border-border rounded-xl p-2 shadow-sm flex flex-col items-center gap-3">
                         <div className="w-full flex flex-col md:flex-row justify-around items-center gap-3">
                             <div className="w-full md:w-1/2 flex flex-col items-center">
-                                <h3 className="text-xl font-bold text-muted-foreground">Renovação</h3>
-                                <div className="w-64 h-64">
+                                <h3 className="text-xl font-bold text-muted-">Renovação</h3>
+                                <div className="w-64 h-64">foreground
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
