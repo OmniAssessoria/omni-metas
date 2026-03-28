@@ -3,13 +3,12 @@ import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Users, UploadCloud, Loader2, Building2, RefreshCw, LayoutList, X } from "lucide-react"; 
+import { ArrowLeft, Users, UploadCloud, Loader2, Building2, RefreshCw, LayoutList, X } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
 import { useIntegracaoPipeRun } from "@/services/hookApiRun";
-
 
 export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
@@ -18,8 +17,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
     const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
-     
-    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe'; 
+
+    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe';
     const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
 
     const formatarDataSegura = (dataString: string | Date | undefined | null) => {
@@ -40,10 +39,10 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         async function fetchConsultores() {
             try {
                 setIsCarregandoConsultores(true);
-                const cacheKey = "consultores_geral_cache"; 
-                
+                const cacheKey = "consultores_geral_cache";
+
                 let cachedData: string | null = null;
-                
+
                 try {
                     cachedData = sessionStorage.getItem(cacheKey);
                 } catch (storageError) {
@@ -75,7 +74,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 }
 
                 setConsultores(listaConsultores);
-                
+
                 try {
                     sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
                 } catch (setItemError) {
@@ -104,7 +103,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         try {
             const id = Number(idStr);
             if (isNaN(id)) throw new Error(`O ID fornecido (${idStr}) não é um número válido.`);
-            
+
             if (!consultoresEnvio.includes(id)) {
                 setConsultoresEnvio((prev) => [...prev, id]);
             }
@@ -206,11 +205,13 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 <header className="mb-8 flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="mt-2">
                         <div className="flex items-center gap-3 mb-2">
-                            <RefreshCw className="h-8 w-8 text-blue-500" />
+                            {/* Ícone alterado para amarelo */}
+                            <RefreshCw className="h-8 w-8 text-yellow-500" />
                             <h1 className="text-3xl font-bold tracking-tight">Detalhes de Renovação</h1>
                         </div>
                         <p className="text-muted-foreground">
-                            Visualizando <span className="font-semibold text-blue-500">{dadosFiltrados.length}</span> serviços {consultorSelecionado ? "deste consultor" : "no total"}.
+                            {/* Texto de destaque alterado para amarelo */}
+                            Visualizando <span className="font-semibold text-yellow-500">{dadosFiltrados.length}</span> serviços {consultorSelecionado ? "deste consultor" : "no total"}.
                         </p>
                     </div>
 
@@ -220,14 +221,15 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                 {consultoresEnvio.map((id) => {
                                     const nomeConsultor = mapaConsultores.get(id) || "Desconhecido";
                                     return (
-                                        <span 
-                                            key={id} 
-                                            className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700 shadow-sm dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
+                                        <span
+                                            key={id}
+                                            // Badges alteradas para amarelo
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-sm text-yellow-700 shadow-sm dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800"
                                         >
                                             {nomeConsultor}
-                                            <button 
+                                            <button
                                                 onClick={() => handleRemoverConsultorEnvio(id)}
-                                                className="rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 p-0.5 transition-colors"
+                                                className="rounded-full hover:bg-yellow-200 dark:hover:bg-yellow-800 p-0.5 transition-colors"
                                                 title="Remover"
                                             >
                                                 <X size={14} />
@@ -241,7 +243,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                         <div className="flex items-center gap-3">
                             <div className="w-56">
                                 <Select onValueChange={handleAddConsultorEnvio} value="" disabled={isCarregandoConsultores}>
-                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
+                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-yellow-500 text-foreground">
                                         <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Adicionar para Envio"} />
                                     </SelectTrigger>
                                     <SelectContent className="bg-popover border-border text-popover-foreground">
@@ -261,14 +263,16 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                     placeholder="Qtd Limite"
                                     value={limiteEnvio}
                                     onChange={(e) => setLimiteEnvio(e.target.value === "" ? "" : Number(e.target.value))}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    // Focus border alterado para amarelo
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 />
                             </div>
 
                             <Button
                                 onClick={onClickSubirServicos}
                                 disabled={consultoresEnvio.length === 0 || isEnviando}
-                                className="h-10 px-6 shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
+                                // Botão principal alterado para tons de amarelo
+                                className="h-10 px-6 shadow-sm bg-yellow-500 hover:bg-yellow-600 text-white dark:text-zinc-900 font-medium transition-colors"
                             >
                                 {isEnviando ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -281,10 +285,12 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     </div>
                 </header>
 
+                {/* Área principal com controle de scroll integrado ao layout se necessário */}
                 <div className="space-y-6">
                     <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                         <div className="flex items-center gap-2 mb-6 border-b pb-4">
-                                {consultorSelecionado ? <Users size={20} className="text-blue-500" /> : <LayoutList size={20} className="text-blue-500" />}
+                            {/* Ícones do título em amarelo */}
+                            {consultorSelecionado ? <Users size={20} className="text-yellow-500" /> : <LayoutList size={20} className="text-yellow-500" />}
                             <h2 className="text-lg font-semibold mr-10 flex align-center text-center justify-center">
                                 {consultorAtual
                                     ? `Carteira do Consultor: ${consultorAtual.nome} (Renovação)`
@@ -293,7 +299,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
                             <div className="w-64">
                                 <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
-                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
+                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-yellow-500 text-foreground">
                                         <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
                                     </SelectTrigger>
                                     <SelectContent className="bg-popover border-border text-popover-foreground">
@@ -314,29 +320,37 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                             </div>
                         ) : (
                             <div className="space-y-8">
-                                <div className="h-[300px] w-full border rounded-lg p-4 bg-muted/5">
+
+                                {/* GRÁFICO CORRIGIDO: Uso de flex-col e min-h para forçar o Recharts a respeitar os limites */}
+                                <div className="h-[350px] w-full border rounded-lg p-4 bg-muted/5 flex flex-col">
                                     <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
                                         <Building2 size={16} /> Volume de Linhas a Renovar por Empresa
                                     </h3>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
-                                            <XAxis
-                                                dataKey="empresa"
-                                                tick={{ fontSize: 12 }}
-                                                hide={dadosFiltrados.length > 20}
-                                                tickFormatter={(value: string) => value ? value.substring(0, 15) + "..." : ""}
-                                            />
-                                            <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                                            <Tooltip cursor={{ fill: '#88888811' }} />
-                                            <Bar dataKey="linhas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                    <div className="flex-1 w-full min-h-[250px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            {/* Ajuste de margem para evitar cortes laterais no render das barras */}
+                                            <BarChart data={dadosGrafico} margin={{ top: 10, right: 20, left: -20, bottom: 20 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
+                                                <XAxis
+                                                    dataKey="empresa"
+                                                    tick={{ fontSize: 12 }}
+                                                    hide={dadosFiltrados.length > 20}
+                                                    tickFormatter={(value: string) => value ? value.substring(0, 15) + "..." : ""}
+                                                />
+                                                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                                                <Tooltip cursor={{ fill: '#88888811' }} />
+                                                {/* Preenchimento alterado para o amarelo do Tailwind (yellow-500) */}
+                                                <Bar dataKey="linhas" fill="#eab308" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
                                 </div>
 
-                                <div className="rounded-md border overflow-hidden">
+                                {/* TABELA COM SCROLL: Adicionado max-h e overflow-y-auto */}
+                                <div className="rounded-md border overflow-y-auto max-h-[400px] relative shadow-sm">
                                     <Table>
-                                        <TableHeader className="bg-muted/50">
+                                        {/* Cabeçalho fixo (sticky) para manter a leitura fácil ao rolar */}
+                                        <TableHeader className="bg-muted sticky top-0 z-10 shadow-sm">
                                             <TableRow>
                                                 <TableHead>Empresa (Razão Social)</TableHead>
                                                 <TableHead>CNPJ</TableHead>
@@ -359,11 +373,13 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                                         </TableCell>
                                                     )}
                                                     <TableCell>
-                                                        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 border-blue-200">
+                                                        {/* Badges de tabela atualizadas para amarelo */}
+                                                        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-yellow-50 text-yellow-700 border-yellow-200">
                                                             {item.classificacao_contrato || "N/A"}
                                                         </span>
                                                     </TableCell>
-                                                    <TableCell className="text-center font-bold text-blue-600">
+                                                    {/* Texto em destaque atualizado para amarelo */}
+                                                    <TableCell className="text-center font-bold text-yellow-600">
                                                         {item.qtd_servico_claro}
                                                     </TableCell>
                                                     <TableCell className="text-right">
@@ -374,6 +390,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                         </TableBody>
                                     </Table>
                                 </div>
+
                             </div>
                         )}
                     </div>

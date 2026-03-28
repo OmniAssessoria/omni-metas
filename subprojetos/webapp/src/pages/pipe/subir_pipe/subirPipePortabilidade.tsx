@@ -3,13 +3,12 @@ import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Users, UploadCloud, Loader2, Building2, LayoutList, X } from "lucide-react"; 
+import { ArrowLeft, Users, UploadCloud, Loader2, Building2, LayoutList, X } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
 import { useIntegracaoPipeRun } from "@/services/hookApiRun";
-
 
 export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
@@ -17,8 +16,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
     const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
-    
-    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe'; 
+
+    const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe';
 
     // INICIALIZAÇÃO CORRETA DO HOOK
     const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
@@ -42,7 +41,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             try {
                 setIsCarregandoConsultores(true);
                 const cacheKey = "consultores_portabilidade_cache";
-                
+
                 let cachedData: string | null = null;
 
                 try {
@@ -76,7 +75,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 }
 
                 setConsultores(listaConsultores);
-                
+
                 try {
                     sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
                 } catch (setItemError) {
@@ -105,7 +104,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         try {
             const id = Number(idStr);
             if (isNaN(id)) throw new Error(`Input de consultor inválido: ${idStr}`);
-            
+
             if (!consultoresEnvio.includes(id)) {
                 setConsultoresEnvio((prev) => [...prev, id]);
             }
@@ -157,7 +156,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 console.warn("⚠️ [useMemo/dadosFiltrados] A propriedade 'dados' injetada não é iterável.");
                 return [];
             }
-            if (!consultorSelecionado) return dados; 
+            if (!consultorSelecionado) return dados;
             return dados.filter(item => item.seq_consultor === consultorSelecionado);
         } catch (error) {
             console.error("🚨 [useMemo/dadosFiltrados] Erro ao aplicar filtro hierárquico:", error);
@@ -193,7 +192,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             }
         });
     };
-    
+
     return (
         <div className="h-screen w-screen flex bg-background text-foreground overflow-hidden">
             <div className="w-[280px] h-full flex-shrink-0 border-r border-border">
@@ -209,7 +208,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     <div className="mt-2">
                         <h1 className="text-3xl font-bold mb-2 tracking-tight">Detalhes de Portabilidade</h1>
                         <p className="text-muted-foreground">
-                            Visualizando <span className="font-semibold text-primary">{dadosFiltrados.length}</span> serviços {consultorSelecionado ? "deste consultor" : "no total"}.
+                            Visualizando <span className="font-semibold text-blue-500">{dadosFiltrados.length}</span> serviços {consultorSelecionado ? "deste consultor" : "no total"}.
                         </p>
                     </div>
 
@@ -219,14 +218,15 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                 {consultoresEnvio.map((id) => {
                                     const nomeConsultor = mapaConsultores.get(id) || "Desconhecido";
                                     return (
-                                        <span 
-                                            key={`badge-${id}`} 
-                                            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-sm text-foreground shadow-sm"
+                                        <span
+                                            key={`badge-${id}`}
+                                            // Atualizado para estilo visual azul
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700 shadow-sm dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
                                         >
                                             {nomeConsultor}
-                                            <button 
+                                            <button
                                                 onClick={() => handleRemoverConsultorEnvio(id)}
-                                                className="rounded-full hover:bg-muted p-0.5 text-muted-foreground transition-colors"
+                                                className="rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 p-0.5 transition-colors"
                                                 title="Remover"
                                             >
                                                 <X size={14} />
@@ -240,7 +240,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                         <div className="flex items-center gap-3">
                             <div className="w-56">
                                 <Select onValueChange={handleAddConsultorEnvio} value="" disabled={isCarregandoConsultores}>
-                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-primary text-foreground">
+                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
                                         <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Adicionar para Envio"} />
                                     </SelectTrigger>
                                     <SelectContent className="bg-popover border-border text-popover-foreground">
@@ -260,14 +260,16 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                     placeholder="Qtd Limite"
                                     value={limiteEnvio}
                                     onChange={(e) => setLimiteEnvio(e.target.value === "" ? "" : Number(e.target.value))}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    // Focus ring ajustado para azul
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 />
                             </div>
 
                             <Button
                                 onClick={onClickSubirServicos}
                                 disabled={consultoresEnvio.length === 0 || isEnviando}
-                                className="h-10 px-6 shadow-sm"
+                                // Botão de submissão ajustado para azul clássico
+                                className="h-10 px-6 shadow-sm bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
                             >
                                 {isEnviando ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -280,10 +282,11 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     </div>
                 </header>
 
-                <div className="space-y-6">        
+                <div className="space-y-6">
                     <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                         <div className="flex items-center gap-2 mb-6 border-b pb-4">
-                            {consultorSelecionado ? <Users size={20} className="text-primary" /> : <LayoutList size={20} className="text-blue-500" />}
+                            {/* Ícones consistentes na paleta azul */}
+                            {consultorSelecionado ? <Users size={20} className="text-blue-500" /> : <LayoutList size={20} className="text-blue-500" />}
                             <h2 className="text-lg font-semibold flex-1">
                                 {consultorAtual
                                     ? `Carteira do Consultor: ${consultorAtual.nome}`
@@ -291,7 +294,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             </h2>
                             <div className="w-64">
                                 <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
-                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-primary text-foreground">
+                                    <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-blue-500 text-foreground">
                                         <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
                                     </SelectTrigger>
                                     <SelectContent className="bg-popover border-border text-popover-foreground">
@@ -312,23 +315,31 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             </div>
                         ) : (
                             <div className="space-y-8">
-                                <div className="h-[300px] w-full border rounded-lg p-4 bg-muted/5">
+
+                                {/* Contêiner de Gráfico com Correção Flexbox */}
+                                <div className="h-[350px] w-full border rounded-lg p-4 bg-muted/5 flex flex-col">
                                     <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
                                         <Building2 size={16} /> Volume de Linhas por Empresa
                                     </h3>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
-                                            <XAxis dataKey="empresa" tick={{ fontSize: 12 }} hide={dadosFiltrados.length > 20} />
-                                            <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                                            <Tooltip cursor={{ fill: '#88888811' }} />
-                                            <Bar dataKey="linhas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                    <div className="flex-1 w-full min-h-[250px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={dadosGrafico} margin={{ top: 10, right: 20, left: -20, bottom: 20 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
+                                                <XAxis dataKey="empresa" tick={{ fontSize: 12 }} hide={dadosFiltrados.length > 20} />
+                                                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                                                <Tooltip cursor={{ fill: '#88888811' }} />
+                                                {/* Preenchimento trocado para o HEX padrão do azul tailwind */}
+                                                <Bar dataKey="linhas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
                                 </div>
-                                <div className="rounded-md border overflow-hidden">
+
+                                {/* Tabela com Altura Máxima e Rolagem Integrada */}
+                                <div className="rounded-md border overflow-y-auto max-h-[400px] relative shadow-sm">
                                     <Table>
-                                        <TableHeader className="bg-muted/50">
+                                        {/* Cabeçalho Fixo */}
+                                        <TableHeader className="bg-muted sticky top-0 z-10 shadow-sm">
                                             <TableRow>
                                                 <TableHead>Empresa (Razão Social)</TableHead>
                                                 <TableHead>CNPJ</TableHead>
@@ -351,11 +362,13 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                                         </TableCell>
                                                     )}
                                                     <TableCell>
-                                                        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
+                                                        {/* Badge de Tabela na Paleta Azul */}
+                                                        <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 border-blue-200">
                                                             {item.classificacao_contrato || "N/A"}
                                                         </span>
                                                     </TableCell>
-                                                    <TableCell className="text-center font-bold text-primary">
+                                                    {/* Texto de Valor Numérico Destacado em Azul */}
+                                                    <TableCell className="text-center font-bold text-blue-600">
                                                         {item.qtd_servico_claro}
                                                     </TableCell>
                                                     <TableCell className="text-right">
@@ -366,6 +379,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                         </TableBody>
                                     </Table>
                                 </div>
+
                             </div>
                         )}
                     </div>

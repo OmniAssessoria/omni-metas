@@ -136,8 +136,8 @@ export default function PipeSubirGeral() {
         let filtradosP = [...portabilidades];
 
         if (filtroLinhasAtivo) {
-            filtradosR = filtradosR.filter(s => (s.qtd_servico_claro || 0) <= filtroLinhasValor);
-            filtradosP = filtradosP.filter(s => (s.qtd_servico_claro || 0) <= filtroLinhasValor);
+            filtradosR = filtradosR.filter(s => (s.qtd_servico_claro || 0) === filtroLinhasValor);
+            filtradosP = filtradosP.filter(s => (s.qtd_servico_claro || 0) === filtroLinhasValor);
         }
 
         if (filtroDataAtivo) {
