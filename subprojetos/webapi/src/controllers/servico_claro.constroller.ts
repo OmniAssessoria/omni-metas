@@ -9,39 +9,25 @@ class ServicoClaroController {
         this.buscarServicosClaroPipePortabilidade = this.buscarServicosClaroPipePortabilidade.bind(this);
         this.buscarServicosClaroPipeRenovacao = this.buscarServicosClaroPipeRenovacao.bind(this);
         this.atualizarStatusCrm = this.atualizarStatusCrm.bind(this);
+        this.sincronizarDados = this.sincronizarDados.bind(this);
+        this.obterTodosMotivosDeclinio = this.obterTodosMotivosDeclinio.bind(this);
     }
 
     async buscarServicosClaroPipePortabilidade(req: Request, res: Response): Promise<void> {
         try {
             const servicos = await this.servicoClaroService.listarPortabilidadesPendentes();
-            res.status(200).json({
-                status: true,
-                mensagem: "Serviços Claro (Portabilidade) encontrados com sucesso.",
-                dados: servicos
-            });
+            res.status(200).json({ status: true, mensagem: "Serviços Claro (Portabilidade) encontrados com sucesso.", dados: servicos });
         } catch (error: any) {
-            res.status(500).json({
-                status: false,
-                mensagem: "Erro ao buscar serviços em portabilidade.",
-                detalhes: error.message
-            });
+            res.status(500).json({ status: false, mensagem: "Erro ao buscar serviços em portabilidade.", detalhes: error.message });
         }
     }
 
     async buscarServicosClaroPipeRenovacao(req: Request, res: Response): Promise<void> {
         try {
             const servicos = await this.servicoClaroService.listarRenovacoesPendentes();
-            res.status(200).json({
-                status: true,
-                mensagem: "Serviços Claro (Renovação) encontrados com sucesso.",
-                dados: servicos
-            });
+            res.status(200).json({ status: true, mensagem: "Serviços Claro (Renovação) encontrados com sucesso.", dados: servicos });
         } catch (error: any) {
-            res.status(500).json({
-                status: false,
-                mensagem: "Erro ao buscar serviços em renovação.",
-                detalhes: error.message
-            });
+            res.status(500).json({ status: false, mensagem: "Erro ao buscar serviços em renovação.", detalhes: error.message });
         }
     }
 
@@ -58,18 +44,29 @@ class ServicoClaroController {
 
             const servicoAtualizado = await this.servicoClaroService.marcarComoEnviadoCrm(idServico);
 
-            res.status(200).json({
-                status: true,
-                mensagem: "Status do CRM atualizado com sucesso.",
-                dados: servicoAtualizado
-            });
+            res.status(200).json({ status: true, mensagem: "Status do CRM atualizado com sucesso.", dados: servicoAtualizado });
         } catch (error: any) {
             console.error(`[API PATCH ERROR] Falha no Controller:`, error.message);
-            res.status(500).json({
-                status: false,
-                mensagem: "Erro ao atualizar o status do CRM no banco de dados.",
-                detalhes: error.message
-            });
+            res.status(500).json({ status: false, mensagem: "Erro ao atualizar o status do CRM no banco de dados.", detalhes: error.message });
+        }
+    }
+
+    async sincronizarDados(req: Request, res: Response): Promise<void> {
+        try {
+            const dados = req.body;
+            const servicosSincronizados = await this.servicoClaroService.atualizarServicosPiperun(dados);
+            res.status(200).json({ status: true, mensagem: "Serviços sincronizados com sucesso.", dados: servicosSincronizados });
+        } catch (error: any) {
+            res.status(500).json({ status: false, mensagem: "Erro ao sincronizar serviços PipeRun com a base da Omni.", detalhes: error.message });
+        }
+    }
+
+    async obterTodosMotivosDeclinio(req: Request, res: Response): Promise<void> {
+        try {
+            const motivosDeclinio = await this.servicoClaroService.listarTodosMotivosDeclinio();
+            res.status(200).json({ status: true, mensagem: "Motivos de declínio encontrados com sucesso.", dados: motivosDeclinio });
+        } catch (error: any) {
+            res.status(500).json({ status: false, mensagem: "Erro ao buscar motivos de declínio.", detalhes: error.message });
         }
     }
 }

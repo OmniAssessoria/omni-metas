@@ -14,6 +14,8 @@ class RotasServicoClaro {
     private registrarRotas() {
         this.router.get("/servico-claro/piperun/portabilidade", this.servicoClaroController.buscarServicosClaroPipePortabilidade);
         this.router.get("/servico-claro/piperun/renovacao", this.servicoClaroController.buscarServicosClaroPipeRenovacao);
+        this.router.get("/servico-claro/piperun/motivos-declinio", this.servicoClaroController.obterTodosMotivosDeclinio);
+        this.router.patch("/servico-claro/piperun/sincronizar", this.servicoClaroController.sincronizarDados);
         this.router.patch("/servico-claro/piperun/:seq_claro", this.servicoClaroController.atualizarStatusCrm);
     }
 

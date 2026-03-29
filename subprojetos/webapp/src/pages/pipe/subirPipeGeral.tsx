@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserCircle, Briefcase, RefreshCcw, ArrowRightLeft, Bell, RotateCw, Filter, ToggleLeft, ToggleRight } from "lucide-react";
+import { UserCircle, Briefcase, RefreshCcw, ArrowRightLeft, Bell, RotateCw, Filter, ToggleLeft, ToggleRight, BookDashed } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import API from "@/services/api";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
@@ -9,6 +9,9 @@ import { PipeSubirPortabilidade } from "./subir_pipe/subirPipePortabilidade";
 import { PipeSubirRenovacao } from "./subir_pipe/subirPipeRenovacao";
 import { IServicoPipeRun } from "@/interfaces/servicoPipeRun.interface";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
+import { Calendar } from "lucide-react";
+import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
+
 
 export interface ITelaDetalhesProps {
     dados: IServicoPipeRun[];
@@ -36,6 +39,8 @@ export default function PipeSubirGeral() {
     const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
     const [filtroDataAtivo, setFiltroDataAtivo] = useState(false);
     const [filtroDataValor, setFiltroDataValor] = useState<number>(0);
+    const [dataExtracao, setDataExtracao] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [syncing, setSyncing] = useState<boolean>(false);
     const COR_RENOVACAO = "#eab308";
     const COR_PORTABILIDADE = "#3b82f6";
     const COR_FUNDO = "#e5e7eb";
@@ -190,8 +195,30 @@ export default function PipeSubirGeral() {
         );
     };
 
-    const sincronizarDados = () => {
-        return ""
+    const sincronizarDados = async () => {
+        if (!dataExtracao) {
+            setNotification("Por favor, selecione uma data válida para extração.");
+            setTimeout(() => setNotification(null), 5000);
+            return;
+        }
+
+        setSyncing(true);
+        setNotification(`Iniciando extração do PipeRun para o dia ${new Date(dataExtracao).toLocaleDateString()}... Isso pode levar alguns minutos.`);
+
+        try {
+            const resultado = await sincronizarDadosPipeRun(dataExtracao);
+
+            setNotification(resultado.mensagem);
+            setTimeout(() => setNotification(null), 8000);
+            await fetchServicos(true);
+
+        } catch (error: any) {
+            console.error("Erro na sincronização:", error);
+            setNotification(error.message || "Erro crítico ao sincronizar com PipeRun.");
+            setTimeout(() => setNotification(null), 5000);
+        } finally {
+            setSyncing(false);
+        }
     }
 
     if (view === 'renovacao') return <PipeSubirRenovacao dados={renovacoes} onBack={() => setView('geral')} />;
@@ -212,15 +239,34 @@ export default function PipeSubirGeral() {
                 )}
 
                 <div className="flex pt-20 w-full items-center justify-between border-b border-border pb-6 max-w-6xl">
-                    <div className="flex items-center gap-4">
-                        <div className="p-4 bg-primary/10 rounded-full border border-primary/20">
-                            <UserCircle size={40} className="text-primary" />
-                        </div>
-                        <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className="flex flex-col gap-3 w-full">
                             <h1 className="text-3xl font-bold">Visão Geral dos Serviços Disponíveis ao PipeRun</h1>
-                            <Button size="lg" variant="outline" className="h-10 px-5 text-lg w-full sm:w-auto shadow-md" onClick={sincronizarDados}>
-                                Sincronizar dados Piperun com Banco de Dados
-                            </Button>
+                            <div className="flex flex-col sm:flex-row gap-3 items-center w-full mt-2">
+                                <div className="flex items-center border border-input bg-background rounded-md h-10 px-3 shadow-sm w-full sm:w-auto">
+                                    <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
+                                    <input
+                                        type="date"
+                                        className="bg-transparent border-none outline-none text-sm text-foreground w-full"
+                                        value={dataExtracao}
+                                        onChange={(e) => setDataExtracao(e.target.value)}
+                                        disabled={syncing}
+                                    />
+                                </div>
+                                <Button
+                                    size="lg"
+                                    variant="outline"
+                                    className="h-10 px-5 text-base w-full sm:w-auto shadow-md transition-all"
+                                    onClick={sincronizarDados}
+                                    disabled={syncing}
+                                >
+                                    {syncing ? (
+                                        <><RotateCw className="mr-2 h-4 w-4 animate-spin" /> Sincronizando PipeRun...</>
+                                    ) : (
+                                        <><ArrowRightLeft className="mr-2 h-4 w-4" /> Sincronizar dados Piperun com DB</>
+                                    )}
+                                </Button>
+                            </div>
                         </div>
                     </div>
 
@@ -263,7 +309,7 @@ export default function PipeSubirGeral() {
 
                         <Card className="border-primary/30 mt-4 shadow-sm">
                             <CardContent className="flex flex-col sm:flex-row justify-center items-center gap-6 pb-6 pt-6">
-                                <Button size="lg" className="h-16 px-10 text-lg w-full sm:w-auto shadow-md" onClick={() => setView('renovacao')}>
+                                <Button size="lg" className="h-20 px-10 text-lg w-full sm:w-auto shadow-md" onClick={() => setView('renovacao')}>
                                     <RefreshCcw className="mr-2 h-5 w-5" /> Tela de Renovação
                                 </Button>
                                 <Button size="lg" variant="outline" className="h-16 px-10 text-lg w-full sm:w-auto shadow-md" onClick={() => setView('portabilidade')}>

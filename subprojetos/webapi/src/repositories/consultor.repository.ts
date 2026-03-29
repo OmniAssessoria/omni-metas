@@ -18,6 +18,17 @@ export default class ConsultorRepository {
         return result.rows;
     }
 
+    async buscarSeqConsultorPorCodigoCrm(codigo_crm: string) {
+        const query = `SELECT seq_consultor, codigo_crm, nome, email, perfil_indicacao, perfil_qtd_linhas_min, perfil_qtd_linhas_max, meta_mensal FROM omni.consultor WHERE codigo_crm = $1;`;
+        try {
+            const result = await pool.query(query, [codigo_crm]);
+            return result.rows[0];
+        } catch (error) {
+            console.error("[ServicoClaroRepository] Erro ao buscar seq_consultor por codigo_crm:", error);
+            throw error;
+        }
+    }
+
     async buscarConsultorPorSeq(seq: number) {
         const query = `
             SELECT
