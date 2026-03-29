@@ -15,12 +15,13 @@ class RotasConsultor {
     private registrarRotas() {
         this.router.get("/consultores", this.consultorController.buscarConsultores);
         this.router.post("/consultores/meta-diaria", this.consultorController.criarMetaDiaria);
-        this.router.put("/consultores/:seq/meta-mensal", this.consultorController.atualizarMetaMensal);
-        this.router.get("/consultores/:seq", this.consultorController.buscarConsultorPorSeq);
         this.router.get(
             "/consultores/:seq/meta-mensal",
             this.consultorController.buscarMetaMensalPorSeq
         );
+        this.router.put("/consultores/:seq/meta-mensal", this.consultorController.atualizarMetaMensal);
+        this.router.get("/consultores/:seq", this.consultorController.buscarConsultorPorSeq);
+        this.router.get("/consultor/historico/empresa/:seq_empresa", this.consultorController.obterHistoricoEmpresa);
     }
 
     public retornarRotas(): Router {

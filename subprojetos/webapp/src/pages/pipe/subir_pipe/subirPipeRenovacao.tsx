@@ -3,12 +3,28 @@ import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Users, UploadCloud, Loader2, Building2, RefreshCw, LayoutList, X } from "lucide-react";
+// IMPORTAÇÕES DO DIALOG E ÍCONES
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ArrowLeft, Users, UploadCloud, Loader2, Building2, RefreshCw, LayoutList, X, History, Calendar, Target } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
 import { useIntegracaoPipeRun } from "@/services/hookApiRun";
+
+// 1. INTERFACE DO HISTÓRICO
+interface IHistoricoEmpresa {
+    seq_historico_consultor_empresa: number;
+    tipo_servico: string;
+    data_inicio_atendimento: string;
+    data_fim_atendimento: string | null;
+    consultor_nome: string;
+    perfil_indicacao: string;
+    perfil_qtd_linhas_min: number;
+    perfil_qtd_linhas_max: number;
+    motivo_declinio: string | null;
+    situacao_atendimento: string | null;
+}
 
 export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
@@ -17,6 +33,12 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
     const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
+
+    // 2. ESTADOS DO MODAL DE HISTÓRICO
+    const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
+    const [empresaHistoricoNome, setEmpresaHistoricoNome] = useState("");
+    const [dadosHistorico, setDadosHistorico] = useState<IHistoricoEmpresa[]>([]);
+    const [isCarregandoHistorico, setIsCarregandoHistorico] = useState(false);
 
     const hashConsultores = 'e015a67d-bab4-403a-a0f6-5b2cfbc35ebe';
     const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
@@ -30,7 +52,26 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
             }
             return dateObj.toLocaleDateString('pt-BR');
         } catch (error) {
-            console.error("🚨 [Render/Data] Exception ao formatar a data:", { dataRecebida: dataString, erro: error });
+            return "Data Inválida";
+        }
+    };
+
+    // FUNÇÃO PARA FORMATAR DATA E HORA NO MODAL
+    const formatarDataComHora = (dataString: string | Date | undefined | null) => {
+        if (!dataString) return "Não informado";
+        try {
+            const dateObj = new Date(dataString);
+            if (isNaN(dateObj.getTime())) {
+                throw new Error("Data inválida.");
+            }
+            return dateObj.toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
             return "Data Inválida";
         }
     };
@@ -40,141 +81,89 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
             try {
                 setIsCarregandoConsultores(true);
                 const cacheKey = "consultores_geral_cache";
-
                 let cachedData: string | null = null;
 
-                try {
-                    cachedData = sessionStorage.getItem(cacheKey);
-                } catch (storageError) {
-                    console.error("🚨 [useEffect/Storage] Exception ao acessar sessionStorage:", storageError);
-                }
+                try { cachedData = sessionStorage.getItem(cacheKey); } catch (e) { }
 
                 if (cachedData) {
                     try {
                         const parsedCache = JSON.parse(cachedData);
                         if (Array.isArray(parsedCache)) {
                             setConsultores(parsedCache);
-                            console.info("✅ [useEffect/Cache] Consultores carregados do cache com sucesso.");
                             return;
-                        } else {
-                            throw new Error("Cache não é um array válido.");
                         }
-                    } catch (parseError) {
-                        console.error("🚨 [useEffect/Parse] Exception ao fazer parse do JSON em cache. O cache será invalidado.", parseError);
+                    } catch (e) {
                         sessionStorage.removeItem(cacheKey);
                     }
                 }
 
-                console.info("🔄 [useEffect/API] Buscando consultores via API...");
                 const response = await API.get("/api/consultores");
                 const listaConsultores = response.data?.dados ?? [];
-
-                if (!Array.isArray(listaConsultores)) {
-                    throw new Error("A resposta da API para '/api/consultores' não conteve uma estrutura de array em 'dados'.");
+                if (Array.isArray(listaConsultores)) {
+                    setConsultores(listaConsultores);
+                    try { sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores)); } catch (e) { }
                 }
-
-                setConsultores(listaConsultores);
-
-                try {
-                    sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
-                } catch (setItemError) {
-                    console.error("🚨 [useEffect/Storage] Exception ao salvar cache no sessionStorage. Dados muito grandes?", setItemError);
-                }
-
             } catch (error) {
-                console.error("🚨 [useEffect/API] Exception crítica ao buscar consultores para renovação:", error);
+                console.error("Falha na busca de consultores:", error);
             } finally {
                 setIsCarregandoConsultores(false);
             }
         }
-
         fetchConsultores();
     }, []);
 
-    const handleConsultorChange = (id: string) => {
-        try {
-            setConsultorSelecionado(id === "todos" ? null : Number(id));
-        } catch (error) {
-            console.error("🚨 [handleConsultorChange] Exception ao alterar o consultor:", error);
-        }
-    };
+    const handleConsultorChange = (id: string) => setConsultorSelecionado(id === "todos" ? null : Number(id));
 
     const handleAddConsultorEnvio = (idStr: string) => {
-        try {
-            const id = Number(idStr);
-            if (isNaN(id)) throw new Error(`O ID fornecido (${idStr}) não é um número válido.`);
-
-            if (!consultoresEnvio.includes(id)) {
-                setConsultoresEnvio((prev) => [...prev, id]);
-            }
-        } catch (error) {
-            console.error("🚨 [handleAddConsultorEnvio] Exception ao adicionar consultor na lista de envio:", error);
+        const id = Number(idStr);
+        if (!isNaN(id) && !consultoresEnvio.includes(id)) {
+            setConsultoresEnvio((prev) => [...prev, id]);
         }
     };
 
     const handleRemoverConsultorEnvio = (idToRemove: number) => {
+        setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
+    };
+
+    // 3. FUNÇÃO PARA ABRIR O HISTÓRICO
+    const abrirHistorico = async (seq_empresa: number, razao: string) => {
+        setEmpresaHistoricoNome(razao);
+        setModalHistoricoAberto(true);
+        setIsCarregandoHistorico(true);
+        setDadosHistorico([]);
+
         try {
-            setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
+            const response = await API.get(`/api/consultor/historico/empresa/${seq_empresa}`);
+            if (response.data && response.data.dados) {
+                setDadosHistorico(response.data.dados);
+            }
         } catch (error) {
-            console.error("🚨 [handleRemoverConsultorEnvio] Exception ao remover consultor da lista de envio:", error);
+            console.error("Erro ao buscar histórico:", error);
+        } finally {
+            setIsCarregandoHistorico(false);
         }
     };
 
-    const consultorAtual = useMemo(() => {
-        try {
-            if (!Array.isArray(consultores)) return undefined;
-            return consultores.find(c => c.seq_consultor === consultorSelecionado);
-        } catch (error) {
-            console.error("🚨 [useMemo/consultorAtual] Exception ao calcular o consultor atual:", error);
-            return undefined;
-        }
-    }, [consultores, consultorSelecionado]);
+    const consultorAtual = useMemo(() => consultores.find(c => c.seq_consultor === consultorSelecionado), [consultores, consultorSelecionado]);
 
     const mapaConsultores = useMemo(() => {
-        try {
-            const mapa = new Map<number, string>();
-            if (!Array.isArray(consultores)) {
-                console.warn("⚠️ [useMemo/mapaConsultores] A lista de consultores não é um array válido. Retornando mapa vazio.");
-                return mapa;
-            }
-            consultores.forEach(c => {
-                if (c && c.seq_consultor) {
-                    mapa.set(Number(c.seq_consultor), c.nome || "Sem Nome");
-                }
-            });
-            return mapa;
-        } catch (error) {
-            console.error("🚨 [useMemo/mapaConsultores] Exception ao processar o mapa de consultores:", error);
-            return new Map<number, string>();
-        }
+        const mapa = new Map<number, string>();
+        consultores.forEach(c => { if (c && c.seq_consultor) mapa.set(Number(c.seq_consultor), c.nome || "Sem Nome"); });
+        return mapa;
     }, [consultores]);
 
     const dadosFiltrados = useMemo(() => {
-        try {
-            if (!Array.isArray(dados)) {
-                console.warn("⚠️ [useMemo/dadosFiltrados] A prop 'dados' recebida não é um array válido.");
-                return [];
-            }
-            if (!consultorSelecionado) return dados;
-            return dados.filter(item => item.seq_consultor === consultorSelecionado);
-        } catch (error) {
-            console.error("🚨 [useMemo/dadosFiltrados] Exception ao processar o filtro de dados:", error);
-            return [];
-        }
+        if (!Array.isArray(dados)) return [];
+        if (!consultorSelecionado) return dados;
+        return dados.filter(item => item.seq_consultor === consultorSelecionado);
     }, [dados, consultorSelecionado]);
 
     const dadosGrafico = useMemo(() => {
-        try {
-            if (!Array.isArray(dadosFiltrados)) return [];
-            return dadosFiltrados.map(item => ({
-                empresa: item.razao || "Empresa sem Razão",
-                linhas: typeof item.qtd_servico_claro === 'number' ? item.qtd_servico_claro : 0,
-                cnpj: item.cnpj || "Sem CNPJ"
-            }));
-        } catch (error) {
-            console.error("🚨 [useMemo/dadosGrafico] Exception ao estruturar dados para o gráfico:", error);
-            return [];
-        }
+        return dadosFiltrados.map(item => ({
+            empresa: item.razao || "Empresa sem Razão",
+            linhas: typeof item.qtd_servico_claro === 'number' ? item.qtd_servico_claro : 0,
+            cnpj: item.cnpj || "Sem CNPJ"
+        }));
     }, [dadosFiltrados]);
 
     const onClickSubirServicos = () => {
@@ -205,12 +194,10 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 <header className="mb-8 flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="mt-2">
                         <div className="flex items-center gap-3 mb-2">
-                            {/* Ícone alterado para amarelo */}
                             <RefreshCw className="h-8 w-8 text-yellow-500" />
                             <h1 className="text-3xl font-bold tracking-tight">Detalhes de Renovação</h1>
                         </div>
                         <p className="text-muted-foreground">
-                            {/* Texto de destaque alterado para amarelo */}
                             Visualizando <span className="font-semibold text-yellow-500">{dadosFiltrados.length}</span> serviços {consultorSelecionado ? "deste consultor" : "no total"}.
                         </p>
                     </div>
@@ -218,25 +205,14 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     <div className="flex flex-col items-end gap-3">
                         {consultoresEnvio.length > 0 && (
                             <div className="flex flex-wrap justify-end gap-2 max-w-lg">
-                                {consultoresEnvio.map((id) => {
-                                    const nomeConsultor = mapaConsultores.get(id) || "Desconhecido";
-                                    return (
-                                        <span
-                                            key={id}
-                                            // Badges alteradas para amarelo
-                                            className="inline-flex items-center gap-1.5 rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-sm text-yellow-700 shadow-sm dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800"
-                                        >
-                                            {nomeConsultor}
-                                            <button
-                                                onClick={() => handleRemoverConsultorEnvio(id)}
-                                                className="rounded-full hover:bg-yellow-200 dark:hover:bg-yellow-800 p-0.5 transition-colors"
-                                                title="Remover"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </span>
-                                    );
-                                })}
+                                {consultoresEnvio.map((id) => (
+                                    <span key={id} className="inline-flex items-center gap-1.5 rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-sm text-yellow-700 shadow-sm">
+                                        {mapaConsultores.get(id) || "Desconhecido"}
+                                        <button onClick={() => handleRemoverConsultorEnvio(id)} className="rounded-full hover:bg-yellow-200 p-0.5 transition-colors" title="Remover">
+                                            <X size={14} />
+                                        </button>
+                                    </span>
+                                ))}
                             </div>
                         )}
 
@@ -246,11 +222,9 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                     <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-yellow-500 text-foreground">
                                         <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Adicionar para Envio"} />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                                    <SelectContent>
                                         {consultores.map((c) => (
-                                            <SelectItem key={`envio-${c.seq_consultor}`} value={String(c.seq_consultor)}>
-                                                {c.nome}
-                                            </SelectItem>
+                                            <SelectItem key={`envio-${c.seq_consultor}`} value={String(c.seq_consultor)}>{c.nome}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -258,43 +232,31 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
                             <div className="w-32">
                                 <input
-                                    type="number"
-                                    min="1"
-                                    placeholder="Qtd Limite"
+                                    type="number" min="1" placeholder="Qtd Limite"
                                     value={limiteEnvio}
                                     onChange={(e) => setLimiteEnvio(e.target.value === "" ? "" : Number(e.target.value))}
-                                    // Focus border alterado para amarelo
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
                                 />
                             </div>
 
                             <Button
                                 onClick={onClickSubirServicos}
                                 disabled={consultoresEnvio.length === 0 || isEnviando}
-                                // Botão principal alterado para tons de amarelo
                                 className="h-10 px-6 shadow-sm bg-yellow-500 hover:bg-yellow-600 text-white dark:text-zinc-900 font-medium transition-colors"
                             >
-                                {isEnviando ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <UploadCloud className="mr-2 h-4 w-4" />
-                                )}
+                                {isEnviando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
                                 {isEnviando ? "Processando..." : "Subir Renovações"}
                             </Button>
                         </div>
                     </div>
                 </header>
 
-                {/* Área principal com controle de scroll integrado ao layout se necessário */}
                 <div className="space-y-6">
                     <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                         <div className="flex items-center gap-2 mb-6 border-b pb-4">
-                            {/* Ícones do título em amarelo */}
                             {consultorSelecionado ? <Users size={20} className="text-yellow-500" /> : <LayoutList size={20} className="text-yellow-500" />}
-                            <h2 className="text-lg font-semibold mr-10 flex align-center text-center justify-center">
-                                {consultorAtual
-                                    ? `Carteira do Consultor: ${consultorAtual.nome} (Renovação)`
-                                    : "Todos os Serviços de Renovação"}
+                            <h2 className="text-lg font-semibold flex-1 flex align-center justify-start">
+                                {consultorAtual ? `Carteira do Consultor: ${consultorAtual.nome} (Renovação)` : "Todos os Serviços de Renovação"}
                             </h2>
 
                             <div className="w-64">
@@ -302,12 +264,10 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                     <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-yellow-500 text-foreground">
                                         <SelectValue placeholder={isCarregandoConsultores ? "Carregando..." : "Filtrar por Consultor"} />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                                    <SelectContent>
                                         <SelectItem value="todos">Todos os Consultores</SelectItem>
                                         {consultores.map((c) => (
-                                            <SelectItem key={`filtro-${c.seq_consultor}`} value={String(c.seq_consultor)}>
-                                                {c.nome}
-                                            </SelectItem>
+                                            <SelectItem key={`filtro-${c.seq_consultor}`} value={String(c.seq_consultor)}>{c.nome}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -321,14 +281,12 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                         ) : (
                             <div className="space-y-8">
 
-                                {/* GRÁFICO CORRIGIDO: Uso de flex-col e min-h para forçar o Recharts a respeitar os limites */}
                                 <div className="h-[350px] w-full border rounded-lg p-4 bg-muted/5 flex flex-col">
                                     <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
                                         <Building2 size={16} /> Volume de Linhas a Renovar por Empresa
                                     </h3>
                                     <div className="flex-1 w-full min-h-[250px]">
                                         <ResponsiveContainer width="100%" height="100%">
-                                            {/* Ajuste de margem para evitar cortes laterais no render das barras */}
                                             <BarChart data={dadosGrafico} margin={{ top: 10, right: 20, left: -20, bottom: 20 }}>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888833" />
                                                 <XAxis
@@ -339,17 +297,14 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                                 />
                                                 <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                                                 <Tooltip cursor={{ fill: '#88888811' }} />
-                                                {/* Preenchimento alterado para o amarelo do Tailwind (yellow-500) */}
                                                 <Bar dataKey="linhas" fill="#eab308" radius={[4, 4, 0, 0]} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
 
-                                {/* TABELA COM SCROLL: Adicionado max-h e overflow-y-auto */}
                                 <div className="rounded-md border overflow-y-auto max-h-[400px] relative shadow-sm">
                                     <Table>
-                                        {/* Cabeçalho fixo (sticky) para manter a leitura fácil ao rolar */}
                                         <TableHeader className="bg-muted sticky top-0 z-10 shadow-sm">
                                             <TableRow>
                                                 <TableHead>Empresa (Razão Social)</TableHead>
@@ -358,6 +313,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                                 <TableHead>Classificação</TableHead>
                                                 <TableHead className="text-center">Qtd. Linhas</TableHead>
                                                 <TableHead className="text-right">Fim Contrato</TableHead>
+                                                <TableHead className="text-center w-[120px]">Ações</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -373,28 +329,154 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                                         </TableCell>
                                                     )}
                                                     <TableCell>
-                                                        {/* Badges de tabela atualizadas para amarelo */}
                                                         <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-yellow-50 text-yellow-700 border-yellow-200">
                                                             {item.classificacao_contrato || "N/A"}
                                                         </span>
                                                     </TableCell>
-                                                    {/* Texto em destaque atualizado para amarelo */}
                                                     <TableCell className="text-center font-bold text-yellow-600">
                                                         {item.qtd_servico_claro}
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         {formatarDataSegura(item.dt_fim_contrato)}
                                                     </TableCell>
+
+                                                    {/* BOTÃO ABRIR HISTÓRICO COM ESTILO AMARELO */}
+                                                    <TableCell className="text-center">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="text-yellow-600 border-yellow-200 hover:bg-yellow-50 transition-colors"
+                                                            onClick={() => abrirHistorico(item.seq_empresa, item.razao || "Empresa Desconhecida")}
+                                                        >
+                                                            <History className="w-4 h-4 mr-2" />
+                                                            Histórico
+                                                        </Button>
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
                                     </Table>
                                 </div>
-
                             </div>
                         )}
                     </div>
                 </div>
+
+                {/* MODAL DE HISTÓRICO (Estilizado para o padrão amarelo de Renovação) */}
+                <Dialog open={modalHistoricoAberto} onOpenChange={setModalHistoricoAberto}>
+                    <DialogContent className="sm:max-w-4xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-background [&>button.absolute]:hidden">
+                        <div className="p-6 border-b border-border bg-muted/10 shrink-0 flex items-start justify-between">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-2xl text-yellow-600">
+                                    <History className="w-6 h-6" />
+                                    Histórico de Consultores
+                                </DialogTitle>
+                                <DialogDescription className="text-base font-semibold text-foreground mt-2">
+                                    Atendimentos registrados para: <span className="text-yellow-600">{empresaHistoricoNome}</span>
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-full text-muted-foreground hover:bg-muted"
+                                onClick={() => setModalHistoricoAberto(false)}
+                            >
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+
+                        <div className="p-6 flex-1 overflow-y-auto relative">
+                            {isCarregandoHistorico ? (
+                                <div className="flex flex-col items-center justify-center py-12 h-full">
+                                    <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mb-4" />
+                                    <p className="text-muted-foreground font-medium">Buscando linha do tempo...</p>
+                                </div>
+                            ) : dadosHistorico.length === 0 ? (
+                                <div className="bg-muted/30 p-10 rounded-lg text-center border border-dashed border-border mt-4">
+                                    <History className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
+                                    <p className="text-muted-foreground font-medium">Nenhum histórico de consultor encontrado para esta empresa.</p>
+                                </div>
+                            ) : (
+                                <div className="relative border-l-2 border-yellow-200 ml-4 space-y-8 py-4">
+                                    {dadosHistorico.map((hist, index) => (
+                                        <div key={hist.seq_historico_consultor_empresa} className="relative pl-8">
+                                            {/* Bolinha da timeline em amarelo */}
+                                            <div className="absolute w-5 h-5 bg-yellow-500 rounded-full -left-[11px] top-1.5 border-4 border-background shadow-sm" />
+
+                                            <div className="bg-card border border-border shadow-sm rounded-xl p-5 transition-all hover:shadow-md hover:border-yellow-200">
+                                                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+                                                    <div>
+                                                        <h4 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                                                            <Users className="w-5 h-5 text-yellow-500" />
+                                                            {hist.consultor_nome}
+                                                        </h4>
+
+                                                        <div className="flex flex-wrap gap-2 mt-3">
+                                                            <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-md text-xs font-bold">
+                                                                <Target className="w-3.5 h-3.5" />
+                                                                {hist.perfil_indicacao || "S/ Perfil"}
+                                                            </span>
+                                                            <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-md text-xs font-bold">
+                                                                <LayoutList className="w-3.5 h-3.5" />
+                                                                Linhas: {hist.perfil_qtd_linhas_min} a {hist.perfil_qtd_linhas_max}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col items-start md:items-end text-sm text-muted-foreground bg-muted/40 p-3 rounded-lg border border-border/50 min-w-[180px]">
+                                                        <span className="flex items-center gap-2">
+                                                            <Calendar className="w-4 h-4 text-yellow-600" />
+                                                            <span className="font-medium">Início:</span> {formatarDataComHora(hist.data_inicio_atendimento)}
+                                                        </span>
+                                                        {hist.data_fim_atendimento ? (
+                                                            <span className="flex items-center gap-2 mt-2">
+                                                                <Calendar className="w-4 h-4 text-orange-500" />
+                                                                <span className="font-medium">Fim:</span> {formatarDataComHora(hist.data_fim_atendimento)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="flex items-center gap-2 mt-2 text-green-600">
+                                                                <span className="relative flex h-3 w-3 mr-1">
+                                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                                                </span>
+                                                                Em Andamento
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <hr className="border-border my-4" />
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                                    <div>
+                                                        <span className="block text-muted-foreground text-xs uppercase font-bold tracking-wider mb-1.5">Desfecho / Declinio</span>
+                                                        {hist.motivo_declinio ? (
+                                                            <span className="font-bold text-red-700 bg-red-50 px-3 py-1 rounded-md border border-red-200 inline-block">
+                                                                {hist.motivo_declinio}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="font-bold text-green-700 bg-green-50 px-3 py-1 rounded-md border border-green-200 inline-block">
+                                                                GANHO / CONVERTIDO
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <span className="block text-muted-foreground text-xs uppercase font-bold tracking-wider mb-1.5">Serviço Analisado</span>
+                                                        <span className="font-semibold bg-yellow-50/50 text-yellow-800 px-3 py-1 rounded-md border border-yellow-200 inline-block">
+                                                            {hist.situacao_atendimento || "N/A"} - {hist.tipo_servico}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
             </main>
         </div>
     );

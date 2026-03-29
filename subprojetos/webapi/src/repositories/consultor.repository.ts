@@ -29,6 +29,34 @@ export default class ConsultorRepository {
         }
     }
 
+    async buscarHistoricoPorSeqEmpresa(seq_empresa: number) {
+        const query = `
+            SELECT 
+                h.seq_historico_consultor_empresa,
+                h.tipo_servico,
+                h.data_inicio_atendimento,
+                h.data_fim_atendimento,
+                c.nome AS consultor_nome,
+                c.perfil_indicacao,
+                c.perfil_qtd_linhas_min,
+                c.perfil_qtd_linhas_max,
+                m.motivo_declinio,
+                m.situacao_atendimento
+            FROM omni.historico_empresa_consultor h
+            INNER JOIN omni.consultor c ON h.seq_consultor = c.seq_consultor
+            LEFT JOIN omni.motivo_declinio m ON h.seq_motivo_declinio = m.seq_motivo_declinio
+            WHERE h.seq_empresa = $1
+            ORDER BY h.data_inicio_atendimento DESC;
+        `;
+        try {
+            const result = await pool.query(query, [seq_empresa]);
+            return result.rows;
+        } catch (error) {
+            console.error("[ServicoClaroRepository] Erro ao buscar histórico da empresa:", error);
+            throw error;
+        }
+    }
+
     async buscarConsultorPorSeq(seq: number) {
         const query = `
             SELECT

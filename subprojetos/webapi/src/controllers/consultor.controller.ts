@@ -143,6 +143,36 @@ class ConsultorController {
 
         }
     }
+
+    obterHistoricoEmpresa = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const parametroId = req.params.seq_empresa || req.query.seq_empresa;
+            const seq_empresa = Number(parametroId);
+
+            if (isNaN(seq_empresa) || seq_empresa <= 0) {
+                res.status(400).json({
+                    status: false,
+                    mensagem: "Parâmetro seq_empresa inválido ou não fornecido na URL."
+                });
+                return;
+            }
+
+            const historico = await this.consultorService.listarHistoricoEmpresa(seq_empresa);
+
+            res.status(200).json({
+                status: true,
+                mensagem: "Histórico encontrado com sucesso.",
+                dados: historico
+            });
+        } catch (error: any) {
+            console.error(`[API ERROR] Falha ao buscar histórico:`, error.message);
+            res.status(500).json({
+                status: false,
+                mensagem: "Erro interno ao buscar histórico da empresa.",
+                detalhes: error.message
+            });
+        }
+    }
 }
 
 export default ConsultorController;

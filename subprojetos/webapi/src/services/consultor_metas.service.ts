@@ -47,6 +47,15 @@ class ConsultorService {
 
         return atualizado;
     }
+
+    async listarHistoricoEmpresa(seq_empresa: number) {
+        if (!seq_empresa || seq_empresa <= 0) {
+            throw new Error("O identificador da empresa (seq_empresa) é obrigatório e deve ser válido.");
+        }
+
+        const dados = await this.repo.buscarHistoricoPorSeqEmpresa(seq_empresa);
+        return dados && dados.length > 0 ? dados : [];
+    }
 }
 
 export default ConsultorService;
