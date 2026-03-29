@@ -27,7 +27,8 @@ interface IHistoricoEmpresa {
 }
 
 export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
-    const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
+    // ESTADO ATUALIZADO PARA ACEITAR "nao_atribuidos"
+    const [consultorSelecionado, setConsultorSelecionado] = useState<number | null | "nao_atribuidos">(null);
     const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
     const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
     const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
@@ -97,7 +98,16 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         fetchConsultores();
     }, []);
 
-    const handleConsultorChange = (id: string) => setConsultorSelecionado(id === "todos" ? null : Number(id));
+    // FUNÇÃO ATUALIZADA PARA TRATAR A STRING "nao_atribuidos"
+    const handleConsultorChange = (id: string) => {
+        if (id === "todos") {
+            setConsultorSelecionado(null);
+        } else if (id === "nao_atribuidos") {
+            setConsultorSelecionado("nao_atribuidos");
+        } else {
+            setConsultorSelecionado(Number(id));
+        }
+    };
 
     const handleAddConsultorEnvio = (idStr: string) => {
         const id = Number(idStr);
@@ -137,9 +147,19 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         return mapa;
     }, [consultores]);
 
+    // LÓGICA DE FILTRAGEM ATUALIZADA
     const dadosFiltrados = useMemo(() => {
         if (!Array.isArray(dados)) return [];
-        if (!consultorSelecionado) return dados;
+
+        // Retorna todos os dados caso o filtro seja "todos" (null)
+        if (consultorSelecionado === null) return dados;
+
+        // Retorna apenas dados que não possuem um seq_consultor válido
+        if (consultorSelecionado === "nao_atribuidos") {
+            return dados.filter(item => !item.seq_consultor);
+        }
+
+        // Retorna dados filtrados pelo ID do consultor específico
         return dados.filter(item => item.seq_consultor === consultorSelecionado);
     }, [dados, consultorSelecionado]);
 
@@ -179,8 +199,14 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 <header className="mb-8 flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="mt-2">
                         <h1 className="text-3xl font-bold mb-2 tracking-tight">Detalhes de Portabilidade</h1>
+                        {/* TEXTO DE CABEÇALHO ATUALIZADO DINAMICAMENTE */}
                         <p className="text-muted-foreground">
-                            Visualizando <span className="font-semibold text-blue-500">{dadosFiltrados.length}</span> serviços {consultorSelecionado ? "deste consultor" : "no total"}.
+                            Visualizando <span className="font-semibold text-blue-500">{dadosFiltrados.length}</span> serviços
+                            {consultorSelecionado === "nao_atribuidos"
+                                ? " não atribuídos"
+                                : typeof consultorSelecionado === "number"
+                                    ? " deste consultor"
+                                    : " no total"}.
                         </p>
                     </div>
 
@@ -237,8 +263,13 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                         <div className="flex items-center gap-2 mb-6 border-b pb-4">
                             {consultorSelecionado ? <Users size={20} className="text-blue-500" /> : <LayoutList size={20} className="text-blue-500" />}
+                            {/* TÍTULO DA TABELA ATUALIZADO */}
                             <h2 className="text-lg font-semibold flex-1">
-                                {consultorAtual ? `Carteira do Consultor: ${consultorAtual.nome}` : "Todos os Serviços Disponíveis"}
+                                {consultorAtual
+                                    ? `Carteira do Consultor: ${consultorAtual.nome} (Portabilidade)`
+                                    : consultorSelecionado === "nao_atribuidos"
+                                        ? "Serviços Não Atribuídos (Portabilidade)"
+                                        : "Todos os Serviços de Portabilidade"}
                             </h2>
                             <div className="w-64">
                                 <Select onValueChange={handleConsultorChange} disabled={isCarregandoConsultores}>
@@ -247,6 +278,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="todos">Todos os Consultores</SelectItem>
+                                        {/* OPÇÃO DE NÃO ATRIBUÍDOS ADICIONADA AQUI */}
+                                        <SelectItem value="nao_atribuidos">Não Atribuídos</SelectItem>
                                         {consultores.map((c) => (
                                             <SelectItem key={`filtro-${c.seq_consultor}`} value={String(c.seq_consultor)}>{c.nome}</SelectItem>
                                         ))}
@@ -284,7 +317,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                             <TableRow>
                                                 <TableHead>Empresa</TableHead>
                                                 <TableHead>CNPJ</TableHead>
-                                                {!consultorSelecionado && <TableHead>Consultor</TableHead>}
+                                                {/* CONDIÇÃO AJUSTADA PARA MANTER A COLUNA NOS NÃO ATRIBUÍDOS */}
+                                                {typeof consultorSelecionado !== "number" && <TableHead>Consultor</TableHead>}
                                                 <TableHead>Classificação</TableHead>
                                                 <TableHead className="text-center">Qtd. Linhas</TableHead>
                                                 <TableHead className="text-right">Fim Contrato</TableHead>
@@ -298,7 +332,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                                         {item.razao}
                                                     </TableCell>
                                                     <TableCell>{item.cnpj}</TableCell>
-                                                    {!consultorSelecionado && (
+                                                    {/* CONDIÇÃO AJUSTADA IGUAL AO HEADER */}
+                                                    {typeof consultorSelecionado !== "number" && (
                                                         <TableCell className="text-muted-foreground">
                                                             {mapaConsultores.get(Number(item.seq_consultor)) || "Não Atribuído"}
                                                         </TableCell>
@@ -315,7 +350,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                                         {formatarDataComHora(item.dt_fim_contrato)}
                                                     </TableCell>
 
-                                                    {/* 4. NOVO BOTÃO DE AÇÕES */}
                                                     <TableCell className="text-center">
                                                         <Button
                                                             variant="outline"
