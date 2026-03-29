@@ -27,7 +27,7 @@ interface IHistoricoEmpresa {
 }
 
 export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
-    const [consultorSelecionado, setConsultorSelecionado] = useState<number | null>(null);
+    const [consultorSelecionado, setConsultorSelecionado] = useState<number | null | "nao_atribuidos">(null);
     const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
     const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
 
@@ -112,7 +112,15 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         fetchConsultores();
     }, []);
 
-    const handleConsultorChange = (id: string) => setConsultorSelecionado(id === "todos" ? null : Number(id));
+    const handleConsultorChange = (id: string) => {
+        if (id === "todos") {
+            setConsultorSelecionado(null);
+        } else if (id === "nao_atribuidos") {
+            setConsultorSelecionado("nao_atribuidos");
+        } else {
+            setConsultorSelecionado(Number(id));
+        }
+    };
 
     const handleAddConsultorEnvio = (idStr: string) => {
         const id = Number(idStr);
@@ -154,7 +162,13 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
     const dadosFiltrados = useMemo(() => {
         if (!Array.isArray(dados)) return [];
-        if (!consultorSelecionado) return dados;
+
+        if (consultorSelecionado === null) return dados;
+
+        if (consultorSelecionado === "nao_atribuidos") {
+            return dados.filter(item => !item.seq_consultor);
+        }
+
         return dados.filter(item => item.seq_consultor === consultorSelecionado);
     }, [dados, consultorSelecionado]);
 
@@ -197,9 +211,13 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                             <RefreshCw className="h-8 w-8 text-yellow-500" />
                             <h1 className="text-3xl font-bold tracking-tight">Detalhes de Renovação</h1>
                         </div>
-                        <p className="text-muted-foreground">
-                            Visualizando <span className="font-semibold text-yellow-500">{dadosFiltrados.length}</span> serviços {consultorSelecionado ? "deste consultor" : "no total"}.
-                        </p>
+                        <h2 className="text-lg font-semibold flex-1 flex align-center justify-start">
+                            {consultorAtual
+                                ? `Carteira do Consultor: ${consultorAtual.nome} (Renovação)`
+                                : consultorSelecionado === "nao_atribuidos"
+                                    ? "Serviços Não Atribuídos (Renovação)"
+                                    : "Todos os Serviços de Renovação"}
+                        </h2>
                     </div>
 
                     <div className="flex flex-col items-end gap-3">
@@ -266,6 +284,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="todos">Todos os Consultores</SelectItem>
+                                        <SelectItem value="nao_atribuidos">Não Atribuídos</SelectItem>
                                         {consultores.map((c) => (
                                             <SelectItem key={`filtro-${c.seq_consultor}`} value={String(c.seq_consultor)}>{c.nome}</SelectItem>
                                         ))}
@@ -362,7 +381,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     </div>
                 </div>
 
-                {/* MODAL DE HISTÓRICO (Estilizado para o padrão amarelo de Renovação) */}
                 <Dialog open={modalHistoricoAberto} onOpenChange={setModalHistoricoAberto}>
                     <DialogContent className="sm:max-w-4xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-background [&>button.absolute]:hidden">
                         <div className="p-6 border-b border-border bg-muted/10 shrink-0 flex items-start justify-between">
@@ -401,7 +419,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                 <div className="relative border-l-2 border-yellow-200 ml-4 space-y-8 py-4">
                                     {dadosHistorico.map((hist, index) => (
                                         <div key={hist.seq_historico_consultor_empresa} className="relative pl-8">
-                                            {/* Bolinha da timeline em amarelo */}
                                             <div className="absolute w-5 h-5 bg-yellow-500 rounded-full -left-[11px] top-1.5 border-4 border-background shadow-sm" />
 
                                             <div className="bg-card border border-border shadow-sm rounded-xl p-5 transition-all hover:shadow-md hover:border-yellow-200">
