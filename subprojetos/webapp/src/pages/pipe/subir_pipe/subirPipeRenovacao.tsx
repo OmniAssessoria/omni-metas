@@ -89,7 +89,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     async function fetchConsultores() {
       try {
         setIsCarregandoConsultores(true);
-        const cacheKey = "consultores_geral_cache";
+        // 1. CHAVE ATUALIZADA PARA INVALIDAR O CACHE
+        const cacheKey = "consultores_renovacao_cache_v2";
         let cachedData: string | null = null;
 
         try {
@@ -124,6 +125,35 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     }
     fetchConsultores();
   }, []);
+
+  const consultoresElegiveis = useMemo(() => {
+    return consultores.filter((c) => {
+      if (!c.perfil_indicacao) return false;
+      
+      const perfil = String(c.perfil_indicacao).trim().toUpperCase();
+
+      const perfilNormalizado = perfil.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      return perfilNormalizado === "RENOVACAO" || perfilNormalizado === "AMBOS";
+    });
+  }, [consultores]);
+
+  const mapaConsultores = useMemo(() => {
+    const mapa = new Map<number, { nome: string; textoExibicao: string }>();
+    consultores.forEach((c) => {
+      if (c && c.seq_consultor) {
+        const min = c.perfil_qtd_linhas_min || 0;
+        const max = c.perfil_qtd_linhas_max || 0;
+        const nomeConsultor = c.nome || "Não Identificado";
+
+        mapa.set(Number(c.seq_consultor), {
+          nome: nomeConsultor,
+          textoExibicao: `${nomeConsultor} (Min: ${min} / Máx: ${max} linhas)`,
+        });
+      }
+    });
+    return mapa;
+  }, [consultores]);
 
   const handleConsultorChange = (id: string) => {
     if (id === "todos") {
@@ -170,15 +200,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     () => consultores.find((c) => c.seq_consultor === consultorSelecionado),
     [consultores, consultorSelecionado],
   );
-
-  const mapaConsultores = useMemo(() => {
-    const mapa = new Map<number, string>();
-    consultores.forEach((c) => {
-      if (c && c.seq_consultor)
-        mapa.set(Number(c.seq_consultor), c.nome || "Sem Nome");
-    });
-    return mapa;
-  }, [consultores]);
 
   const dadosFiltrados = useMemo(() => {
     if (!Array.isArray(dados)) return [];
@@ -238,13 +259,13 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 Detalhes de Renovação
               </h1>
             </div>
-            <h2 className="text-lg font-semibold flex-1 flex align-center justify-start">
-              {consultorAtual
-                ? `Carteira do Consultor: ${consultorAtual.nome} (Renovação)`
-                : consultorSelecionado === "nao_atribuidos"
-                  ? "Serviços Não Atribuídos (Renovação)"
-                  : "Todos os Serviços de Renovação"}
-            </h2>
+            <p className="text-muted-foreground">
+              Visualizando{" "}
+              <span className="font-semibold text-yellow-500">
+                {dadosFiltrados.length}
+              </span>{" "}
+              serviços de renovação.
+            </p>
           </div>
 
           <div className="flex flex-col items-end gap-3">
@@ -255,7 +276,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     key={id}
                     className="inline-flex items-center gap-1.5 rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-sm text-yellow-700 shadow-sm"
                   >
-                    {mapaConsultores.get(id) || "Desconhecido"}
+                    {mapaConsultores.get(id)?.textoExibicao || "Desconhecido"}
                     <button
                       onClick={() => handleRemoverConsultorEnvio(id)}
                       className="rounded-full hover:bg-yellow-200 p-0.5 transition-colors"
@@ -269,7 +290,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
             )}
 
             <div className="flex items-center gap-3">
-              <div className="w-56">
+              <div className="w-80">
                 <Select
                   onValueChange={handleAddConsultorEnvio}
                   value=""
@@ -285,12 +306,12 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {consultores.map((c) => (
+                    {consultoresElegiveis.map((c) => (
                       <SelectItem
                         key={`envio-${c.seq_consultor}`}
                         value={String(c.seq_consultor)}
                       >
-                        {c.nome}
+                        {c.nome} (Min: {c.perfil_qtd_linhas_min} / Máx: {c.perfil_qtd_linhas_max})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -338,11 +359,13 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
               )}
               <h2 className="text-lg font-semibold flex-1 flex align-center justify-start">
                 {consultorAtual
-                  ? `Carteira do Consultor: ${consultorAtual.nome} (Renovação)`
-                  : "Todos os Serviços de Renovação"}
+                  ? `Carteira do Consultor: ${consultorAtual.nome} (Linhas: ${consultorAtual.perfil_qtd_linhas_min} a ${consultorAtual.perfil_qtd_linhas_max})`
+                  : consultorSelecionado === "nao_atribuidos"
+                    ? "Serviços Não Atribuídos (Renovação)"
+                    : "Todos os Serviços de Renovação"}
               </h2>
 
-              <div className="w-64">
+              <div className="w-80">
                 <Select
                   onValueChange={handleConsultorChange}
                   disabled={isCarregandoConsultores}
@@ -361,12 +384,13 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     <SelectItem value="nao_atribuidos">
                       Não Atribuídos
                     </SelectItem>
-                    {consultores.map((c) => (
+                    {/* Renderiza apenas os consultores ELEGÍVEIS */}
+                    {consultoresElegiveis.map((c) => (
                       <SelectItem
                         key={`filtro-${c.seq_consultor}`}
                         value={String(c.seq_consultor)}
                       >
-                        {c.nome}
+                        {c.nome} (Min: {c.perfil_qtd_linhas_min} / Máx: {c.perfil_qtd_linhas_max})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -457,9 +481,10 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                               <TableCell>{item.cnpj}</TableCell>
                               {!consultorSelecionado && (
                                 <TableCell className="text-muted-foreground">
+                                  {/* Exibe o nome usando o mapa para exibir as métricas */}
                                   {mapaConsultores.get(
                                     Number(item.seq_consultor),
-                                  ) || "Não Atribuído"}
+                                  )?.textoExibicao || "Não Atribuído"}
                                 </TableCell>
                               )}
                               <TableCell className="text-center font-bold text-yellow-600">
