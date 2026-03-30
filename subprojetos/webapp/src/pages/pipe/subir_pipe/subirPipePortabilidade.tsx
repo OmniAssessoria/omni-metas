@@ -40,7 +40,9 @@ import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
 import { useIntegracaoPipeRun } from "@/services/hookApiRun";
 
-import DialogHistoricoPortabilidade, {IHistoricoEmpresa} from "@/components/historico_empresa_consultor/historico_portabilidade";
+import DialogHistoricoPortabilidade, {
+  IHistoricoEmpresa,
+} from "@/components/historico_empresa_consultor/historico_portabilidade";
 
 export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const [consultorSelecionado, setConsultorSelecionado] = useState<
@@ -95,7 +97,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     async function fetchConsultores() {
       try {
         setIsCarregandoConsultores(true);
-        const cacheKey = "consultores_portabilidade_cache";
+        const cacheKey = "consultores_portabilidade_cache_v2";
         let cachedData: string | null = null;
 
         try {
@@ -130,6 +132,31 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     }
     fetchConsultores();
   }, []);
+
+  const consultoresElegiveis = useMemo(() => {
+    return consultores.filter((c) => {
+      if (!c.perfil_indicacao) return false;
+      const perfil = String(c.perfil_indicacao).trim().toUpperCase();
+      return perfil === "PORTABILIDADE" || perfil === "AMBOS";
+    });
+  }, [consultores]);
+
+  const mapaConsultores = useMemo(() => {
+    const mapa = new Map<number, { nome: string; textoExibicao: string }>();
+    consultores.forEach((c) => {
+      if (c && c.seq_consultor) {
+        const min = c.perfil_qtd_linhas_min || 0;
+        const max = c.perfil_qtd_linhas_max || 0;
+        const nomeConsultor = c.nome || "Não Identificado";
+
+        mapa.set(Number(c.seq_consultor), {
+          nome: nomeConsultor,
+          textoExibicao: `${nomeConsultor} (Min: ${min} / Máx: ${max} linhas)`,
+        });
+      }
+    });
+    return mapa;
+  }, [consultores]);
 
   const handleConsultorChange = (id: string) => {
     if (id === "todos") {
@@ -177,15 +204,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     () => consultores.find((c) => c.seq_consultor === consultorSelecionado),
     [consultores, consultorSelecionado],
   );
-
-  const mapaConsultores = useMemo(() => {
-    const mapa = new Map<number, string>();
-    consultores.forEach((c) => {
-      if (c && c.seq_consultor)
-        mapa.set(Number(c.seq_consultor), c.nome || "Não Identificado");
-    });
-    return mapa;
-  }, [consultores]);
 
   const dadosFiltrados = useMemo(() => {
     if (!Array.isArray(dados)) return [];
@@ -262,7 +280,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     key={`badge-${id}`}
                     className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700 shadow-sm"
                   >
-                    {mapaConsultores.get(id) || "Desconhecido"}
+                    {/* Renderiza o nome completo com a qtd de linhas */}
+                    {mapaConsultores.get(id)?.textoExibicao || "Desconhecido"}
                     <button
                       onClick={() => handleRemoverConsultorEnvio(id)}
                       className="rounded-full hover:bg-blue-200 p-0.5 transition-colors"
@@ -275,7 +294,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             )}
 
             <div className="flex items-center gap-3">
-              <div className="w-56">
+              <div className="w-80">
                 <Select
                   onValueChange={handleAddConsultorEnvio}
                   value=""
@@ -291,12 +310,14 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {consultores.map((c) => (
+                    {/* Iterando sobre consultoresElegiveis ao invés da lista completa */}
+                    {consultoresElegiveis.map((c) => (
                       <SelectItem
                         key={`add-${c.seq_consultor}`}
                         value={String(c.seq_consultor)}
                       >
-                        {c.nome}
+                        {c.nome} (Min: {c.perfil_qtd_linhas_min} / Máx:{" "}
+                        {c.perfil_qtd_linhas_max})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -344,12 +365,12 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               )}
               <h2 className="text-lg font-semibold flex-1">
                 {consultorAtual
-                  ? `Carteira do Consultor: ${consultorAtual.nome} (Portabilidade)`
+                  ? `Carteira do Consultor: ${consultorAtual.nome} (Linhas: ${consultorAtual.perfil_qtd_linhas_min} a ${consultorAtual.perfil_qtd_linhas_max})`
                   : consultorSelecionado === "nao_atribuidos"
                     ? "Serviços Não Atribuídos (Portabilidade)"
                     : "Todos os Serviços de Portabilidade"}
               </h2>
-              <div className="w-64">
+              <div className="w-80">
                 <Select
                   onValueChange={handleConsultorChange}
                   disabled={isCarregandoConsultores}
@@ -368,12 +389,14 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     <SelectItem value="nao_atribuidos">
                       Não Atribuídos
                     </SelectItem>
-                    {consultores.map((c) => (
+                    {/* Filtro também reflete apenas consultores elegíveis */}
+                    {consultoresElegiveis.map((c) => (
                       <SelectItem
                         key={`filtro-${c.seq_consultor}`}
                         value={String(c.seq_consultor)}
                       >
-                        {c.nome}
+                        {c.nome} (Min: {c.perfil_qtd_linhas_min} / Máx:{" "}
+                        {c.perfil_qtd_linhas_max})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -457,9 +480,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             <TableCell>{item.cnpj}</TableCell>
                             {typeof consultorSelecionado !== "number" && (
                               <TableCell className="text-muted-foreground">
-                                {mapaConsultores.get(
-                                  Number(item.seq_consultor),
-                                ) || "Não Atribuído"}
+                                {mapaConsultores.get(Number(item.seq_consultor))
+                                  ?.textoExibicao || "Não Atribuído"}
                               </TableCell>
                             )}
                             <TableCell className="text-center font-bold text-blue-600">

@@ -8,7 +8,11 @@ export default class ConsultorRepository {
             SELECT 
                 seq_consultor,
                 nome,
-                meta_mensal
+                meta_mensal,
+                codigo_crm,
+                perfil_indicacao,
+                perfil_qtd_linhas_min,
+                perfil_qtd_linhas_max
             FROM omni.consultor 
             WHERE perfil_indicacao IS NOT NULL
             ORDER BY nome
