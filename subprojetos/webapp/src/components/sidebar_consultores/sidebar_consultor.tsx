@@ -31,7 +31,7 @@ export function Sidebar() {
             </div>
 
             <div className="flex-1 flex flex-col pt-6 pb-10 overflow-hidden">
-                <div className="px-6 mb-4 flex items-center gap-2 text-muted-foreground ">
+                {/* <div className="px-6 mb-4 flex items-center gap-2 text-muted-foreground ">
                     <button
                         onClick={() => navigate(`/`)}
                         className={`text-left px-4 py-3 rounded-xl w-full transition-all duration-200 flex items-center justify-between group ${location.pathname === "/"
@@ -42,7 +42,7 @@ export function Sidebar() {
                         <span>Dashboard</span>
                         <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                     </button>
-                </div>
+                </div> */}
 
                 <div className="px-6 mb-4 flex items-center gap-2 text-muted-foreground ">
                     <button
@@ -57,7 +57,7 @@ export function Sidebar() {
                     </button>
                 </div>
 
-                <div
+                {/* <div
                     className="px-6 mb-2 flex items-center justify-between text-muted-foreground cursor-pointer hover:text-white transition-colors"
                     onClick={() => setIsOpen(!isOpen)}
                 >
@@ -74,9 +74,9 @@ export function Sidebar() {
                         size={16}
                         className={`transition-transform duration-200 ${isOpen ? "rotate-0" : "-rotate-90"}`}
                     />
-                </div>
+                </div> */}
 
-                {isOpen && (
+                {/* {isOpen && (
                     <ScrollArea className="flex-1 h-0 px-2 transition-all duration-300">
                         <div className="flex flex-col gap-1">
                             {consultores.map((c) => {
@@ -106,7 +106,7 @@ export function Sidebar() {
                             className="bg-muted/50 w-2 hover:bg-[#ffea00]"
                         />
                     </ScrollArea>
-                )}
+                )} */}
 
                 {/* Espaço para futuras telas do menu lateral abaixo da equipe */}
                 <div className="px-6 mt-4">
