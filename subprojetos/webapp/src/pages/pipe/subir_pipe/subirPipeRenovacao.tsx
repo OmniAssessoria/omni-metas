@@ -384,7 +384,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     <SelectItem value="nao_atribuidos">
                       Não Atribuídos
                     </SelectItem>
-                    {/* Renderiza apenas os consultores ELEGÍVEIS */}
                     {consultoresElegiveis.map((c) => (
                       <SelectItem
                         key={`filtro-${c.seq_consultor}`}
