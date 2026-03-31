@@ -1,5 +1,4 @@
 import { useParams } from "react-router-dom"
-import { AppLayout } from "@/components/layout_tela_consultores/layout_principal"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { UserCircle, BarChart3 } from "lucide-react"
 import { useState, useEffect } from "react"

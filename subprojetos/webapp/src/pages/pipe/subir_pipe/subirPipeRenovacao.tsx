@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox"; // <-- Componente Checkbox Necessário
 import {
   Select,
   SelectContent,
@@ -34,6 +35,7 @@ import {
   X,
   History,
   Smartphone,
+  CheckSquare, // <-- Novo Ícone
 } from "lucide-react";
 import {
   BarChart,
@@ -58,6 +60,9 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     number | null | "nao_atribuidos"
   >(null);
   const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
+  const [empresasSelecionadas, setEmpresasSelecionadas] = useState<number[]>(
+    [],
+  ); // <-- Estado para checkboxes
   const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
 
   const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
@@ -222,6 +227,30 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
   };
 
+  // --- LÓGICA DE SELEÇÃO INDIVIDUAL (CHECKBOXES) ---
+  const handleToggleEmpresa = (seq_empresa: number) => {
+    setEmpresasSelecionadas((prev) =>
+      prev.includes(seq_empresa)
+        ? prev.filter((id) => id !== seq_empresa)
+        : [...prev, seq_empresa],
+    );
+  };
+
+  const handleToggleTodasEmpresas = (checked: boolean) => {
+    if (checked) {
+      const todosIds = dadosFiltrados.map((item) => item.seq_empresa);
+      setEmpresasSelecionadas((prev) =>
+        Array.from(new Set([...prev, ...todosIds])),
+      );
+    } else {
+      const idsPaginaAtual = dadosFiltrados.map((item) => item.seq_empresa);
+      setEmpresasSelecionadas((prev) =>
+        prev.filter((id) => !idsPaginaAtual.includes(id)),
+      );
+    }
+  };
+  // -------------------------------------------------
+
   const abrirHistorico = async (seq_empresa: number, razao: string) => {
     setEmpresaHistoricoNome(razao);
     setModalHistoricoAberto(true);
@@ -288,19 +317,33 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     }));
   }, [dadosFiltrados]);
 
+  // Checa se todas as empresas visíveis estão marcadas (para o Master Checkbox)
+  const todasEmpresasAtuaisSelecionadas = useMemo(() => {
+    if (dadosFiltrados.length === 0) return false;
+    return dadosFiltrados.every((item) =>
+      empresasSelecionadas.includes(item.seq_empresa),
+    );
+  }, [dadosFiltrados, empresasSelecionadas]);
+
   const onClickSubirServicos = () => {
     handleSubirServicos({
       tipoOperacao: "Renovação",
       hashFunil: hashConsultores,
       dadosGlobais: dados,
       consultoresEnvio: consultoresEnvio,
+      empresasEnvio: empresasSelecionadas, // <-- Injetando empresas marcadas
       limiteEnvio: limiteEnvio,
       onSuccessCb: () => {
         setConsultoresEnvio([]);
+        setEmpresasSelecionadas([]); // Limpa seleções individuais no sucesso
         setLimiteEnvio("");
       },
     });
   };
+
+  // Trava para habilitar o botão de envio apenas se houver algo selecionado
+  const isBotaoEnvioHabilitado =
+    consultoresEnvio.length > 0 || empresasSelecionadas.length > 0;
 
   return (
     <div className="h-screen w-screen flex bg-background text-foreground overflow-hidden">
@@ -335,13 +378,16 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            {consultoresEnvio.length > 0 && (
+            {/* Visualização de Seleções (Consultores + Empresas Avulsas) */}
+            {(consultoresEnvio.length > 0 ||
+              empresasSelecionadas.length > 0) && (
               <div className="flex flex-wrap justify-end gap-2 max-w-lg">
                 {consultoresEnvio.map((id) => (
                   <span
-                    key={id}
+                    key={`badge-consultor-${id}`}
                     className="inline-flex items-center gap-1.5 rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-sm text-yellow-700 shadow-sm"
                   >
+                    <Users size={14} />
                     {mapaConsultores.get(id)?.textoExibicao || "Desconhecido"}
                     <button
                       onClick={() => handleRemoverConsultorEnvio(id)}
@@ -352,6 +398,19 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     </button>
                   </span>
                 ))}
+                {empresasSelecionadas.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 shadow-sm">
+                    <CheckSquare size={14} className="" />
+                    {empresasSelecionadas.length} Empresa(s) Selecionada(s)
+                    <button
+                      onClick={() => setEmpresasSelecionadas([])}
+                      className="p-0.5 transition-colors rounded-full hover:bg-emerald-200"
+                      title="Limpar seleção de empresas"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                )}
               </div>
             )}
 
@@ -367,7 +426,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                       placeholder={
                         isCarregandoConsultores
                           ? "Carregando..."
-                          : "Adicionar para Envio"
+                          : "Adicionar Lote (Por Consultor)"
                       }
                     />
                   </SelectTrigger>
@@ -402,8 +461,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
               <Button
                 onClick={onClickSubirServicos}
-                disabled={consultoresEnvio.length === 0 || isEnviando}
-                className="h-10 px-6 shadow-sm bg-yellow-500 hover:bg-yellow-600 text-white dark:text-zinc-900 font-medium transition-colors"
+                disabled={!isBotaoEnvioHabilitado || isEnviando}
+                className="h-10 px-6 shadow-sm bg-yellow-500 hover:bg-yellow-600 text-white dark:text-zinc-900 font-medium transition-colors disabled:opacity-50"
               >
                 {isEnviando ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -418,7 +477,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
         <div className="space-y-6">
           <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-6 border-b pb-4">
+            <div className="flex items-center gap-2 mb-4">
               {consultorSelecionado ? (
                 <Users size={20} className="text-yellow-500" />
               ) : (
@@ -437,7 +496,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                   onValueChange={handleConsultorChange}
                   disabled={isCarregandoConsultores}
                 >
-                  <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-yellow-500 text-foreground">
+                  <SelectTrigger className="h-10 bg-background border-border shadow-sm focus:ring-yellow-500 text-white">
                     <SelectValue
                       placeholder={
                         isCarregandoConsultores
@@ -451,7 +510,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     <SelectItem value="nao_atribuidos">
                       Não Atribuídos
                     </SelectItem>
-                    {/* Renderiza apenas os consultores ELEGÍVEIS */}
                     {consultoresElegiveis.map((c) => (
                       <SelectItem
                         key={`filtro-${c.seq_consultor}`}
@@ -472,7 +530,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
               </div>
             ) : (
               <div className="space-y-8">
-                <div className="h-[350px] w-full border rounded-lg p-4 bg-muted/5 flex flex-col">
+                <div className="h-[350px] max-w-[50vw] border rounded-lg p-4 bg-muted/5 flex flex-col">
                   <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
                     <Building2 size={16} /> Volume de Linhas a Renovar por
                     Empresa
@@ -486,21 +544,21 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                         <CartesianGrid
                           strokeDasharray="3 3"
                           vertical={false}
-                          stroke="#88888833"
+                          stroke="#d8d8d8"
                         />
                         <XAxis
                           dataKey="empresa"
-                          tick={{ fontSize: 12 }}
+                          tick={{ fontSize: 12, color: "white" }}
                           hide={dadosFiltrados.length > 20}
                           tickFormatter={(value: string) =>
                             value ? value.substring(0, 15) + "..." : ""
                           }
                         />
-                        <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                        <Tooltip cursor={{ fill: "#88888811" }} />
+                        <YAxis tick={{ fontSize: 12, color: "white" }} allowDecimals={false} />
+                        <Tooltip cursor={{ fill: "#ffffff4d" }} />
                         <Bar
                           dataKey="linhas"
-                          fill="#eab308" // yellow-500
+                          fill="#eab308"
                           radius={[4, 4, 0, 0]}
                         />
                       </BarChart>
@@ -509,10 +567,18 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 </div>
 
                 <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-                  <div className="rounded-md border relative [&>div]:max-h-[500px] [&>div]:overflow-y-auto">
+                  <div className="rounded-md border relative [&>div]:max-h-[500px] [&>div]:overflow-y-auto scrollbar-thin">
                     <Table className="relative border-collapse">
                       <TableHeader className="sticky top-0 z-20 bg-muted shadow-sm ring-1 ring-border/50">
                         <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-[40px] bg-muted flex-shrink-0">
+                            <Checkbox
+                              checked={todasEmpresasAtuaisSelecionadas}
+                              onCheckedChange={handleToggleTodasEmpresas}
+                              aria-label="Selecionar todas as empresas desta página"
+                              className="border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
+                            />
+                          </TableHead>
                           <TableHead className="bg-muted">Empresa</TableHead>
                           <TableHead className="bg-muted">CNPJ</TableHead>
                           {!consultorSelecionado && (
@@ -539,23 +605,40 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                           const diff = calcularDiferencaDias(
                             item.dt_ultima_leitura,
                           );
+                          const isSelecionada = empresasSelecionadas.includes(
+                            item.seq_empresa,
+                          );
+
                           return (
                             <TableRow
                               key={`${item.seq_empresa}-${item.seq_claro}`}
+                              className={
+                                isSelecionada
+                                  ? "bg-emerald-50/50 hover:bg-emerald-50/80"
+                                  : ""
+                              }
                             >
+                              <TableCell>
+                                <Checkbox
+                                  checked={isSelecionada}
+                                  onCheckedChange={() =>
+                                    handleToggleEmpresa(item.seq_empresa)
+                                  }
+                                  aria-label={`Selecionar ${item.razao}`}
+                                  className="border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
+                                />
+                              </TableCell>
                               <TableCell className="font-medium max-w-[200px] truncate">
                                 {item.razao}
                               </TableCell>
                               <TableCell>{item.cnpj}</TableCell>
                               {!consultorSelecionado && (
-                                <TableCell className="text-muted-foreground">
+                                <TableCell className="text-white">
                                   {mapaConsultores.get(
                                     Number(item.seq_consultor),
                                   )?.textoExibicao || "Não Atribuído"}
                                 </TableCell>
                               )}
-
-                              {/* CÉLULA DE LINHAS MODIFICADA PARA O BOTÃO AMARELO (RENOVAÇÃO) */}
                               <TableCell className="text-center">
                                 <Button
                                   variant="ghost"
@@ -571,11 +654,11 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                 </Button>
                               </TableCell>
 
-                              <TableCell className="text-right">
+                              <TableCell className="text-right text-white">
                                 {formatarDataApenasDia(item.dt_fim_contrato)}
                               </TableCell>
                               <TableCell className="text-right whitespace-nowrap">
-                                <span className="text-muted-foreground mr-2">
+                                <span className="text-white mr-2">
                                   {formatarDataApenasDia(
                                     item.dt_ultima_leitura,
                                   )}

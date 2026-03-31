@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -33,6 +34,7 @@ import {
   X,
   History,
   Smartphone,
+  CheckSquare,
 } from "lucide-react";
 import {
   BarChart,
@@ -58,6 +60,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     number | null | "nao_atribuidos"
   >(null);
   const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
+  const [empresasSelecionadas, setEmpresasSelecionadas] = useState<number[]>(
+    [],
+  ); // <-- Estado para checkboxes
   const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
   const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
   const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
@@ -217,6 +222,28 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
   };
 
+  const handleToggleEmpresa = (seq_empresa: number) => {
+    setEmpresasSelecionadas((prev) =>
+      prev.includes(seq_empresa)
+        ? prev.filter((id) => id !== seq_empresa)
+        : [...prev, seq_empresa],
+    );
+  };
+
+  const handleToggleTodasEmpresas = (checked: boolean) => {
+    if (checked) {
+      const todosIds = dadosFiltrados.map((item) => item.seq_empresa);
+      setEmpresasSelecionadas((prev) =>
+        Array.from(new Set([...prev, ...todosIds])),
+      );
+    } else {
+      const idsPaginaAtual = dadosFiltrados.map((item) => item.seq_empresa);
+      setEmpresasSelecionadas((prev) =>
+        prev.filter((id) => !idsPaginaAtual.includes(id)),
+      );
+    }
+  };
+
   const abrirHistorico = async (seq_empresa: number, razao: string) => {
     setEmpresaHistoricoNome(razao);
     setModalHistoricoAberto(true);
@@ -279,19 +306,31 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     }));
   }, [dadosFiltrados]);
 
+  const todasEmpresasAtuaisSelecionadas = useMemo(() => {
+    if (dadosFiltrados.length === 0) return false;
+    return dadosFiltrados.every((item) =>
+      empresasSelecionadas.includes(item.seq_empresa),
+    );
+  }, [dadosFiltrados, empresasSelecionadas]);
+
   const onClickSubirServicos = () => {
     handleSubirServicos({
       tipoOperacao: "Portabilidade",
       hashFunil: hashConsultores,
       dadosGlobais: dados,
       consultoresEnvio: consultoresEnvio,
+      empresasEnvio: empresasSelecionadas,
       limiteEnvio: limiteEnvio,
       onSuccessCb: () => {
         setConsultoresEnvio([]);
+        setEmpresasSelecionadas([]);
         setLimiteEnvio("");
       },
     });
   };
+
+  const isBotaoEnvioHabilitado =
+    consultoresEnvio.length > 0 || empresasSelecionadas.length > 0;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
@@ -329,13 +368,15 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            {consultoresEnvio.length > 0 && (
+            {(consultoresEnvio.length > 0 ||
+              empresasSelecionadas.length > 0) && (
               <div className="flex flex-wrap justify-end gap-2 max-w-lg">
                 {consultoresEnvio.map((id) => (
                   <span
-                    key={`badge-${id}`}
+                    key={`badge-consultor-${id}`}
                     className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700 shadow-sm"
                   >
+                    <Users size={14} />
                     {mapaConsultores.get(id)?.textoExibicao || "Desconhecido"}
                     <button
                       onClick={() => handleRemoverConsultorEnvio(id)}
@@ -345,6 +386,18 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     </button>
                   </span>
                 ))}
+                {empresasSelecionadas.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 shadow-sm">
+                    <CheckSquare size={14} />
+                    {empresasSelecionadas.length} Empresa(s) Selecionada(s)
+                    <button
+                      onClick={() => setEmpresasSelecionadas([])}
+                      className="p-0.5 transition-colors rounded-full hover:bg-emerald-200"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                )}
               </div>
             )}
 
@@ -360,7 +413,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                       placeholder={
                         isCarregandoConsultores
                           ? "Carregando..."
-                          : "Adicionar para Envio"
+                          : "Adicionar Lote (Por Consultor)"
                       }
                     />
                   </SelectTrigger>
@@ -395,8 +448,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
               <Button
                 onClick={onClickSubirServicos}
-                disabled={consultoresEnvio.length === 0 || isEnviando}
-                className="h-10 px-6 font-medium text-white bg-blue-600 hover:bg-blue-700"
+                disabled={!isBotaoEnvioHabilitado || isEnviando}
+                className="h-10 px-6 font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
               >
                 {isEnviando ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -411,7 +464,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
         <div className="space-y-6">
           <div className="p-6 border rounded-xl border-border bg-background shadow-sm">
-            <div className="flex items-center gap-2 pb-4 mb-6 border-b">
+            <div className="flex items-center gap-2 pb-4 mb-">
               {consultorSelecionado ? (
                 <Users size={20} className="text-blue-500" />
               ) : (
@@ -463,7 +516,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               </div>
             ) : (
               <div className="space-y-8">
-                <div className="h-[350px] w-full border rounded-lg p-4 bg-muted/5 flex flex-col">
+                <div className="h-[350px] max-w-[50vw] border rounded-lg p-4 bg-muted/5 flex flex-col">
                   <h3 className="flex items-center gap-2 mb-4 text-sm font-medium text-muted-foreground">
                     <Building2 size={16} /> Volume de Linhas por Empresa
                   </h3>
@@ -476,7 +529,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                         <CartesianGrid
                           strokeDasharray="3 3"
                           vertical={false}
-                          stroke="#88888833"
+                          stroke="#ffffff"
                         />
                         <XAxis
                           dataKey="empresa"
@@ -484,7 +537,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                           hide={dadosFiltrados.length > 20}
                         />
                         <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                        <Tooltip cursor={{ fill: "#88888811" }} />
+                        <Tooltip cursor={{ fill: "#fff6f66b" }} />
                         <Bar
                           dataKey="linhas"
                           fill="#3b82f6"
@@ -499,6 +552,14 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                   <Table className="relative border-collapse">
                     <TableHeader className="sticky top-0 z-20 bg-muted shadow-[0_2px_2px_-1px_rgba(0,0,0,0.1)] ring-1 ring-border/50">
                       <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-[40px] bg-muted flex-shrink-0">
+                          <Checkbox
+                            checked={todasEmpresasAtuaisSelecionadas}
+                            onCheckedChange={handleToggleTodasEmpresas}
+                            aria-label="Selecionar todas as empresas desta página"
+                            className="border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
+                          />
+                        </TableHead>
                         <TableHead className="bg-muted">Empresa</TableHead>
                         <TableHead className="bg-muted">CNPJ</TableHead>
                         {typeof consultorSelecionado !== "number" && (
@@ -523,16 +584,35 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                         const diffDias = calcularDiferencaDias(
                           item.dt_ultima_leitura,
                         );
+                        const isSelecionada = empresasSelecionadas.includes(
+                          item.seq_empresa,
+                        );
+
                         return (
                           <TableRow
                             key={`row-${item.seq_empresa}-${item.seq_claro}`}
+                            className={
+                              isSelecionada
+                                ? "bg-emerald-50/50 hover:bg-emerald-50/80"
+                                : ""
+                            }
                           >
+                            <TableCell>
+                              <Checkbox
+                                checked={isSelecionada}
+                                onCheckedChange={() =>
+                                  handleToggleEmpresa(item.seq_empresa)
+                                }
+                                aria-label={`Selecionar ${item.razao}`}
+                                className="border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
+                              />
+                            </TableCell>
                             <TableCell className="max-w-[200px] truncate font-medium">
                               {item.razao}
                             </TableCell>
                             <TableCell>{item.cnpj}</TableCell>
                             {typeof consultorSelecionado !== "number" && (
-                              <TableCell className="text-muted-foreground">
+                              <TableCell className="text-white">
                                 {mapaConsultores.get(Number(item.seq_consultor))
                                   ?.textoExibicao || "Não Atribuído"}
                               </TableCell>
@@ -551,11 +631,11 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                 {item.qtd_servico_claro}
                               </Button>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right text-white">
                               {formatarDataApenasDia(item.dt_fim_contrato)}
                             </TableCell>
                             <TableCell className="whitespace-nowrap text-right">
-                              <span className="mr-2 text-muted-foreground">
+                              <span className="mr-2 text-white">
                                 {formatarDataApenasDia(item.dt_ultima_leitura)}
                               </span>
                               {diffDias !== null && (
