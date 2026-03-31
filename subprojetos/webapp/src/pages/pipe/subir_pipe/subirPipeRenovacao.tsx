@@ -17,6 +17,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   Users,
   UploadCloud,
@@ -26,6 +33,7 @@ import {
   LayoutList,
   X,
   History,
+  Smartphone,
 } from "lucide-react";
 import {
   BarChart,
@@ -40,7 +48,10 @@ import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
 import { useIntegracaoPipeRun } from "@/services/hookApiRun";
-import DialogHistoricoRenovacao, { IHistoricoEmpresa } from "@/components/historico_empresa_consultor/historico_renovacao";
+import DialogHistoricoRenovacao, {
+  IHistoricoEmpresa,
+} from "@/components/historico_empresa_consultor/historico_renovacao";
+import { DadosServicoOperadora } from "@/interfaces/servico_operadora.interface";
 
 export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const [consultorSelecionado, setConsultorSelecionado] = useState<
@@ -52,14 +63,22 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
   const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
 
+  // Estados do Histórico
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
   const [empresaHistoricoNome, setEmpresaHistoricoNome] = useState("");
   const [dadosHistorico, setDadosHistorico] = useState<IHistoricoEmpresa[]>([]);
   const [isCarregandoHistorico, setIsCarregandoHistorico] = useState(false);
 
+  // Estados da nova Modal de Linhas
+  const [modalLinhasAberto, setModalLinhasAberto] = useState(false);
+  const [empresaLinhasNome, setEmpresaLinhasNome] = useState("");
+  const [dadosLinhas, setDadosLinhas] = useState<DadosServicoOperadora[]>([]);
+  const [isCarregandoLinhas, setIsCarregandoLinhas] = useState(false);
+
   const hashConsultores = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
 
+  // Utilitários de Data
   const formatarDataApenasDia = (
     dataString: string | Date | undefined | null,
   ) => {
@@ -67,7 +86,11 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     try {
       const dateObj = new Date(dataString);
       if (isNaN(dateObj.getTime())) throw new Error();
-      return dateObj.toLocaleDateString("pt-BR");
+      return dateObj.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
     } catch {
       return "Data Inválida";
     }
@@ -85,11 +108,32 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // Utilitários de Formatação para a Modal
+  const formatarTelefone = (numero: number | string) => {
+    if (!numero) return "Não informado";
+    const str = String(numero).replace(/\D/g, "");
+    if (str.length === 11) {
+      return `+55 (${str.substring(0, 2)}) ${str.substring(2, 7)}-${str.substring(7)}`;
+    } else if (str.length === 10) {
+      return `+55 (${str.substring(0, 2)}) ${str.substring(2, 6)}-${str.substring(6)}`;
+    }
+    return `+55 ${str}`;
+  };
+
+  const formatarMoedaBRL = (valor: string | number) => {
+    if (!valor) return "R$ 0,00";
+    const num = typeof valor === "string" ? parseFloat(valor) : valor;
+    if (isNaN(num)) return "R$ 0,00";
+    return num.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  };
+
   useEffect(() => {
     async function fetchConsultores() {
       try {
         setIsCarregandoConsultores(true);
-        // 1. CHAVE ATUALIZADA PARA INVALIDAR O CACHE
         const cacheKey = "consultores_renovacao_cache_v2";
         let cachedData: string | null = null;
 
@@ -129,11 +173,13 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const consultoresElegiveis = useMemo(() => {
     return consultores.filter((c) => {
       if (!c.perfil_indicacao) return false;
-      
+
       const perfil = String(c.perfil_indicacao).trim().toUpperCase();
 
-      const perfilNormalizado = perfil.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      
+      const perfilNormalizado = perfil
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
       return perfilNormalizado === "RENOVACAO" || perfilNormalizado === "AMBOS";
     });
   }, [consultores]);
@@ -193,6 +239,26 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
       console.error("Erro ao buscar histórico:", error);
     } finally {
       setIsCarregandoHistorico(false);
+    }
+  };
+
+  // Função para abrir a Modal de Linhas
+  const abrirModalLinhas = async (seq_empresa: number, razao: string) => {
+    setEmpresaLinhasNome(razao);
+    setModalLinhasAberto(true);
+    setIsCarregandoLinhas(true);
+    setDadosLinhas([]);
+
+    try {
+      const response = await API.get(`/api/servico-operadora/${seq_empresa}`);
+      if (response.data) {
+        // Garantindo compatibilidade com o retorno da API
+        setDadosLinhas(response.data.dados || response.data);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar informações das linhas:", error);
+    } finally {
+      setIsCarregandoLinhas(false);
     }
   };
 
@@ -311,7 +377,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                         key={`envio-${c.seq_consultor}`}
                         value={String(c.seq_consultor)}
                       >
-                        {c.nome} (Min: {c.perfil_qtd_linhas_min} / Máx: {c.perfil_qtd_linhas_max})
+                        {c.nome} (Min: {c.perfil_qtd_linhas_min} / Máx:{" "}
+                        {c.perfil_qtd_linhas_max})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -384,12 +451,14 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     <SelectItem value="nao_atribuidos">
                       Não Atribuídos
                     </SelectItem>
+                    {/* Renderiza apenas os consultores ELEGÍVEIS */}
                     {consultoresElegiveis.map((c) => (
                       <SelectItem
                         key={`filtro-${c.seq_consultor}`}
                         value={String(c.seq_consultor)}
                       >
-                        {c.nome} (Min: {c.perfil_qtd_linhas_min} / Máx: {c.perfil_qtd_linhas_max})
+                        {c.nome} (Min: {c.perfil_qtd_linhas_min} / Máx:{" "}
+                        {c.perfil_qtd_linhas_max})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -431,7 +500,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                         <Tooltip cursor={{ fill: "#88888811" }} />
                         <Bar
                           dataKey="linhas"
-                          fill="#eab308"
+                          fill="#eab308" // yellow-500
                           radius={[4, 4, 0, 0]}
                         />
                       </BarChart>
@@ -480,15 +549,28 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                               <TableCell>{item.cnpj}</TableCell>
                               {!consultorSelecionado && (
                                 <TableCell className="text-muted-foreground">
-                                  {/* Exibe o nome usando o mapa para exibir as métricas */}
                                   {mapaConsultores.get(
                                     Number(item.seq_consultor),
                                   )?.textoExibicao || "Não Atribuído"}
                                 </TableCell>
                               )}
-                              <TableCell className="text-center font-bold text-yellow-600">
-                                {item.qtd_servico_claro}
+
+                              {/* CÉLULA DE LINHAS MODIFICADA PARA O BOTÃO AMARELO (RENOVAÇÃO) */}
+                              <TableCell className="text-center">
+                                <Button
+                                  variant="ghost"
+                                  onClick={() =>
+                                    abrirModalLinhas(
+                                      item.seq_empresa,
+                                      item.razao || "Empresa Desconhecida",
+                                    )
+                                  }
+                                  className="h-8 px-3 font-bold text-yellow-600 transition-colors rounded-full hover:bg-yellow-100 hover:text-yellow-800"
+                                >
+                                  {item.qtd_servico_claro}
+                                </Button>
                               </TableCell>
+
                               <TableCell className="text-right">
                                 {formatarDataApenasDia(item.dt_fim_contrato)}
                               </TableCell>
@@ -531,14 +613,142 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
             )}
           </div>
         </div>
-        
-        <DialogHistoricoRenovacao 
-          open={modalHistoricoAberto} 
+
+        <DialogHistoricoRenovacao
+          open={modalHistoricoAberto}
           onOpenChange={setModalHistoricoAberto}
           empresaNome={empresaHistoricoNome}
           dadosHistorico={dadosHistorico}
           isCarregando={isCarregandoHistorico}
         />
+
+        {/* Modal de Linhas com textos em branco forte e arquitetura idêntica à portabilidade */}
+        <Dialog open={modalLinhasAberto} onOpenChange={setModalLinhasAberto}>
+          <DialogContent className="sm:max-w-6xl w-[95vw] max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-background [&>button.absolute]:hidden">
+            <div className="p-6 border-b border-border bg-muted/10 shrink-0 flex items-start justify-between">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-2xl font-bold text-white">
+                  <Smartphone className="w-6 h-6 text-white" />
+                  Detalhamento das Linhas
+                </DialogTitle>
+                <DialogDescription className="text-base font-medium text-white mt-2">
+                  Empresa:{" "}
+                  <span className="font-extrabold text-yellow-600">
+                    {empresaLinhasNome}
+                  </span>
+                </DialogDescription>
+              </DialogHeader>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full text-white hover:bg-muted hover:text-white"
+                onClick={() => setModalLinhasAberto(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="p-6 flex-1 overflow-y-auto relative">
+              {isCarregandoLinhas ? (
+                <div className="flex flex-col items-center justify-center py-12 h-full">
+                  <Loader2 className="w-8 h-8 animate-spin text-white mb-4" />
+                  <p className="text-yellow-600  font-bold text-lg">
+                    Carregando informações das linhas...
+                  </p>
+                </div>
+              ) : dadosLinhas.length === 0 ? (
+                <div className="bg-muted/30 p-10 rounded-lg text-center border border-dashed border-border mt-4">
+                  <Smartphone className="w-10 h-10 text-white mx-auto mb-3 opacity-80" />
+                  <p className="text-yellow-600 font-bold text-lg">
+                    Nenhuma informação de linha encontrada para esta empresa.
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-lg shadow-sm w-full bg-card">
+                  <Table className="relative border-collapse w-full">
+                    <TableHeader className="sticky top-0 z-10 shadow-sm bg-muted ring-1 ring-border/50">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="font-bold text-white py-3">
+                          Número
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Operadora
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Plano
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Valor
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Bônus
+                        </TableHead>
+                        <TableHead className="font-bold text-right text-white py-3">
+                          Fim Compromisso
+                        </TableHead>
+                        <TableHead className="font-bold text-center text-white py-3">
+                          Status
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dadosLinhas.map((linha, index) => (
+                        <TableRow
+                          key={`linha-${linha.seq_servico_operadora || index}`}
+                          className="hover:bg-muted/50 transition-colors"
+                        >
+                          <TableCell className="font-bold tracking-wide py-3 text-yellow-600">
+                            {formatarTelefone(linha.numero_linha)}
+                          </TableCell>
+                          <TableCell className="py-3">
+                            <span
+                              className={`font-bold text-xs px-2.5 py-1 rounded-md ${
+                                linha.tipo_servico === "CLARO"
+                                  ? "bg-red-50 text-red-700 border border-red-200"
+                                  : linha.tipo_servico === "VIVO"
+                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                    : "bg-muted text-white border border-border"
+                              }`}
+                            >
+                              {linha.tipo_servico}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-3 font-medium text-white">
+                            {linha.plano || "-"}
+                          </TableCell>
+                          <TableCell className="font-bold text-white py-3">
+                            {formatarMoedaBRL(linha.valor)}
+                          </TableCell>
+                          <TableCell className="font-medium text-white py-3">
+                            {linha.bonus || "-"}
+                          </TableCell>
+                          <TableCell className="text-right py-3 font-medium text-white">
+                            {formatarDataApenasDia(linha.dt_fim_compromisso)}
+                          </TableCell>
+                          <TableCell className="py-3">
+                            <div className="flex items-center justify-center gap-2">
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full ${
+                                  linha.linha_ativa
+                                    ? "bg-green-500"
+                                    : "bg-red-500"
+                                }`}
+                                title={linha.linha_ativa ? "Ativa" : "Inativa"}
+                              />
+                              <span className="text-sm font-bold text-white text-left">
+                                {linha.linha_ativa ? "Ativa" : "Inativa"}
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
