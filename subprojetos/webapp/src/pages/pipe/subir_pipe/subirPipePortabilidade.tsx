@@ -184,7 +184,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     return consultores.filter((c) => {
       if (!c.perfil_indicacao) return false;
       const perfil = String(c.perfil_indicacao).trim().toUpperCase();
-      return perfil === "PORTABILIDADE" || perfil === "AMBOS";
+      return perfil === "PORTABILIDADE" || perfil === "AMBOS" || perfil === "CARTEIRA";
     });
   }, [consultores]);
 

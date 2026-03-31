@@ -189,7 +189,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
-      return perfilNormalizado === "RENOVACAO" || perfilNormalizado === "AMBOS";
+      return perfilNormalizado === "RENOVACAO" || perfilNormalizado === "AMBOS" || perfilNormalizado === "CARTEIRA";
     });
   }, [consultores]);
 
@@ -314,22 +314,17 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     }));
   }, [dadosFiltrados]);
 
-  // ==========================================
-  // LÓGICAS DO NOVO GRÁFICO DE PIZZA (SERVIÇOS)
-  // ==========================================
   const totalServicosGeral = useMemo(() => {
-    // Retorna a quantidade total de empresas/serviços
     if (!Array.isArray(dados)) return 0;
     return dados.length;
   }, [dados]);
 
   const totalServicosFiltrados = useMemo(() => {
-    // Retorna a quantidade de empresas/serviços do consultor selecionado
     return dadosFiltrados.length;
   }, [dadosFiltrados]);
 
   const dadosGraficoPizza = useMemo(() => {
-    const COR_AMARELO = "#eab308"; // Código Hex para text-yellow-500
+    const COR_AMARELO = "#eab308"; 
     const COR_BRANCO = "#ffffff";
 
     if (consultorSelecionado === null) {
@@ -356,7 +351,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
       ];
     }
   }, [consultorSelecionado, totalServicosGeral, totalServicosFiltrados]);
-  // ==========================================
 
   const todasEmpresasAtuaisSelecionadas = useMemo(() => {
     if (dadosFiltrados.length === 0) return false;
@@ -568,9 +562,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
               </div>
             ) : (
               <div className="space-y-8">
-                {/* --- SEÇÃO DOS GRÁFICOS ORGANIZADA COM GRID --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* GRÁFICO 1: Barras (Ocupa 2 colunas) */}
                   <div className="h-[350px] lg:col-span-2 border rounded-lg p-4 bg-muted/5 flex flex-col shadow-sm">
                     <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
                       <Building2 size={16} /> Volume de Linhas a Renovar por
@@ -679,7 +671,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                     </div>
                   </div>
                 </div>
-                {/* ------------------------------------------- */}
 
                 <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                   <div className="rounded-md border relative [&>div]:max-h-[500px] [&>div]:overflow-y-auto scrollbar-thin">
