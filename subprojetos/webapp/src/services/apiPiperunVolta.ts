@@ -51,20 +51,14 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
     let paginaAtual = 1;
     let temMaisDados = true;
     const dealsFormatados = [];
-
-    // Formatando as datas para o PipeRun pegar o dia todo (00:00:00 até 23:59:59)
     const closedAtStart = `${dataEscolhida} 00:00:00`;
     const closedAtEnd = `${dataEscolhida} 23:59:59`;
 
     try {
         console.log(`[Sincronização] Iniciando busca para a data: ${dataEscolhida}`);
 
-        // Loop de Paginação simulando o "while True" do seu script Python
         while (temMaisDados) {
             console.log(`[Sincronização] Buscando página ${paginaAtual}...`);
-
-            // Parâmetros baseados no seu script Python, buscando status 1 (Ganho) e 3 (Perdido)
-            // Caso precise filtrar funis específicos, adicione: pipeline_id=90697,91356,77127
             const url = `/deals?status=1,3&closed_at_start=${closedAtStart}&closed_at_end=${closedAtEnd}&with=customFields,company,owner,lostReason&show=200&page=${paginaAtual}`;
 
             const response = await apiPipeRun.get(url);
@@ -76,43 +70,33 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
                 break;
             }
 
-            // Processamento dos Deals da página atual
             for (const deal of dadosPagina) {
                 let cnpj = obterCustomField(deal.customFields, 592065, "CNPJ");
-
-                // Se não achou nos custom fields e tem company_id, faz a busca profunda
                 if (!cnpj && deal.company_id) {
                     cnpj = await buscarCnpjPorCompanyId(deal.company_id);
                 }
 
-                // Se ainda assim não tem CNPJ, ignoramos o registro (evita quebrar o backend)
                 if (!cnpj) {
                     console.warn(`[Aviso] Deal ID ${deal.id} ignorado por falta de CNPJ.`);
                     continue;
                 }
 
-                // Extração da operadora ("Operadora do Pedido" id 631881)
                 const operadoraOriginal = obterCustomField(deal.customFields, 631881, "Operadora do Pedido");
-                // Valida se veio array e extrai, ou converte para string
+
                 let tipoServico = "CLARO";
+
                 if (Array.isArray(operadoraOriginal) && operadoraOriginal[0]) {
                     tipoServico = String(operadoraOriginal[0]).toUpperCase();
                 } else if (typeof operadoraOriginal === 'string') {
                     tipoServico = operadoraOriginal.toUpperCase();
                 }
 
-                // Regra de Ganho vs Perda
                 const isGanho = deal.status === 1 || deal.lost_reason_id === null;
                 const observacao = deal.observation || deal.description || "Sem detalhes";
 
-                // Nome do Consultor (owner)
-                const nomeConsultor = deal.owner?.name || "Consultor Desconhecido";
-
-                // Montagem do Payload para enviar à API OMNI
                 const payloadFormatado = {
                     cnpj: cnpj,
                     codigo_crm: deal.owner_id,
-                    nome_consultor: nomeConsultor, // <--- Importante para atualizar a Carteira
                     tipo_servico: tipoServico,
                     data_inicio_atendimento: deal.created_at,
                     data_fim_atendimento: deal.closed_at,
@@ -128,10 +112,6 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
         }
 
         console.log(`[Sincronização] Busca concluída. ${dealsFormatados.length} serviços extraídos. Enviando ao backend...`);
-
-        // Envio para o seu backend. Pode ser em lote (tudo de uma vez) ou um por um.
-        // Como sua função atualizarServicosPiperun parece receber um único "dados" por vez, faremos um for. 
-        // Se você refatorar o back para receber array, basta enviar a variável dealsFormatados direto.
         let sucessoEnvio = 0;
         let falhaEnvio = 0;
 
