@@ -19,9 +19,6 @@ const apiPipeRunRest = axios.create({
     },
 });
 
-// ============================================================================
-// 2. ORQUESTRAÇÃO CRONOLÓGICA DAS APIS
-// ============================================================================
 export const API_PIPERUN = async ({
     servicos,
     hashFunil,
@@ -34,9 +31,6 @@ export const API_PIPERUN = async ({
         console.log(`[PipeRun] Iniciando processamento cronológico: ${servico.razao}`);
         
         try {
-            // ----------------------------------------------------------------
-            // FORMATADORES E DISTRIBUIÇÃO DE DADOS
-            // ----------------------------------------------------------------
             const cpfLimpo = limparPontuacao(servico.decisor_cpf);
             const cpfFormatado = formatarCPF(servico.decisor_cpf);
             const cnpjLimpo = limparPontuacao(servico.cnpj);
@@ -60,9 +54,6 @@ export const API_PIPERUN = async ({
             const dataInicioFormatada = obterDataInicioContrato(servico.dt_fim_contrato);
             const mesesContrato = calcularMesesAteInicioContrato(dataInicioFormatada);
 
-            // ----------------------------------------------------------------
-            // PASSO 1: PESSOA (DECISOR)
-            // ----------------------------------------------------------------
             let personId = null;
             
             if (decisorNomeUpper) {
@@ -111,9 +102,6 @@ export const API_PIPERUN = async ({
                 console.log(`[Passo 1] IGNORADO: Dados do decisor ausentes ou nulos. Procedendo apenas com a Empresa.`);
             }
 
-            // ----------------------------------------------------------------
-            // PASSO 2: EMPRESA (COMPANY)
-            // ----------------------------------------------------------------
             let companyId = null;
             console.log(`[Passo 2] Validando Empresa: ${servico.razao} (CNPJ: ${cnpjLimpo})`);
 
@@ -147,9 +135,6 @@ export const API_PIPERUN = async ({
                 companyId = createCompany.data?.data?.id || null;
             }
 
-            // ----------------------------------------------------------------
-            // PASSO 3: OPORTUNIDADE (DEAL)
-            // ----------------------------------------------------------------
             console.log(`[Passo 3] Gerando payload formatado para a Oportunidade...`);
             const titleCard = `(${dddFinal}) ${servico.indicacao} >> ${servico.razao}`;
 
@@ -159,15 +144,17 @@ export const API_PIPERUN = async ({
                     title: titleCard,
                     company: servico.razao,
                     cnpj: cnpjFormatado, 
+                    DDD: dddFinal,
                     custom_fields: {
                         "Inicio do Contrato": dataInicioFormatada,
                         "Final do Contrato": dataFimFormatada,
                         "Tempo de Contrato": mesesContrato,
-                        "DDD": dddFinal,
                         "Quantidade de linhas móveis": servico.qtd_servico_claro || 0,
+                        "Obs de fechamento": servico.observacao_fechamento || "",
                         "Observacao": servico.observacao || "",
+                        "Carteira": servico.carteira || "",
                         "Indicacao": servico.indicacao,
-                        "Classificacao do Contrato": servico.classificacao_contrato || "",
+                        "Classificação": servico.classificacao_contrato || "",
                         "Tipo de Servico": "CLARO",
                         "DOC DRIVE": servico.servico_docdrive || "",
                     }
@@ -182,9 +169,6 @@ export const API_PIPERUN = async ({
                 headers: { "Content-Type": "application/json" }
             });
 
-            // ----------------------------------------------------------------
-            // PASSO 4: VINCULAR PESSOA À OPORTUNIDADE (Apenas se Pessoa existir)
-            // ----------------------------------------------------------------
             let dealIdCriado = null;
             if (responseIntegrador.data && responseIntegrador.data.data && Array.isArray(responseIntegrador.data.data)) {
                 dealIdCriado = responseIntegrador.data.data[0]?.id;
