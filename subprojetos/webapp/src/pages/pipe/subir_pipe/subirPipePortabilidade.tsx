@@ -35,6 +35,7 @@ import {
   History,
   Smartphone,
   CheckSquare,
+  PieChart as PieChartIcon, // Importação do ícone adicionada
 } from "lucide-react";
 import {
   BarChart,
@@ -44,6 +45,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart, // Importação do Recharts adicionada
+  Pie, // Importação do Recharts adicionada
+  Cell, // Importação do Recharts adicionada
 } from "recharts";
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
@@ -62,7 +66,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
   const [empresasSelecionadas, setEmpresasSelecionadas] = useState<number[]>(
     [],
-  ); // <-- Estado para checkboxes
+  );
   const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
   const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
   const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
@@ -306,6 +310,58 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     }));
   }, [dadosFiltrados]);
 
+  // ==========================================
+  // LÓGICAS DO NOVO GRÁFICO DE PIZZA (LINHAS)
+  // ==========================================
+  const totalLinhasGeral = useMemo(() => {
+    if (!Array.isArray(dados)) return 0;
+    return dados.reduce((acc, item) => {
+      const qtd =
+        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0;
+      return acc + qtd;
+    }, 0);
+  }, [dados]);
+
+  const totalLinhasFiltradas = useMemo(() => {
+    return dadosFiltrados.reduce((acc, item) => {
+      const qtd =
+        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0;
+      return acc + qtd;
+    }, 0);
+  }, [dadosFiltrados]);
+
+  const dadosGraficoPizza = useMemo(() => {
+    const COR_AZUL = "#3b82f6";
+    const COR_BRANCO = "#ffffff";
+
+    if (consultorSelecionado === null) {
+      // Quando nenhum consultor está selecionado, exibe apenas a totalidade azul
+      return [
+        {
+          name: "Total Portabilidade",
+          value: totalLinhasGeral,
+          color: COR_AZUL,
+        },
+      ];
+    } else {
+      // Se houver filtro, exibe as linhas do filtro em azul e o restante das linhas globais em branco
+      const restante = totalLinhasGeral - totalLinhasFiltradas;
+      return [
+        {
+          name: "Consultor Selecionado",
+          value: totalLinhasFiltradas,
+          color: COR_AZUL,
+        },
+        {
+          name: "Demais Consultores/Linhas",
+          value: restante > 0 ? restante : 0,
+          color: COR_BRANCO,
+        },
+      ];
+    }
+  }, [consultorSelecionado, totalLinhasGeral, totalLinhasFiltradas]);
+  // ==========================================
+
   const todasEmpresasAtuaisSelecionadas = useMemo(() => {
     if (dadosFiltrados.length === 0) return false;
     return dadosFiltrados.every((item) =>
@@ -464,7 +520,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
         <div className="space-y-6">
           <div className="p-6 border rounded-xl border-border bg-background shadow-sm">
-            <div className="flex items-center gap-2 pb-4 mb-">
+            <div className="flex items-center gap-2 pb-4">
               {consultorSelecionado ? (
                 <Users size={20} className="text-blue-500" />
               ) : (
@@ -516,37 +572,115 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               </div>
             ) : (
               <div className="space-y-8">
-                <div className="h-[350px] max-w-[50vw] border rounded-lg p-4 bg-muted/5 flex flex-col">
-                  <h3 className="flex items-center gap-2 mb-4 text-sm font-medium text-muted-foreground">
-                    <Building2 size={16} /> Volume de Linhas por Empresa
-                  </h3>
-                  <div className="flex-1 w-full min-h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={dadosGrafico}
-                        margin={{ top: 10, right: 20, left: -20, bottom: 20 }}
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          vertical={false}
-                          stroke="#ffffff"
-                        />
-                        <XAxis
-                          dataKey="empresa"
-                          tick={{ fontSize: 12 }}
-                          hide={dadosFiltrados.length > 20}
-                        />
-                        <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                        <Tooltip cursor={{ fill: "#fff6f66b" }} />
-                        <Bar
-                          dataKey="linhas"
-                          fill="#3b82f6"
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                {/* --- SEÇÃO DOS GRÁFICOS ORGANIZADA COM GRID --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* GRÁFICO 1: Barras (Ocupa 2 colunas) */}
+                  <div className="h-[350px] lg:col-span-2 border rounded-lg p-4 bg-muted/5 flex flex-col shadow-sm">
+                    <h3 className="flex items-center gap-2 mb-4 text-sm font-medium text-muted-foreground">
+                      <Building2 size={16} /> Volume de Linhas por Empresa
+                    </h3>
+                    <div className="flex-1 w-full min-h-[250px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={dadosGrafico}
+                          margin={{ top: 10, right: 20, left: -20, bottom: 20 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            vertical={false}
+                            stroke="#ffffff"
+                            opacity={0.1}
+                          />
+                          <XAxis
+                            dataKey="empresa"
+                            tick={{ fontSize: 12 }}
+                            hide={dadosFiltrados.length > 20}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 12 }}
+                            allowDecimals={false}
+                          />
+                          <Tooltip cursor={{ fill: "#fff6f66b" }} />
+                          <Bar
+                            dataKey="linhas"
+                            fill="#3b82f6"
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* GRÁFICO 2: Pizza (Ocupa 1 coluna) */}
+                  <div className="h-[350px] lg:col-span-1 border rounded-lg p-4 bg-muted/5 flex flex-col items-center relative shadow-sm">
+                    <h3 className="flex items-center gap-2 mb-2 text-sm font-medium text-muted-foreground w-full">
+                      <PieChartIcon size={16} /> Distribuição de Linhas
+                      (Portabilidade)
+                    </h3>
+
+                    <div className="relative flex-1 w-full flex items-center justify-center min-h-[220px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={dadosGraficoPizza}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={70}
+                            outerRadius={105}
+                            dataKey="value"
+                            stroke="none"
+                            paddingAngle={dadosGraficoPizza.length > 1 ? 3 : 0}
+                          >
+                            {dadosGraficoPizza.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => [
+                              `${value} linhas`,
+                              "Quantidade",
+                            ]}
+                            contentStyle={{
+                              borderRadius: "8px",
+                              border: "1px solid #e2e8f0",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+
+                      {/* Texto Centralizado Absoluto no Meio do Anel */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-4xl font-extrabold text-foreground tracking-tight">
+                          {totalLinhasFiltradas}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-medium text-center px-2 mt-1">
+                          {consultorSelecionado
+                            ? "Linhas do Filtro"
+                            : "Total de Linhas"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Legenda Customizada */}
+                    <div className="flex justify-center gap-6 mt-2 w-full pt-4 border-t border-border/50">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3.5 h-3.5 rounded-full bg-blue-500 shadow-sm"></div>
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {consultorSelecionado ? "Filtrado" : "Total Geral"}
+                        </span>
+                      </div>
+                      {consultorSelecionado !== null && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-3.5 h-3.5 rounded-full bg-white border border-border shadow-sm"></div>
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            Demais
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+                {/* ------------------------------------------- */}
 
                 <div className="relative border shadow-sm rounded-md scrollbar-thin [&>div]:max-h-[550px] [&>div]:overflow-y-auto">
                   <Table className="relative border-collapse">

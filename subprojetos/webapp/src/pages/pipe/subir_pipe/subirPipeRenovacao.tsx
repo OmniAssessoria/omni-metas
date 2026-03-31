@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox"; // <-- Componente Checkbox Necessário
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -35,7 +35,8 @@ import {
   X,
   History,
   Smartphone,
-  CheckSquare, // <-- Novo Ícone
+  CheckSquare,
+  PieChart as PieChartIcon, 
 } from "lucide-react";
 import {
   BarChart,
@@ -45,6 +46,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell, 
 } from "recharts";
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
@@ -62,7 +66,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
   const [empresasSelecionadas, setEmpresasSelecionadas] = useState<number[]>(
     [],
-  ); // <-- Estado para checkboxes
+  );
   const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
 
   const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
@@ -227,7 +231,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     setConsultoresEnvio((prev) => prev.filter((id) => id !== idToRemove));
   };
 
-  // --- LÓGICA DE SELEÇÃO INDIVIDUAL (CHECKBOXES) ---
   const handleToggleEmpresa = (seq_empresa: number) => {
     setEmpresasSelecionadas((prev) =>
       prev.includes(seq_empresa)
@@ -249,7 +252,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
       );
     }
   };
-  // -------------------------------------------------
 
   const abrirHistorico = async (seq_empresa: number, razao: string) => {
     setEmpresaHistoricoNome(razao);
@@ -271,7 +273,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     }
   };
 
-  // Função para abrir a Modal de Linhas
   const abrirModalLinhas = async (seq_empresa: number, razao: string) => {
     setEmpresaLinhasNome(razao);
     setModalLinhasAberto(true);
@@ -281,7 +282,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     try {
       const response = await API.get(`/api/servico-operadora/${seq_empresa}`);
       if (response.data) {
-        // Garantindo compatibilidade com o retorno da API
         setDadosLinhas(response.data.dados || response.data);
       }
     } catch (error) {
@@ -298,13 +298,10 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
   const dadosFiltrados = useMemo(() => {
     if (!Array.isArray(dados)) return [];
-
     if (consultorSelecionado === null) return dados;
-
     if (consultorSelecionado === "nao_atribuidos") {
       return dados.filter((item) => !item.seq_consultor);
     }
-
     return dados.filter((item) => item.seq_consultor === consultorSelecionado);
   }, [dados, consultorSelecionado]);
 
@@ -317,7 +314,56 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     }));
   }, [dadosFiltrados]);
 
-  // Checa se todas as empresas visíveis estão marcadas (para o Master Checkbox)
+  // ==========================================
+  // LÓGICAS DO NOVO GRÁFICO DE PIZZA (LINHAS)
+  // ==========================================
+  const totalLinhasGeral = useMemo(() => {
+    if (!Array.isArray(dados)) return 0;
+    return dados.reduce((acc, item) => {
+      const qtd =
+        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0;
+      return acc + qtd;
+    }, 0);
+  }, [dados]);
+
+  const totalLinhasFiltradas = useMemo(() => {
+    return dadosFiltrados.reduce((acc, item) => {
+      const qtd =
+        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0;
+      return acc + qtd;
+    }, 0);
+  }, [dadosFiltrados]);
+
+  const dadosGraficoPizza = useMemo(() => {
+    const COR_AMARELO = "#eab308"; // Código Hex para text-yellow-500
+    const COR_BRANCO = "#ffffff";
+
+    if (consultorSelecionado === null) {
+      return [
+        {
+          name: "Total Renovação",
+          value: totalLinhasGeral,
+          color: COR_AMARELO,
+        },
+      ];
+    } else {
+      const restante = totalLinhasGeral - totalLinhasFiltradas;
+      return [
+        {
+          name: "Consultor Selecionado",
+          value: totalLinhasFiltradas,
+          color: COR_AMARELO,
+        },
+        {
+          name: "Demais Consultores/Linhas",
+          value: restante > 0 ? restante : 0,
+          color: COR_BRANCO,
+        },
+      ];
+    }
+  }, [consultorSelecionado, totalLinhasGeral, totalLinhasFiltradas]);
+  // ==========================================
+
   const todasEmpresasAtuaisSelecionadas = useMemo(() => {
     if (dadosFiltrados.length === 0) return false;
     return dadosFiltrados.every((item) =>
@@ -331,17 +377,16 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
       hashFunil: hashConsultores,
       dadosGlobais: dados,
       consultoresEnvio: consultoresEnvio,
-      empresasEnvio: empresasSelecionadas, // <-- Injetando empresas marcadas
+      empresasEnvio: empresasSelecionadas,
       limiteEnvio: limiteEnvio,
       onSuccessCb: () => {
         setConsultoresEnvio([]);
-        setEmpresasSelecionadas([]); // Limpa seleções individuais no sucesso
+        setEmpresasSelecionadas([]);
         setLimiteEnvio("");
       },
     });
   };
 
-  // Trava para habilitar o botão de envio apenas se houver algo selecionado
   const isBotaoEnvioHabilitado =
     consultoresEnvio.length > 0 || empresasSelecionadas.length > 0;
 
@@ -378,7 +423,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            {/* Visualização de Seleções (Consultores + Empresas Avulsas) */}
             {(consultoresEnvio.length > 0 ||
               empresasSelecionadas.length > 0) && (
               <div className="flex flex-wrap justify-end gap-2 max-w-lg">
@@ -530,41 +574,118 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
               </div>
             ) : (
               <div className="space-y-8">
-                <div className="h-[350px] max-w-[50vw] border rounded-lg p-4 bg-muted/5 flex flex-col">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                    <Building2 size={16} /> Volume de Linhas a Renovar por
-                    Empresa
-                  </h3>
-                  <div className="flex-1 w-full min-h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={dadosGrafico}
-                        margin={{ top: 10, right: 20, left: -20, bottom: 20 }}
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          vertical={false}
-                          stroke="#d8d8d8"
-                        />
-                        <XAxis
-                          dataKey="empresa"
-                          tick={{ fontSize: 12, color: "white" }}
-                          hide={dadosFiltrados.length > 20}
-                          tickFormatter={(value: string) =>
-                            value ? value.substring(0, 15) + "..." : ""
-                          }
-                        />
-                        <YAxis tick={{ fontSize: 12, color: "white" }} allowDecimals={false} />
-                        <Tooltip cursor={{ fill: "#ffffff4d" }} />
-                        <Bar
-                          dataKey="linhas"
-                          fill="#eab308"
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                {/* --- SEÇÃO DOS GRÁFICOS ORGANIZADA COM GRID --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* GRÁFICO 1: Barras (Ocupa 2 colunas) */}
+                  <div className="h-[350px] lg:col-span-2 border rounded-lg p-4 bg-muted/5 flex flex-col shadow-sm">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                      <Building2 size={16} /> Volume de Linhas a Renovar por
+                      Empresa
+                    </h3>
+                    <div className="flex-1 w-full min-h-[250px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={dadosGrafico}
+                          margin={{ top: 10, right: 20, left: -20, bottom: 20 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            vertical={false}
+                            stroke="#ffffff"
+                            opacity={0.1}
+                          />
+                          <XAxis
+                            dataKey="empresa"
+                            tick={{ fontSize: 12, color: "white" }}
+                            hide={dadosFiltrados.length > 20}
+                            tickFormatter={(value: string) =>
+                              value ? value.substring(0, 15) + "..." : ""
+                            }
+                          />
+                          <YAxis
+                            tick={{ fontSize: 12, color: "white" }}
+                            allowDecimals={false}
+                          />
+                          <Tooltip cursor={{ fill: "#ffffff4d" }} />
+                          <Bar
+                            dataKey="linhas"
+                            fill="#eab308"
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* GRÁFICO 2: Pizza (Ocupa 1 coluna) */}
+                  <div className="h-[350px] lg:col-span-1 border rounded-lg p-4 bg-muted/5 flex flex-col items-center relative shadow-sm">
+                    <h3 className="flex items-center gap-2 mb-2 text-sm font-medium text-muted-foreground w-full">
+                      <PieChartIcon size={16} /> Distribuição de Linhas
+                      (Renovação)
+                    </h3>
+
+                    <div className="relative flex-1 w-full flex items-center justify-center min-h-[220px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={dadosGraficoPizza}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={70}
+                            outerRadius={105}
+                            dataKey="value"
+                            stroke="none"
+                            paddingAngle={dadosGraficoPizza.length > 1 ? 3 : 0}
+                          >
+                            {dadosGraficoPizza.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => [
+                              `${value} linhas`,
+                              "Quantidade",
+                            ]}
+                            contentStyle={{
+                              borderRadius: "8px",
+                              border: "1px solid #e2e8f0",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-4xl font-extrabold text-foreground tracking-tight">
+                          {totalLinhasFiltradas}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-medium text-center px-2 mt-1">
+                          {consultorSelecionado
+                            ? "Linhas do Filtro"
+                            : "Total de Linhas"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Legenda Customizada */}
+                    <div className="flex justify-center gap-6 mt-2 w-full pt-4 border-t border-border/50">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3.5 h-3.5 rounded-full bg-yellow-500 shadow-sm"></div>
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {consultorSelecionado ? "Filtrado" : "Total Geral"}
+                        </span>
+                      </div>
+                      {consultorSelecionado !== null && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-3.5 h-3.5 rounded-full bg-white border border-border shadow-sm"></div>
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            Demais
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+                {/* ------------------------------------------- */}
 
                 <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
                   <div className="rounded-md border relative [&>div]:max-h-[500px] [&>div]:overflow-y-auto scrollbar-thin">
