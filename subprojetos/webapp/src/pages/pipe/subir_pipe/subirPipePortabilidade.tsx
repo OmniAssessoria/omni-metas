@@ -35,7 +35,7 @@ import {
   History,
   Smartphone,
   CheckSquare,
-  PieChart as PieChartIcon, // Importação do ícone adicionada
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import {
   BarChart,
@@ -45,9 +45,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart, // Importação do Recharts adicionada
-  Pie, // Importação do Recharts adicionada
-  Cell, // Importação do Recharts adicionada
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
@@ -310,24 +310,13 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     }));
   }, [dadosFiltrados]);
 
-  // ==========================================
-  // LÓGICAS DO NOVO GRÁFICO DE PIZZA (LINHAS)
-  // ==========================================
-  const totalLinhasGeral = useMemo(() => {
+  const totalServicosGeral = useMemo(() => {
     if (!Array.isArray(dados)) return 0;
-    return dados.reduce((acc, item) => {
-      const qtd =
-        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0;
-      return acc + qtd;
-    }, 0);
+    return dados.length;
   }, [dados]);
 
-  const totalLinhasFiltradas = useMemo(() => {
-    return dadosFiltrados.reduce((acc, item) => {
-      const qtd =
-        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0;
-      return acc + qtd;
-    }, 0);
+  const totalServicosFiltrados = useMemo(() => {
+    return dadosFiltrados.length;
   }, [dadosFiltrados]);
 
   const dadosGraficoPizza = useMemo(() => {
@@ -335,32 +324,29 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     const COR_BRANCO = "#ffffff";
 
     if (consultorSelecionado === null) {
-      // Quando nenhum consultor está selecionado, exibe apenas a totalidade azul
       return [
         {
           name: "Total Portabilidade",
-          value: totalLinhasGeral,
+          value: totalServicosGeral,
           color: COR_AZUL,
         },
       ];
     } else {
-      // Se houver filtro, exibe as linhas do filtro em azul e o restante das linhas globais em branco
-      const restante = totalLinhasGeral - totalLinhasFiltradas;
+      const restante = totalServicosGeral - totalServicosFiltrados;
       return [
         {
           name: "Consultor Selecionado",
-          value: totalLinhasFiltradas,
+          value: totalServicosFiltrados,
           color: COR_AZUL,
         },
         {
-          name: "Demais Consultores/Linhas",
+          name: "Demais Consultores/Serviços",
           value: restante > 0 ? restante : 0,
           color: COR_BRANCO,
         },
       ];
     }
-  }, [consultorSelecionado, totalLinhasGeral, totalLinhasFiltradas]);
-  // ==========================================
+  }, [consultorSelecionado, totalServicosGeral, totalServicosFiltrados]);
 
   const todasEmpresasAtuaisSelecionadas = useMemo(() => {
     if (dadosFiltrados.length === 0) return false;
@@ -572,9 +558,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               </div>
             ) : (
               <div className="space-y-8">
-                {/* --- SEÇÃO DOS GRÁFICOS ORGANIZADA COM GRID --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* GRÁFICO 1: Barras (Ocupa 2 colunas) */}
                   <div className="h-[350px] lg:col-span-2 border rounded-lg p-4 bg-muted/5 flex flex-col shadow-sm">
                     <h3 className="flex items-center gap-2 mb-4 text-sm font-medium text-muted-foreground">
                       <Building2 size={16} /> Volume de Linhas por Empresa
@@ -611,10 +595,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     </div>
                   </div>
 
-                  {/* GRÁFICO 2: Pizza (Ocupa 1 coluna) */}
                   <div className="h-[350px] lg:col-span-1 border rounded-lg p-4 bg-muted/5 flex flex-col items-center relative shadow-sm">
                     <h3 className="flex items-center gap-2 mb-2 text-sm font-medium text-muted-foreground w-full">
-                      <PieChartIcon size={16} /> Distribuição de Linhas
+                      <PieChartIcon size={16} /> Distribuição de Serviços
                       (Portabilidade)
                     </h3>
 
@@ -637,7 +620,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                           </Pie>
                           <Tooltip
                             formatter={(value) => [
-                              `${value} linhas`,
+                              `${value} serviços`,
                               "Quantidade",
                             ]}
                             contentStyle={{
@@ -648,20 +631,18 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                         </PieChart>
                       </ResponsiveContainer>
 
-                      {/* Texto Centralizado Absoluto no Meio do Anel */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <span className="text-4xl font-extrabold text-foreground tracking-tight">
-                          {totalLinhasFiltradas}
+                          {totalServicosFiltrados}
                         </span>
                         <span className="text-xs text-muted-foreground font-medium text-center px-2 mt-1">
                           {consultorSelecionado
-                            ? "Linhas do Filtro"
-                            : "Total de Linhas"}
+                            ? "Serviços do Filtro"
+                            : "Total de Serviços"}
                         </span>
                       </div>
                     </div>
 
-                    {/* Legenda Customizada */}
                     <div className="flex justify-center gap-6 mt-2 w-full pt-4 border-t border-border/50">
                       <div className="flex items-center gap-2">
                         <div className="w-3.5 h-3.5 rounded-full bg-blue-500 shadow-sm"></div>
@@ -680,7 +661,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     </div>
                   </div>
                 </div>
-                {/* ------------------------------------------- */}
 
                 <div className="relative border shadow-sm rounded-md scrollbar-thin [&>div]:max-h-[550px] [&>div]:overflow-y-auto">
                   <Table className="relative border-collapse">
