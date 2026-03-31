@@ -1,25 +1,28 @@
 import { Router } from "express";
 import RotasConsultor from "./consultor.router.js";
 import RotasServicoClaro from "./servico_claro.router.js";
+import RotasServicoOperadora from "./servico_operadora.router.js";
 
 class RouterController {
-    private router: Router;
+  private router: Router;
 
-    constructor() {
-        this.router = Router();
-        this.registrarRotas();
-    }
+  constructor() {
+    this.router = Router();
+    this.registrarRotas();
+  }
 
-    private registrarRotas() {
-        const rotasConsultor = new RotasConsultor();
-        this.router.use("/api", rotasConsultor.retornarRotas());
-        const rotasServicoClaro = new RotasServicoClaro();
-        this.router.use("/api", rotasServicoClaro.retornarRotas());
-    }
+  private registrarRotas() {
+    const rotasConsultor = new RotasConsultor();
+    this.router.use("/api", rotasConsultor.retornarRotas());
+    const rotasServicoClaro = new RotasServicoClaro();
+    this.router.use("/api", rotasServicoClaro.retornarRotas());
+    const rotasServicoOperadora = new RotasServicoOperadora();
+    this.router.use("/api", rotasServicoOperadora.retornarRotas());
+  }
 
-    public retornarRotas(): Router {
-        return this.router;
-    }
+  public retornarRotas(): Router {
+    return this.router;
+  }
 }
 
 export default RouterController;

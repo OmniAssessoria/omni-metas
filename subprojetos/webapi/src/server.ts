@@ -1,5 +1,5 @@
 import app from "./app.js";
-import 'dotenv/config';
+import "dotenv/config";
 
 async function Servidor() {
   app.listen(3000, () => {

@@ -1,10 +1,9 @@
-
 import { MetasConsultor } from "../interfaces/consultor_metas.interface.js";
 import pool from "../module/postgresdb/conexao.js";
 
 export default class ConsultorRepository {
-    async buscarConsultores() {
-        const query = `
+  async buscarConsultores() {
+    const query = `
             SELECT 
                 seq_consultor,
                 nome,
@@ -18,23 +17,26 @@ export default class ConsultorRepository {
             ORDER BY nome
         `;
 
-        const result = await pool.query(query);
-        return result.rows;
-    }
+    const result = await pool.query(query);
+    return result.rows;
+  }
 
-    async buscarSeqConsultorPorCodigoCrm(codigo_crm: string) {
-        const query = `SELECT seq_consultor, codigo_crm, nome, email, perfil_indicacao, perfil_qtd_linhas_min, perfil_qtd_linhas_max, meta_mensal FROM omni.consultor WHERE codigo_crm = $1;`;
-        try {
-            const result = await pool.query(query, [codigo_crm]);
-            return result.rows[0];
-        } catch (error) {
-            console.error("[ServicoClaroRepository] Erro ao buscar seq_consultor por codigo_crm:", error);
-            throw error;
-        }
+  async buscarSeqConsultorPorCodigoCrm(codigo_crm: string) {
+    const query = `SELECT seq_consultor, codigo_crm, nome, email, perfil_indicacao, perfil_qtd_linhas_min, perfil_qtd_linhas_max, meta_mensal FROM omni.consultor WHERE codigo_crm = $1;`;
+    try {
+      const result = await pool.query(query, [codigo_crm]);
+      return result.rows[0];
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar seq_consultor por codigo_crm:",
+        error,
+      );
+      throw error;
     }
+  }
 
-    async buscarHistoricoPorSeqEmpresa(seq_empresa: number) {
-        const query = `
+  async buscarHistoricoPorSeqEmpresa(seq_empresa: number) {
+    const query = `
             SELECT 
                 h.seq_historico_consultor_empresa,
                 h.tipo_servico,
@@ -52,17 +54,20 @@ export default class ConsultorRepository {
             WHERE h.seq_empresa = $1
             ORDER BY h.data_inicio_atendimento DESC;
         `;
-        try {
-            const result = await pool.query(query, [seq_empresa]);
-            return result.rows;
-        } catch (error) {
-            console.error("[ServicoClaroRepository] Erro ao buscar histórico da empresa:", error);
-            throw error;
-        }
+    try {
+      const result = await pool.query(query, [seq_empresa]);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar histórico da empresa:",
+        error,
+      );
+      throw error;
     }
+  }
 
-    async buscarConsultorPorSeq(seq: number) {
-        const query = `
+  async buscarConsultorPorSeq(seq: number) {
+    const query = `
             SELECT
                 seq_consultor,
                 nome,
@@ -72,12 +77,12 @@ export default class ConsultorRepository {
             WHERE seq_consultor = $1 AND perfil_indicacao IS NOT NULL
         `;
 
-        const result = await pool.query(query, [seq]);
-        return result.rows[0];
-    }
+    const result = await pool.query(query, [seq]);
+    return result.rows[0];
+  }
 
-    async buscarMetaMensalPorSeq(seq: number) {
-        const query = `
+  async buscarMetaMensalPorSeq(seq: number) {
+    const query = `
             SELECT
                 seq_consultor_meta,
                 seq_consultor,
@@ -89,13 +94,12 @@ export default class ConsultorRepository {
             ORDER BY data_referencia
         `;
 
-        const result = await pool.query(query, [seq]);
-        return result.rows;
-    }
+    const result = await pool.query(query, [seq]);
+    return result.rows;
+  }
 
-    async criarConsultorMeta(dados: MetasConsultor) {
-
-        const query = `
+  async criarConsultorMeta(dados: MetasConsultor) {
+    const query = `
             INSERT INTO omni.consultor_metas
             (
                 seq_consultor,
@@ -106,29 +110,27 @@ export default class ConsultorRepository {
             RETURNING *
         `;
 
-        const values = [
-            dados.seq_consultor,
-            dados.data_referencia,
-            dados.valor_dia
-        ];
+    const values = [
+      dados.seq_consultor,
+      dados.data_referencia,
+      dados.valor_dia,
+    ];
 
-        const result = await pool.query(query, values);
+    const result = await pool.query(query, values);
 
-        return result.rows[0];
-    }
+    return result.rows[0];
+  }
 
-    async atualizarMetaMensal(seq_consultor: number, meta: number) {
-
-        const query = `
+  async atualizarMetaMensal(seq_consultor: number, meta: number) {
+    const query = `
             UPDATE omni.consultor
             SET meta_mensal = $1
             WHERE seq_consultor = $2
             RETURNING *
         `;
 
-        const result = await pool.query(query, [meta, seq_consultor]);
+    const result = await pool.query(query, [meta, seq_consultor]);
 
-        return result.rows[0];
-    }
-
+    return result.rows[0];
+  }
 }
