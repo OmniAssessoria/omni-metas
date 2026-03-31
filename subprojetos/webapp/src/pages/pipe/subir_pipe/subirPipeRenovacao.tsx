@@ -621,8 +621,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
           dadosHistorico={dadosHistorico}
           isCarregando={isCarregandoHistorico}
         />
-
-        {/* Modal de Linhas com textos em branco forte e arquitetura idêntica à portabilidade */}
         <Dialog open={modalLinhasAberto} onOpenChange={setModalLinhasAberto}>
           <DialogContent className="sm:max-w-6xl w-[95vw] max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-background [&>button.absolute]:hidden">
             <div className="p-6 border-b border-border bg-muted/10 shrink-0 flex items-start justify-between">
