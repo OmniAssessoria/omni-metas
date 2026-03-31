@@ -21,6 +21,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
@@ -50,19 +51,7 @@ import { useIntegracaoPipeRun } from "@/services/hookApiRun";
 import DialogHistoricoPortabilidade, {
   IHistoricoEmpresa,
 } from "@/components/historico_empresa_consultor/historico_portabilidade";
-
-// 1. Definição da interface fornecida
-export interface DadosServicoOperadora {
-  seq_servico_operadora: number;
-  seq_empresa: number;
-  tipo_servico: "CLARO" | "VIVO";
-  dt_fim_compromisso: string;
-  numero_linha: number;
-  plano: string;
-  valor: string;
-  bonus: string;
-  linha_ativa: boolean;
-}
+import { DadosServicoOperadora } from "@/interfaces/servico_operadora.interface";
 
 export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const [consultorSelecionado, setConsultorSelecionado] = useState<
@@ -79,7 +68,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const [dadosHistorico, setDadosHistorico] = useState<IHistoricoEmpresa[]>([]);
   const [isCarregandoHistorico, setIsCarregandoHistorico] = useState(false);
 
-  // 2. Estados da nova Modal de Linhas
+  // Estados da nova Modal de Linhas
   const [modalLinhasAberto, setModalLinhasAberto] = useState(false);
   const [empresaLinhasNome, setEmpresaLinhasNome] = useState("");
   const [dadosLinhas, setDadosLinhas] = useState<DadosServicoOperadora[]>([]);
@@ -90,7 +79,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
   // Utilitários de Data
   const formatarDataApenasDia = (
-    dataString: string | Date | undefined | null
+    dataString: string | Date | undefined | null,
   ) => {
     if (!dataString) return "Não informado";
     try {
@@ -107,7 +96,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   };
 
   const calcularDiferencaDias = (
-    dataString: string | Date | undefined | null
+    dataString: string | Date | undefined | null,
   ) => {
     if (!dataString) return null;
     const dataAlvo = new Date(dataString);
@@ -236,7 +225,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
     try {
       const response = await API.get(
-        `/api/consultor/historico/empresa/${seq_empresa}`
+        `/api/consultor/historico/empresa/${seq_empresa}`,
       );
 
       if (response.data && response.data.dados) {
@@ -257,7 +246,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
     try {
       const response = await API.get(`/api/servico-operadora/${seq_empresa}`);
-      console.log(response)
       if (response.data) {
         setDadosLinhas(response.data.dados);
       }
@@ -270,7 +258,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
   const consultorAtual = useMemo(
     () => consultores.find((c) => c.seq_consultor === consultorSelecionado),
-    [consultores, consultorSelecionado]
+    [consultores, consultorSelecionado],
   );
 
   const dadosFiltrados = useMemo(() => {
@@ -334,8 +322,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               {consultorSelecionado === "nao_atribuidos"
                 ? " não atribuídos"
                 : typeof consultorSelecionado === "number"
-                ? " deste consultor"
-                : " no total"}
+                  ? " deste consultor"
+                  : " no total"}
               .
             </p>
           </div>
@@ -398,7 +386,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                   value={limiteEnvio}
                   onChange={(e) =>
                     setLimiteEnvio(
-                      e.target.value === "" ? "" : Number(e.target.value)
+                      e.target.value === "" ? "" : Number(e.target.value),
                     )
                   }
                   className="flex w-full h-10 px-3 py-2 text-sm border rounded-md border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
@@ -433,8 +421,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 {consultorAtual
                   ? `Carteira do Consultor: ${consultorAtual.nome} (Linhas: ${consultorAtual.perfil_qtd_linhas_min} a ${consultorAtual.perfil_qtd_linhas_max})`
                   : consultorSelecionado === "nao_atribuidos"
-                  ? "Serviços Não Atribuídos (Portabilidade)"
-                  : "Todos os Serviços de Portabilidade"}
+                    ? "Serviços Não Atribuídos (Portabilidade)"
+                    : "Todos os Serviços de Portabilidade"}
               </h2>
               <div className="w-80">
                 <Select
@@ -533,7 +521,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     <TableBody>
                       {dadosFiltrados.map((item) => {
                         const diffDias = calcularDiferencaDias(
-                          item.dt_ultima_leitura
+                          item.dt_ultima_leitura,
                         );
                         return (
                           <TableRow
@@ -549,14 +537,13 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                   ?.textoExibicao || "Não Atribuído"}
                               </TableCell>
                             )}
-                            {/* 5. Transformando a quantidade de linhas em botão */}
                             <TableCell className="text-center">
                               <Button
                                 variant="ghost"
                                 onClick={() =>
                                   abrirModalLinhas(
                                     item.seq_empresa,
-                                    item.razao || "Empresa Desconhecida"
+                                    item.razao || "Empresa Desconhecida",
                                   )
                                 }
                                 className="h-8 px-3 font-bold text-blue-600 transition-colors rounded-full hover:bg-blue-100 hover:text-blue-800"
@@ -585,7 +572,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                 onClick={() =>
                                   abrirHistorico(
                                     item.seq_empresa,
-                                    item.razao || "Empresa Desconhecida"
+                                    item.razao || "Empresa Desconhecida",
                                   )
                                 }
                               >
@@ -603,7 +590,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             )}
           </div>
         </div>
-
         <DialogHistoricoPortabilidade
           open={modalHistoricoAberto}
           onOpenChange={setModalHistoricoAberto}
@@ -611,106 +597,128 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           dadosHistorico={dadosHistorico}
           isCarregando={isCarregandoHistorico}
         />
-
         <Dialog open={modalLinhasAberto} onOpenChange={setModalLinhasAberto}>
-          <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col overflow-hidden bg-background">
-            <DialogHeader className="pb-4 border-b">
-              <DialogTitle className="flex items-center gap-2 text-xl font-bold text-blue-700">
-                <Smartphone className="w-6 h-6" />
-                Detalhamento das Linhas - {empresaLinhasNome}
-              </DialogTitle>
-            </DialogHeader>
+          <DialogContent className="sm:max-w-6xl w-[95vw] max-h[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-background [&>button.absolute]:hidden">
+            <div className="p-6 border-b border-border bg-muted/10 shrink-0 flex items-start justify-between">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-2xl font-bold text-white">
+                  <Smartphone className="w-6 h-6 text-white" />
+                  Detalhamento das Linhas
+                </DialogTitle>
+                <DialogDescription className="text-base font-medium text-white mt-2">
+                  Empresa:{" "}
+                  <span className="font-extrabold text-blue-700">
+                    {empresaLinhasNome}
+                  </span>
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className="flex-1 px-1 overflow-y-auto scrollbar-thin">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full text-white hover:bg-muted hover:text-white"
+                onClick={() => setModalLinhasAberto(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="p-6 flex-1 overflow-y-auto relative">
               {isCarregandoLinhas ? (
-                <div className="flex flex-col items-center justify-center py-12 text-blue-600">
-                  <Loader2 className="w-8 h-8 mb-4 animate-spin" />
-                  <p className="font-medium">Carregando informações das linhas...</p>
+                <div className="flex flex-col items-center justify-center py-12 h-full">
+                  <Loader2 className="w-8 h-8 animate-spin text-white mb-4" />
+                  <p className="text-blue-700 font-bold text-lg">
+                    Carregando informações das linhas...
+                  </p>
                 </div>
               ) : dadosLinhas.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground">
-                  <p>Nenhuma informação de linha encontrada para esta empresa.</p>
+                <div className="bg-muted/30 p-10 rounded-lg text-center border border-dashed border-border mt-4">
+                  <Smartphone className="w-10 h-10 text-white mx-auto mb-3 opacity-80" />
+                  <p className="text-blue-700 font-bold text-lg">
+                    Nenhuma informação de linha encontrada para esta empresa.
+                  </p>
                 </div>
               ) : (
-                <Table className="relative border-collapse">
-                  <TableHeader className="sticky top-0 z-10 shadow-sm bg-muted ring-1 ring-border/50">
-                    <TableRow>
-                      <TableHead className="font-semibold text-blue-800 bg-blue-50/50">
-                        Número
-                      </TableHead>
-                      <TableHead className="font-semibold text-blue-800 bg-blue-50/50">
-                        Operadora
-                      </TableHead>
-                      <TableHead className="font-semibold text-blue-800 bg-blue-50/50">
-                        Plano
-                      </TableHead>
-                      <TableHead className="font-semibold text-blue-800 bg-blue-50/50">
-                        Valor
-                      </TableHead>
-                      <TableHead className="font-semibold text-blue-800 bg-blue-50/50">
-                        Bônus
-                      </TableHead>
-                      <TableHead className="font-semibold text-right text-blue-800 bg-blue-50/50">
-                        Fim Compromisso
-                      </TableHead>
-                      <TableHead className="font-semibold text-center text-blue-800 bg-blue-50/50">
-                        Status
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dadosLinhas.map((linha, index) => (
-                      <TableRow
-                        key={`linha-${linha.seq_servico_operadora || index}`}
-                        className="hover:bg-blue-50/30"
-                      >
-                        <TableCell className="font-medium tracking-wide">
-                          {formatarTelefone(linha.numero_linha)}
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`font-bold text-xs px-2 py-1 rounded-full ${
-                              linha.tipo_servico === "CLARO"
-                                ? "bg-red-100 text-red-700"
-                                : linha.tipo_servico === "VIVO"
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-gray-100 text-gray-700"
-                            }`}
-                          >
-                            {linha.tipo_servico}
-                          </span>
-                        </TableCell>
-                        <TableCell className="max-w-[150px] truncate">
-                          {linha.plano || "-"}
-                        </TableCell>
-                        <TableCell className="font-semibold text-muted-foreground">
-                          {formatarMoedaBRL(linha.valor)}
-                        </TableCell>
-                        <TableCell className="max-w-[100px] truncate text-muted-foreground">
-                          {linha.bonus || "-"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatarDataApenasDia(linha.dt_fim_compromisso)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-2">
-                            <span
-                              className={`w-3 h-3 rounded-full shadow-sm ${
-                                linha.linha_ativa
-                                  ? "bg-green-500 shadow-green-200"
-                                  : "bg-red-500 shadow-red-200"
-                              }`}
-                              title={linha.linha_ativa ? "Ativa" : "Inativa"}
-                            />
-                            <span className="text-sm text-muted-foreground w-[45px]">
-                              {linha.linha_ativa ? "Ativa" : "Inativa"}
-                            </span>
-                          </div>
-                        </TableCell>
+                <div className="border border-border rounded-lg shadow-sm w-full bg-card">
+                  <Table className="relative border-collapse w-full">
+                    <TableHeader className="sticky top-0 z-10 shadow-sm bg-muted ring-1 ring-border/50">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="font-bold text-white py-3">
+                          Número
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Operadora
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Plano
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Valor
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Bônus
+                        </TableHead>
+                        <TableHead className="font-bold text-right text-white py-3">
+                          Fim Compromisso
+                        </TableHead>
+                        <TableHead className="font-bold text-center text-white py-3">
+                          Status
+                        </TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {dadosLinhas.map((linha, index) => (
+                        <TableRow
+                          key={`linha-${linha.seq_servico_operadora || index}`}
+                          className="hover:bg-muted/50 transition-colors"
+                        >
+                          <TableCell className="font-bold tracking-wide py-3 text-blue-700">
+                            {formatarTelefone(linha.numero_linha)}
+                          </TableCell>
+                          <TableCell className="py-3">
+                            <span
+                              className={`font-bold text-xs px-2.5 py-1 rounded-md ${
+                                linha.tipo_servico === "CLARO"
+                                  ? "bg-red-50 text-red-700 border border-red-200"
+                                  : linha.tipo_servico === "VIVO"
+                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                    : "bg-muted text-white border border-border"
+                              }`}
+                            >
+                              {linha.tipo_servico}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-3 font-medium text-white">
+                            {linha.plano || "-"}
+                          </TableCell>
+                          <TableCell className="font-bold text-white py-3">
+                            {formatarMoedaBRL(linha.valor)}
+                          </TableCell>
+                          <TableCell className="font-medium text-white py-3">
+                            {linha.bonus || "-"}
+                          </TableCell>
+                          <TableCell className="text-right py-3 font-medium text-white">
+                            {formatarDataApenasDia(linha.dt_fim_compromisso)}
+                          </TableCell>
+                          <TableCell className="py-3">
+                            <div className="flex items-center justify-center gap-2">
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full ${
+                                  linha.linha_ativa
+                                    ? "bg-green-500"
+                                    : "bg-red-500"
+                                }`}
+                                title={linha.linha_ativa ? "Ativa" : "Inativa"}
+                              />
+                              <span className="text-sm font-bold text-white text-left">
+                                {linha.linha_ativa ? "Ativa" : "Inativa"}
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </div>
           </DialogContent>
