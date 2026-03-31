@@ -36,7 +36,7 @@ import {
   History,
   Smartphone,
   CheckSquare,
-  PieChart as PieChartIcon, 
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import {
   BarChart,
@@ -48,7 +48,7 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell, 
+  Cell,
 } from "recharts";
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
@@ -315,23 +315,17 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   }, [dadosFiltrados]);
 
   // ==========================================
-  // LÓGICAS DO NOVO GRÁFICO DE PIZZA (LINHAS)
+  // LÓGICAS DO NOVO GRÁFICO DE PIZZA (SERVIÇOS)
   // ==========================================
-  const totalLinhasGeral = useMemo(() => {
+  const totalServicosGeral = useMemo(() => {
+    // Retorna a quantidade total de empresas/serviços
     if (!Array.isArray(dados)) return 0;
-    return dados.reduce((acc, item) => {
-      const qtd =
-        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0;
-      return acc + qtd;
-    }, 0);
+    return dados.length;
   }, [dados]);
 
-  const totalLinhasFiltradas = useMemo(() => {
-    return dadosFiltrados.reduce((acc, item) => {
-      const qtd =
-        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0;
-      return acc + qtd;
-    }, 0);
+  const totalServicosFiltrados = useMemo(() => {
+    // Retorna a quantidade de empresas/serviços do consultor selecionado
+    return dadosFiltrados.length;
   }, [dadosFiltrados]);
 
   const dadosGraficoPizza = useMemo(() => {
@@ -342,26 +336,26 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
       return [
         {
           name: "Total Renovação",
-          value: totalLinhasGeral,
+          value: totalServicosGeral,
           color: COR_AMARELO,
         },
       ];
     } else {
-      const restante = totalLinhasGeral - totalLinhasFiltradas;
+      const restante = totalServicosGeral - totalServicosFiltrados;
       return [
         {
           name: "Consultor Selecionado",
-          value: totalLinhasFiltradas,
+          value: totalServicosFiltrados,
           color: COR_AMARELO,
         },
         {
-          name: "Demais Consultores/Linhas",
+          name: "Demais Consultores/Serviços",
           value: restante > 0 ? restante : 0,
           color: COR_BRANCO,
         },
       ];
     }
-  }, [consultorSelecionado, totalLinhasGeral, totalLinhasFiltradas]);
+  }, [consultorSelecionado, totalServicosGeral, totalServicosFiltrados]);
   // ==========================================
 
   const todasEmpresasAtuaisSelecionadas = useMemo(() => {
@@ -620,7 +614,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                   {/* GRÁFICO 2: Pizza (Ocupa 1 coluna) */}
                   <div className="h-[350px] lg:col-span-1 border rounded-lg p-4 bg-muted/5 flex flex-col items-center relative shadow-sm">
                     <h3 className="flex items-center gap-2 mb-2 text-sm font-medium text-muted-foreground w-full">
-                      <PieChartIcon size={16} /> Distribuição de Linhas
+                      <PieChartIcon size={16} /> Distribuição de Serviços
                       (Renovação)
                     </h3>
 
@@ -643,7 +637,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                           </Pie>
                           <Tooltip
                             formatter={(value) => [
-                              `${value} linhas`,
+                              `${value} serviços`,
                               "Quantidade",
                             ]}
                             contentStyle={{
@@ -656,12 +650,12 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <span className="text-4xl font-extrabold text-foreground tracking-tight">
-                          {totalLinhasFiltradas}
+                          {totalServicosFiltrados}
                         </span>
                         <span className="text-xs text-muted-foreground font-medium text-center px-2 mt-1">
                           {consultorSelecionado
-                            ? "Linhas do Filtro"
-                            : "Total de Linhas"}
+                            ? "Serviços do Filtro"
+                            : "Total de Serviços"}
                         </span>
                       </div>
                     </div>
