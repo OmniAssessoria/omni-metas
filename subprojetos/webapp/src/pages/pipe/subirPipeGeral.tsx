@@ -12,6 +12,7 @@ import {
   ToggleLeft,
   ToggleRight,
   BookDashed,
+  X, // <-- Adicionado ícone para fechar a modal
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import API from "@/services/api";
@@ -59,10 +60,17 @@ export default function PipeSubirGeral() {
   const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
   const [filtroDataAtivo, setFiltroDataAtivo] = useState(false);
   const [filtroDataValor, setFiltroDataValor] = useState<number>(0);
+
+  // Estado original para a data
   const [dataExtracao, setDataExtracao] = useState<string>(
     new Date().toISOString().split("T")[0],
   );
+
   const [syncing, setSyncing] = useState<boolean>(false);
+
+  // Novo estado para controlar a abertura da Modal de Sincronização
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
+
   const COR_RENOVACAO = "#eab308";
   const COR_PORTABILIDADE = "#3b82f6";
   const COR_FUNDO = "#e5e7eb";
@@ -200,7 +208,7 @@ export default function PipeSubirGeral() {
   };
 
   // =========================================================================
-  // 3. DADOS PARA OS GRÁFICOS (Baseados nos dados filtrados)
+  // 3. DADOS PARA OS GRÁFICOS E SINCRONIZAÇÃO
   // =========================================================================
   const totalR = filteredRenovacoes.length;
   const totalP = filteredPortabilidades.length;
@@ -233,6 +241,8 @@ export default function PipeSubirGeral() {
       return;
     }
 
+    // Fecha a modal assim que a sincronização for disparada
+    setIsSyncModalOpen(false);
     setSyncing(true);
     setNotification(
       `Iniciando extração do PipeRun para o dia ${new Date(dataExtracao).toLocaleDateString()}... Isso pode levar alguns minutos.`,
@@ -281,6 +291,73 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
+        {/* ========================================================= */}
+        {/* MODAL DE SINCRONIZAÇÃO */}
+        {/* ========================================================= */}
+        {isSyncModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-border p-5">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <ArrowRightLeft className="h-5 w-5 text-primary" />
+                  Sincronizar PipeRun
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-muted"
+                  onClick={() => setIsSyncModalOpen(false)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="p-6 flex flex-col gap-6">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Selecione no calendário abaixo a data base para extração e
+                  sincronização dos dados do sistema PipeRun com a nossa base de
+                  dados local.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  <label className="text-sm font-semibold text-foreground">
+                    Data da Extração
+                  </label>
+                  <div className="flex items-center border-2 border-input hover:border-primary/50 transition-colors bg-background rounded-lg h-14 px-4 shadow-sm w-full focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                    <Calendar className="h-6 w-6 text-primary mr-3" />
+                    <input
+                      type="date"
+                      className="bg-transparent border-none outline-none text-base font-medium text-foreground w-full cursor-pointer"
+                      value={dataExtracao}
+                      onChange={(e) => setDataExtracao(e.target.value)}
+                      disabled={syncing}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-4 border-t border-border p-5 bg-muted/30">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsSyncModalOpen(false)}
+                  disabled={syncing}
+                  className="px-6 h-11"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all px-8 h-11 font-semibold"
+                  onClick={sincronizarDados}
+                  disabled={syncing}
+                >
+                  <ArrowRightLeft className="mr-2 h-5 w-5" />
+                  Sincronizar Agora
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex pt-20 w-full items-center justify-between border-b border-border pb-6 max-w-6xl">
           <div className="flex items-center gap-4 w-full md:w-auto">
             <div className="flex flex-col gap-3 w-full">
@@ -288,32 +365,22 @@ export default function PipeSubirGeral() {
                 Visão Geral dos Serviços Disponíveis ao PipeRun
               </h1>
               <div className="flex flex-col sm:flex-row gap-3 items-center w-full mt-2">
-                <div className="flex items-center border border-input bg-background rounded-md h-10 px-3 shadow-sm w-full sm:w-auto">
-                  <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
-                  <input
-                    type="date"
-                    className="bg-transparent border-none outline-none text-sm text-foreground w-full"
-                    value={dataExtracao}
-                    onChange={(e) => setDataExtracao(e.target.value)}
-                    disabled={syncing}
-                  />
-                </div>
+                {/* Botão para abrir a modal substitui o input e botão antigos */}
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="h-10 px-5 text-base w-full sm:w-auto shadow-md transition-all"
-                  onClick={sincronizarDados}
+                  className="h-10 px-6 text-base w-full sm:w-auto shadow-md transition-all"
+                  onClick={() => setIsSyncModalOpen(true)}
                   disabled={syncing}
                 >
                   {syncing ? (
                     <>
                       <RotateCw className="mr-2 h-4 w-4 animate-spin" />{" "}
-                      Sincronizando PipeRun...
+                      Sincronizando...
                     </>
                   ) : (
                     <>
-                      <ArrowRightLeft className="mr-2 h-4 w-4" /> Sincronizar
-                      dados Piperun com DB
+                      <ArrowRightLeft className="mr-2 h-4 w-4" />
+                      Sincronizar dados Piperun com DB
                     </>
                   )}
                 </Button>
