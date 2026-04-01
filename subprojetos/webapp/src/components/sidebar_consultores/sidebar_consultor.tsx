@@ -52,7 +52,7 @@ export function Sidebar() {
                             : "text-muted-foreground hover:bg-white/5 hover:text-white border border-transparent"
                             }`}
                     >
-                        <span>Piperun Subir Serviços</span>
+                        <span>Dash Subir Serviços</span>
                         <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                     </button>
                 </div>
