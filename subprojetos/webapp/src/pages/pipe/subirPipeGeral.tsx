@@ -2,7 +2,6 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  UserCircle,
   Briefcase,
   RefreshCcw,
   ArrowRightLeft,
@@ -11,8 +10,8 @@ import {
   Filter,
   ToggleLeft,
   ToggleRight,
-  BookDashed,
-  X, // <-- Adicionado ícone para fechar a modal
+  X,
+  Wallet,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import API from "@/services/api";
@@ -42,42 +41,32 @@ export interface IApiResponse {
 }
 
 type ViewState = "geral" | "renovacao" | "portabilidade";
+type TipoCarteiraFilter = "Todos" | "Carteira" | "Renov/Port";
 
 export default function PipeSubirGeral() {
-  const { id } = useParams();
   const [view, setView] = useState<ViewState>("geral");
   const [loading, setLoading] = useState<boolean>(false);
   const [renovacoes, setRenovacoes] = useState<IServicoPipeRun[]>([]);
   const [portabilidades, setPortabilidades] = useState<IServicoPipeRun[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
-  const [filteredRenovacoes, setFilteredRenovacoes] = useState<
-    IServicoPipeRun[]
-  >([]);
-  const [filteredPortabilidades, setFilteredPortabilidades] = useState<
-    IServicoPipeRun[]
-  >([]);
+  const [filteredRenovacoes, setFilteredRenovacoes] = useState<IServicoPipeRun[]>([]);
+  const [filteredPortabilidades, setFilteredPortabilidades] = useState<IServicoPipeRun[]>([]);
   const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
   const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
   const [filtroDataAtivo, setFiltroDataAtivo] = useState(false);
   const [filtroDataValor, setFiltroDataValor] = useState<number>(0);
-
-  // Estado original para a data
+  const [filtroTipoCarteira, setFiltroTipoCarteira] = useState<TipoCarteiraFilter>("Todos");
   const [dataExtracao, setDataExtracao] = useState<string>(
     new Date().toISOString().split("T")[0],
   );
-
   const [syncing, setSyncing] = useState<boolean>(false);
-
-  // Novo estado para controlar a abertura da Modal de Sincronização
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
-
   const COR_RENOVACAO = "#eab308";
   const COR_PORTABILIDADE = "#3b82f6";
+  const COR_CARTEIRA = "#10b981"; 
   const COR_FUNDO = "#e5e7eb";
 
-  // =========================================================================
-  // 1. LÓGICA DE CACHE E BUSCA DE DADOS
-  // =========================================================================
+
   const fetchServicos = useCallback(async (isManualRefresh = false) => {
     setLoading(true);
     try {
@@ -133,9 +122,6 @@ export default function PipeSubirGeral() {
     fetchServicos();
   }, [fetchServicos]);
 
-  // =========================================================================
-  // 2. LÓGICA MATEMÁTICA DOS FILTROS
-  // =========================================================================
   const todosServicos = useMemo(
     () => [...renovacoes, ...portabilidades],
     [renovacoes, portabilidades],
@@ -177,9 +163,21 @@ export default function PipeSubirGeral() {
     return Math.floor(diffTempo / (1000 * 3600 * 24));
   };
 
+  const hasCarteiraValid = (carteiraStr: string | null | undefined): boolean => {
+    return carteiraStr !== null && carteiraStr !== undefined && carteiraStr.trim() !== "";
+  };
+
   const aplicarFiltros = () => {
     let filtradosR = [...renovacoes];
     let filtradosP = [...portabilidades];
+
+    if (filtroTipoCarteira === "Carteira") {
+      filtradosR = filtradosR.filter((s) => hasCarteiraValid(s.carteira));
+      filtradosP = filtradosP.filter((s) => hasCarteiraValid(s.carteira));
+    } else if (filtroTipoCarteira === "Renov/Port") {
+      filtradosR = filtradosR.filter((s) => !hasCarteiraValid(s.carteira));
+      filtradosP = filtradosP.filter((s) => !hasCarteiraValid(s.carteira));
+    }
 
     if (filtroLinhasAtivo) {
       filtradosR = filtradosR.filter(
@@ -207,12 +205,12 @@ export default function PipeSubirGeral() {
     setFilteredPortabilidades(filtradosP);
   };
 
-  // =========================================================================
-  // 3. DADOS PARA OS GRÁFICOS E SINCRONIZAÇÃO
-  // =========================================================================
   const totalR = filteredRenovacoes.length;
   const totalP = filteredPortabilidades.length;
   const totalGeral = totalR + totalP;
+  const totalR_carteira = filteredRenovacoes.filter(s => hasCarteiraValid(s.carteira)).length;
+  const totalP_carteira = filteredPortabilidades.filter(s => hasCarteiraValid(s.carteira)).length;
+  const totalCarteira = totalR_carteira + totalP_carteira;
 
   const renderCenterText = (value: number, label: string) => {
     return (
@@ -241,7 +239,6 @@ export default function PipeSubirGeral() {
       return;
     }
 
-    // Fecha a modal assim que a sincronização for disparada
     setIsSyncModalOpen(false);
     setSyncing(true);
     setNotification(
@@ -291,9 +288,6 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* MODAL DE SINCRONIZAÇÃO */}
-        {/* ========================================================= */}
         {isSyncModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -365,7 +359,6 @@ export default function PipeSubirGeral() {
                 Visão Geral dos Serviços Disponíveis ao PipeRun
               </h1>
               <div className="flex flex-col sm:flex-row gap-3 items-center w-full mt-2">
-                {/* Botão para abrir a modal substitui o input e botão antigos */}
                 <Button
                   size="lg"
                   className="h-10 px-6 text-base w-full sm:w-auto shadow-md transition-all"
@@ -454,7 +447,7 @@ export default function PipeSubirGeral() {
               <CardContent className="flex flex-col sm:flex-row justify-center items-center gap-6 pb-6 pt-6">
                 <Button
                   size="lg"
-                  className="h-20 px-10 text-lg w-full sm:w-auto shadow-md"
+                  className="h-16 px-10 cursor-pointer text-lg w-full sm:w-auto shadow-md"
                   onClick={() => setView("renovacao")}
                 >
                   <RefreshCcw className="mr-2 h-5 w-5" /> Tela de Renovação
@@ -462,7 +455,7 @@ export default function PipeSubirGeral() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-16 px-10 text-lg w-full sm:w-auto shadow-md"
+                  className="h-16 px-10 border-2 border-[#3b82f6] text-lg w-full cursor-pointer sm:w-auto shadow-md"
                   onClick={() => setView("portabilidade")}
                 >
                   <ArrowRightLeft className="mr-2 h-5 w-5" /> Tela de
@@ -474,9 +467,6 @@ export default function PipeSubirGeral() {
 
           <hr className="border-border my-2" />
 
-          {/* ========================================================= */}
-          {/* ÁREA DE FILTROS */}
-          {/* ========================================================= */}
           <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold flex items-center gap-2">
@@ -492,6 +482,25 @@ export default function PipeSubirGeral() {
             </div>
 
             <div className="space-y-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 relative bg-muted/30 p-4 rounded-lg border border-border">
+                <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-primary" />
+                  Divisão da Carteira:
+                </label>
+                <select
+                  value={filtroTipoCarteira}
+                  onChange={(e) => setFiltroTipoCarteira(e.target.value as TipoCarteiraFilter)}
+                  className="border-2 border-input focus:border-primary focus:ring-1 focus:ring-primary bg-background rounded-lg h-10 px-3 w-full sm:w-80 outline-none transition-colors"
+                >
+                  <option value="Todos">Todos (Padrão)</option>
+                  <option value="Carteira">Somente Clientes com Carteira</option>
+                  <option value="Renov/Port">Renovação e Portabilidade (Sem Carteira)</option>
+                </select>
+                <span className="text-xs text-muted-foreground ml-2">
+                  *Este filtro mestre afeta os totais processados abaixo.
+                </span>
+              </div>
+
               <div className="flex items-center gap-4 relative">
                 <button
                   onClick={() => setFiltroLinhasAtivo(!filtroLinhasAtivo)}
@@ -622,8 +631,9 @@ export default function PipeSubirGeral() {
                 </div>
               </div>
             </div>
-            <div className="w-full flex flex-col md:flex-row justify-around items-center gap-3">
-              <div className="w-full md:w-1/2 flex flex-col items-center">
+            
+            <div className="w-full flex flex-col md:flex-row justify-around items-center gap-3 py-6">
+              <div className="w-full md:w-1/3 flex flex-col items-center">
                 <h3 className="text-xl font-bold">Renovação</h3>
                 <div className="w-64 h-64">
                   <ResponsiveContainer width="100%" height="100%">
@@ -655,7 +665,8 @@ export default function PipeSubirGeral() {
                   </ResponsiveContainer>
                 </div>
               </div>
-              <div className="w-full md:w-1/2 flex flex-col items-center">
+
+              <div className="w-full md:w-1/3 flex flex-col items-center">
                 <h3 className="text-xl font-bold">Portabilidade</h3>
                 <div className="w-64 h-64">
                   <ResponsiveContainer width="100%" height="100%">
@@ -681,6 +692,41 @@ export default function PipeSubirGeral() {
                           val === 0 && totalP === 0
                             ? [0, "Portabilidade"]
                             : [val, "Portabilidade"]
+                        }
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="w-full md:w-1/3 flex flex-col items-center border-t md:border-t-0 md:border-l border-border pt-6 md:pt-0">
+                <h3 className="text-xl font-bold text-emerald-600 flex items-center gap-2">
+                  <Wallet className="h-5 w-5" /> Com Carteira
+                </h3>
+                <div className="w-64 h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: "Carteira", value: totalCarteira },
+                          { name: "Vazio", value: totalCarteira === 0 ? 1 : 0 },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={70}
+                        outerRadius={90}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        <Cell fill={COR_CARTEIRA} />
+                        <Cell fill={COR_FUNDO} />
+                      </Pie>
+                      {renderCenterText(totalCarteira, "Clientes")}
+                      <RechartsTooltip
+                        formatter={(val: any) =>
+                          val === 0 && totalCarteira === 0
+                            ? [0, "Com Carteira"]
+                            : [val, "Com Carteira"]
                         }
                       />
                     </PieChart>
