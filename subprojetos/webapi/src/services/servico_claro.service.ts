@@ -41,7 +41,7 @@ class ServicoClaroService {
     const seq_empresa = await this.repository.buscarSeqEmpresaPorCnpj(
       dados.cnpj,
     );
-    
+
     if (!seq_empresa || seq_empresa.length === 0) {
       return {
         ignorado: true,
@@ -49,6 +49,16 @@ class ServicoClaroService {
       };
     }
     const idEmpresa = seq_empresa[0].seq_empresa;
+
+    const servicosClaro =
+      await this.repository.buscarSeqServicoPorSeqEmpresa(idEmpresa);
+
+    if (!servicosClaro || servicosClaro.length === 0) {
+      return {
+        ignorado: true,
+        motivo: `A empresa (CNPJ ${dados.cnpj}) existe, mas NÃO POSSUI nenhum registro na tabela servico_claro para ser atualizado.`,
+      };
+    }
 
     const dadosConsultor: IDadosConsultor =
       await this.repositoryConsultor.buscarSeqConsultorPorCodigoCrm(
@@ -106,6 +116,13 @@ class ServicoClaroService {
         dadosConsultor.nome,
         isGanho,
       );
+
+    if (!servicoAtualizado) {
+      return {
+        ignorado: true,
+        motivo: `Falha silenciosa no banco: O UPDATE foi acionado, mas nenhuma linha da servico_claro foi afetada para o CNPJ ${dados.cnpj}.`,
+      };
+    }
 
     return { sucesso: true, dados: servicoAtualizado };
   }
