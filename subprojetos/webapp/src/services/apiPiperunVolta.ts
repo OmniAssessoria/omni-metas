@@ -93,7 +93,6 @@ const buscarTodasAsPaginas = async (urlBase: string) => {
   }
   return todosOsResultados;
 };
-
 // ============================================================================
 // FUNÇÃO PRINCIPAL DE SINCRONIZAÇÃO
 // ============================================================================
@@ -109,8 +108,26 @@ export interface IProgressState {
 /**
  * Função principal que será chamada pelo Frontend ao escolher a data
  * @param dataEscolhida Formato "YYYY-MM-DD"
+ * @param onProgress Callback para atualizar a barra de progresso no frontend
  */
-export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
+export const sincronizarDadosPipeRun = async (
+  dataEscolhida: string,
+  onProgress?: (progresso: IProgressState) => void
+) => {
+  
+  const emitirProgresso = (
+    etapa: IProgressState["etapa"],
+    mensagem: string,
+    atual: number = 0,
+    total: number = 0
+  ) => {
+    console.log(`[Progresso - ${etapa}] ${mensagem}`); 
+    if (onProgress) {
+      const percentual = total > 0 ? Math.round((atual / total) * 100) : 0;
+      onProgress({ etapa, mensagem, atual, total, percentual });
+    }
+  };
+
   const closedAtStart = `${dataEscolhida} 00:00:00`;
   const closedAtEnd = `${dataEscolhida} 23:59:59`;
   const paramsComplementares = `&closed_at_start=${closedAtStart}&closed_at_end=${closedAtEnd}&with=customFields,company,owner,lostReason&show=200`;
@@ -118,23 +135,18 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
   const dealsBrutos: any[] = [];
 
   try {
-    // CORREÇÃO: Removido o lixo de sintaxe (for loop) de dentro do console.log
-    console.log(`[Sincronização] Iniciando busca para a data: ${dataEscolhida}`);
+    emitirProgresso("iniciando", `Iniciando busca para a data: ${dataEscolhida}`);
 
-    // --------------------------------------------------------------------
-    // 1. BUSCA DE GANHOS (Apenas através do Hash Específico)
-    // --------------------------------------------------------------------
-    console.log(`[Sincronização] Extraindo Ganhos do Hash: ${HASH_GANHOS}...`);
+    emitirProgresso("buscando_piperun", `Extraindo Ganhos do Hash...`);
     const urlGanhos = `/deals?cursor=""&hash=${HASH_GANHOS}&status=1${paramsComplementares}`;
     const ganhosExtraidos = await buscarTodasAsPaginas(urlGanhos);
     dealsBrutos.push(...ganhosExtraidos);
 
-    console.log(
-      `[Sincronização] Extraindo Perdas dos ${FUNIS_PERDAS.length} funis mapeados...`,
-    );
-    for (const pipelineId of FUNIS_PERDAS) {
-      console.log(
-        `[Sincronização] Consultando perdas no funil ID: ${pipelineId}...`,
+    for (let i = 0; i < FUNIS_PERDAS.length; i++) {
+      const pipelineId = FUNIS_PERDAS[i];
+      emitirProgresso(
+        "buscando_piperun", 
+        `Consultando perdas no funil ${i + 1} de ${FUNIS_PERDAS.length}...`
       );
       const urlPerdas = `/deals?cursor=""&pipeline_id=${pipelineId}&status=3${paramsComplementares}`;
       const perdasExtraidas = await buscarTodasAsPaginas(urlPerdas);
@@ -142,9 +154,7 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
     }
 
     if (dealsBrutos.length === 0) {
-      console.log(
-        `[Sincronização] Nenhum deal encontrado para a data informada.`,
-      );
+      emitirProgresso("concluido", `Nenhum deal encontrado para a data informada.`);
       return {
         sucesso: true,
         mensagem: "Nenhum dado para processar.",
@@ -152,13 +162,16 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
       };
     }
 
-    console.log(
-      `[Sincronização] Extração concluída. Estruturando ${dealsBrutos.length} deals encontrados...`,
-    );
-
+    emitirProgresso("processando", `Estruturando ${dealsBrutos.length} deals encontrados...`);
     const dealsFormatados = [];
 
-    for (const deal of dealsBrutos) {
+    for (let i = 0; i < dealsBrutos.length; i++) {
+      const deal = dealsBrutos[i];
+
+      if (i % 20 === 0) {
+        emitirProgresso("processando", `Formatando registro ${i} de ${dealsBrutos.length}...`);
+      }
+
       let cnpjBruto = obterCustomField(deal.customFields, 592065, "CNPJ");
       let cnpj = cnpjBruto ? formatarCNPJ(String(cnpjBruto)) : null;
       
@@ -166,16 +179,9 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
         cnpj = await buscarCnpjPorCompanyId(deal.company_id);
       }
 
-      if (!cnpj) {
-        console.warn(`[Aviso] Deal ID ${deal.id} ignorado por falta de CNPJ.`);
-        continue;
-      }
+      if (!cnpj) continue;
 
-      const operadoraOriginal = obterCustomField(
-        deal.customFields,
-        631881,
-        "Operadora do Pedido",
-      );
+      const operadoraOriginal = obterCustomField(deal.customFields, 631881, "Operadora do Pedido");
       let tipoServico = "CLARO";
 
       if (Array.isArray(operadoraOriginal) && operadoraOriginal[0]) {
@@ -187,7 +193,7 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
       const isGanho = deal.status === 1 || deal.lost_reason_id === null;
       const observacao = deal.observation || deal.description || "Sem detalhes";
 
-      const payloadFormatado = {
+      dealsFormatados.push({
         cnpj: cnpj,
         codigo_crm: deal.owner_id,
         tipo_servico: tipoServico,
@@ -196,36 +202,26 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
         seq_motivo_declinio: isGanho ? null : deal.lost_reason_id,
         observacao_fechamento: observacao,
         is_ganho: isGanho,
-      };
-
-      dealsFormatados.push(payloadFormatado);
+      });
     }
 
-    // --------------------------------------------------------------------
-    // 4. ENVIO PARA API INTERNA (OMNI)
-    // --------------------------------------------------------------------
-    console.log(
-      `[Sincronização] Iniciando envio ao backend de ${dealsFormatados.length} registros...`,
-    );
+    const totalEnvios = dealsFormatados.length;
+    emitirProgresso("enviando_backend", `Iniciando envio ao backend...`, 0, totalEnvios);
 
     const sucessosProcessados = [];
     const falhasProcessadas = [];
 
-    for (const dado of dealsFormatados) {
+    for (let i = 0; i < totalEnvios; i++) {
+      const dado = dealsFormatados[i];
+      emitirProgresso("enviando_backend", `Sincronizando CNPJ: ${dado.cnpj}`, i + 1, totalEnvios);
+
       try {
-        const response = await apiInterna.patch(
-          "/servico-claro/piperun/sincronizar",
-          dado,
-        );
+        const response = await apiInterna.patch("/servico-claro/piperun/sincronizar", dado);
         sucessosProcessados.push({
           payload: dado,
           respostaApi: response.data || "Sucesso",
         });
       } catch (error: any) {
-        console.error(
-          `Erro ao sincronizar CNPJ ${dado.cnpj} no backend:`,
-          error.response?.data || error.message,
-        );
         falhasProcessadas.push({
           payload: dado,
           erro: error.response?.data || error.message,
@@ -233,20 +229,19 @@ export const sincronizarDadosPipeRun = async (dataEscolhida: string) => {
       }
     }
 
+    emitirProgresso("concluido", `Processo finalizado.`);
+
     return {
       sucesso: true,
       mensagem: `Processo finalizado. Sincronizados: ${sucessosProcessados.length}. Falhas: ${falhasProcessadas.length}.`,
-      totalProcessado: dealsFormatados.length,
+      totalProcessado: totalEnvios,
       detalhes: {
         sucessos: sucessosProcessados,
         falhas: falhasProcessadas,
       },
     };
-  } catch (error) {
-    console.error(
-      "[Sincronização] Erro crítico na comunicação global com PipeRun:",
-      error,
-    );
+  } catch (error: any) {
+    emitirProgresso("concluido", `Erro crítico: ${error.message}`);
     throw new Error("Falha geral ao extrair ou enviar dados.");
   }
 };

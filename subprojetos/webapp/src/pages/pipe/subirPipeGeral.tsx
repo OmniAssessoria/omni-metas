@@ -277,8 +277,6 @@ export default function PipeSubirGeral() {
 
     setIsSyncModalOpen(false);
     setSyncing(true);
-
-    // 1. ATIVA A TELA DE BLOQUEIO AQUI
     setProgressState({
       ativo: true,
       percentual: 0,
@@ -288,7 +286,6 @@ export default function PipeSubirGeral() {
     });
 
     try {
-      // 2. PASSA A FUNÇÃO CALLBACK QUE ATUALIZA A TELA (Segundo parâmetro)
       const resultado = await sincronizarDadosPipeRun(
         dataExtracao,
         (progresso) => {
@@ -320,7 +317,6 @@ export default function PipeSubirGeral() {
       setTimeout(() => setNotification(null), 5000);
     } finally {
       setSyncing(false);
-      // 3. DESATIVA A TELA DE BLOQUEIO NO FIM
       setProgressState((prev) => ({ ...prev, ativo: false }));
     }
   };
