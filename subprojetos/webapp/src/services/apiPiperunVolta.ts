@@ -98,6 +98,14 @@ const buscarTodasAsPaginas = async (urlBase: string) => {
 // FUNÇÃO PRINCIPAL DE SINCRONIZAÇÃO
 // ============================================================================
 
+export interface IProgressState {
+  etapa: "iniciando" | "buscando_piperun" | "processando" | "enviando_backend" | "concluido";
+  mensagem: string;
+  atual: number;
+  total: number;
+  percentual: number;
+}
+
 /**
  * Função principal que será chamada pelo Frontend ao escolher a data
  * @param dataEscolhida Formato "YYYY-MM-DD"

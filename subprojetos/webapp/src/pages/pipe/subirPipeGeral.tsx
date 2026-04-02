@@ -29,6 +29,7 @@ import {
 import { Calendar } from "lucide-react";
 import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
 import { CheckCircle2, XCircle, FileJson } from "lucide-react";
+import { Loader2, Database } from "lucide-react";
 
 export interface ITelaDetalhesProps {
   dados: IServicoPipeRun[];
@@ -78,6 +79,19 @@ export default function PipeSubirGeral() {
   } | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
+  const [progressState, setProgressState] = useState<{
+    ativo: boolean;
+    percentual: number;
+    atual: number;
+    total: number;
+    mensagem: string;
+  }>({
+    ativo: false,
+    percentual: 0,
+    atual: 0,
+    total: 0,
+    mensagem: "",
+  });
 
   const fetchServicos = useCallback(async (isManualRefresh = false) => {
     setLoading(true);
@@ -263,12 +277,30 @@ export default function PipeSubirGeral() {
 
     setIsSyncModalOpen(false);
     setSyncing(true);
-    setNotification(
-      `Iniciando extração do PipeRun para o dia ${new Date(dataExtracao).toLocaleDateString()}... Isso pode levar alguns minutos.`,
-    );
+
+    // 1. ATIVA A TELA DE BLOQUEIO AQUI
+    setProgressState({
+      ativo: true,
+      percentual: 0,
+      atual: 0,
+      total: 0,
+      mensagem: `Iniciando extração do PipeRun para ${new Date(dataExtracao).toLocaleDateString()}...`,
+    });
 
     try {
-      const resultado = await sincronizarDadosPipeRun(dataExtracao);
+      // 2. PASSA A FUNÇÃO CALLBACK QUE ATUALIZA A TELA (Segundo parâmetro)
+      const resultado = await sincronizarDadosPipeRun(
+        dataExtracao,
+        (progresso) => {
+          setProgressState({
+            ativo: true,
+            percentual: progresso.percentual,
+            atual: progresso.atual,
+            total: progresso.total,
+            mensagem: progresso.mensagem,
+          });
+        },
+      );
 
       setNotification(resultado.mensagem);
       setTimeout(() => setNotification(null), 8000);
@@ -288,9 +320,12 @@ export default function PipeSubirGeral() {
       setTimeout(() => setNotification(null), 5000);
     } finally {
       setSyncing(false);
+      // 3. DESATIVA A TELA DE BLOQUEIO NO FIM
+      setProgressState((prev) => ({ ...prev, ativo: false }));
     }
   };
 
+  
   if (view === "renovacao")
     return (
       <PipeSubirRenovacao dados={renovacoes} onBack={() => setView("geral")} />
@@ -309,7 +344,6 @@ export default function PipeSubirGeral() {
         <Sidebar />
       </div>
       <main className="relative flex-1 h-full overflow-y-auto flex flex-col items-center justify-start p-6 sm:p-10">
-        {/* 1. NOTIFICAÇÕES */}
         {notification && (
           <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 bg-primary text-primary-foreground px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
             <Bell className="h-5 w-5" />
@@ -317,9 +351,52 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* 2. MODAL DE SELEÇÃO DE DATA (O que havia sumido)          */}
-        {/* ========================================================= */}
+        {progressState.ativo && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-md pointer-events-auto">
+            <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 max-w-md w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
+              <div className="bg-primary/10 p-4 rounded-full mb-6">
+                <Loader2 className="h-12 w-12 text-primary animate-spin" />
+              </div>
+
+              <h2 className="text-2xl font-bold text-foreground mb-2 text-center">
+                Sincronizando Dados
+              </h2>
+
+              <p className="text-muted-foreground text-center mb-8 h-10 flex items-center justify-center">
+                {progressState.mensagem}
+              </p>
+
+              {progressState.total > 0 && (
+                <div className="w-full space-y-2">
+                  <div className="flex justify-between text-sm font-medium">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Database className="h-4 w-4" /> Processado
+                    </span>
+                    <span className="text-primary font-bold">
+                      {progressState.atual} / {progressState.total}
+                    </span>
+                  </div>
+
+                  <div className="w-full h-3 bg-secondary rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all duration-300 ease-in-out"
+                      style={{ width: `${progressState.percentual}%` }}
+                    />
+                  </div>
+
+                  <p className="text-right text-xs font-bold text-muted-foreground mt-1">
+                    {progressState.percentual}% Completo
+                  </p>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground text-center mt-6 bg-muted p-2 rounded w-full">
+                ⚠️ Por favor, aguarde. Não feche ou atualize a página.
+              </p>
+            </div>
+          </div>
+        )}
+
         {isSyncModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">

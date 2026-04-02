@@ -94,10 +94,17 @@ class ServicoClaroController {
   async sincronizarDados(req: Request, res: Response): Promise<void> {
     try {
       const dados = req.body;
+      console.log(
+        `[SYNC INICIADO] Processando CNPJ: ${dados.cnpj} | Serviço: ${dados.tipo_servico}`,
+      );
+
       const resultadoSync =
         await this.servicoClaroService.atualizarServicosPiperun(dados);
-        
+
       if (resultadoSync.ignorado) {
+        console.log(
+          `[SYNC IGNORADO] CNPJ: ${dados.cnpj} - Motivo: ${resultadoSync.motivo}`,
+        );
         res.status(200).json({
           status: true,
           ignorado: true,
@@ -106,12 +113,17 @@ class ServicoClaroController {
         return;
       }
 
+      console.log(`[SYNC SUCESSO] CNPJ: ${dados.cnpj} salvo corretamente.`);
       res.status(200).json({
         status: true,
         mensagem: "Serviço sincronizado com sucesso.",
         dados: resultadoSync.dados,
       });
     } catch (error: any) {
+      console.error(
+        `[SYNC ERRO FATAL] Falha no CNPJ ${req.body?.cnpj}:`,
+        error.message,
+      );
       res.status(500).json({
         status: false,
         mensagem: "Erro ao sincronizar serviços PipeRun com a base da Omni.",
