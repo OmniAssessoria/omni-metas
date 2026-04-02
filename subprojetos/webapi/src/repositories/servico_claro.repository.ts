@@ -31,7 +31,11 @@ export default class ServicoClaroRepository {
   }
 
   async buscarTodosMotivosDeclinio() {
-    const query = `SELECT * FROM omni.motivo_declinio;`;
+    const query = `
+      SELECT seq_motivo_declinio, motivo_declinio, situacao_atendimento 
+        FROM omni.motivo_declinio 
+        WHERE situacao_atendimento != 'INATIVO';
+    `;
     try {
       const result = await pool.query(query);
       return result.rows;
@@ -191,6 +195,22 @@ export default class ServicoClaroRepository {
       console.error(
         `[DB - ERROR] Erro crítico no PostgreSQL ao atualizar seq_claro ${seq_claro}:`,
         error.message,
+      );
+      throw error;
+    }
+  }
+
+  async executarValidacaoTemporarioClaro() {
+    const query = `SELECT omni.fn_validar_temporario_claro();`;
+    try {
+      console.log(`[DB] Executando rotina noturna: omni.fn_validar_temporario_claro()...`);
+      const result = await pool.query(query);
+      console.log(`[DB] Rotina fn_validar_temporario_claro executada com sucesso.`);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro Crítico ao executar fn_validar_temporario_claro:",
+        error,
       );
       throw error;
     }
