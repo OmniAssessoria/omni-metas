@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import { Calendar } from "lucide-react";
 import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
+import { CheckCircle2, XCircle, FileJson } from "lucide-react";
 
 export interface ITelaDetalhesProps {
   dados: IServicoPipeRun[];
@@ -49,13 +50,18 @@ export default function PipeSubirGeral() {
   const [renovacoes, setRenovacoes] = useState<IServicoPipeRun[]>([]);
   const [portabilidades, setPortabilidades] = useState<IServicoPipeRun[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
-  const [filteredRenovacoes, setFilteredRenovacoes] = useState<IServicoPipeRun[]>([]);
-  const [filteredPortabilidades, setFilteredPortabilidades] = useState<IServicoPipeRun[]>([]);
+  const [filteredRenovacoes, setFilteredRenovacoes] = useState<
+    IServicoPipeRun[]
+  >([]);
+  const [filteredPortabilidades, setFilteredPortabilidades] = useState<
+    IServicoPipeRun[]
+  >([]);
   const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
   const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
   const [filtroDataAtivo, setFiltroDataAtivo] = useState(false);
   const [filtroDataValor, setFiltroDataValor] = useState<number>(0);
-  const [filtroTipoCarteira, setFiltroTipoCarteira] = useState<TipoCarteiraFilter>("Todos");
+  const [filtroTipoCarteira, setFiltroTipoCarteira] =
+    useState<TipoCarteiraFilter>("Todos");
   const [dataExtracao, setDataExtracao] = useState<string>(
     new Date().toISOString().split("T")[0],
   );
@@ -63,9 +69,15 @@ export default function PipeSubirGeral() {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const COR_RENOVACAO = "#eab308";
   const COR_PORTABILIDADE = "#3b82f6";
-  const COR_CARTEIRA = "#10b981"; 
+  const COR_CARTEIRA = "#10b981";
   const COR_FUNDO = "#e5e7eb";
 
+  const [syncLogs, setSyncLogs] = useState<{
+    sucessos: any[];
+    falhas: any[];
+  } | null>(null);
+  const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
+  const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
 
   const fetchServicos = useCallback(async (isManualRefresh = false) => {
     setLoading(true);
@@ -163,8 +175,14 @@ export default function PipeSubirGeral() {
     return Math.floor(diffTempo / (1000 * 3600 * 24));
   };
 
-  const hasCarteiraValid = (carteiraStr: string | null | undefined): boolean => {
-    return carteiraStr !== null && carteiraStr !== undefined && carteiraStr.trim() !== "";
+  const hasCarteiraValid = (
+    carteiraStr: string | null | undefined,
+  ): boolean => {
+    return (
+      carteiraStr !== null &&
+      carteiraStr !== undefined &&
+      carteiraStr.trim() !== ""
+    );
   };
 
   const aplicarFiltros = () => {
@@ -208,8 +226,12 @@ export default function PipeSubirGeral() {
   const totalR = filteredRenovacoes.length;
   const totalP = filteredPortabilidades.length;
   const totalGeral = totalR + totalP;
-  const totalR_carteira = filteredRenovacoes.filter(s => hasCarteiraValid(s.carteira)).length;
-  const totalP_carteira = filteredPortabilidades.filter(s => hasCarteiraValid(s.carteira)).length;
+  const totalR_carteira = filteredRenovacoes.filter((s) =>
+    hasCarteiraValid(s.carteira),
+  ).length;
+  const totalP_carteira = filteredPortabilidades.filter((s) =>
+    hasCarteiraValid(s.carteira),
+  ).length;
   const totalCarteira = totalR_carteira + totalP_carteira;
 
   const renderCenterText = (value: number, label: string) => {
@@ -250,6 +272,13 @@ export default function PipeSubirGeral() {
 
       setNotification(resultado.mensagem);
       setTimeout(() => setNotification(null), 8000);
+
+      if (resultado.detalhes) {
+        setSyncLogs(resultado.detalhes);
+        setLogTab(resultado.detalhes.falhas.length > 0 ? "falhas" : "sucessos");
+        setIsLogModalOpen(true);
+      }
+
       await fetchServicos(true);
     } catch (error: any) {
       console.error("Erro na sincronização:", error);
@@ -279,8 +308,8 @@ export default function PipeSubirGeral() {
       <div className="w-[280px] h-full flex-shrink-0">
         <Sidebar />
       </div>
-
       <main className="relative flex-1 h-full overflow-y-auto flex flex-col items-center justify-start p-6 sm:p-10">
+        {/* 1. NOTIFICAÇÕES */}
         {notification && (
           <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 bg-primary text-primary-foreground px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
             <Bell className="h-5 w-5" />
@@ -288,6 +317,9 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
+        {/* ========================================================= */}
+        {/* 2. MODAL DE SELEÇÃO DE DATA (O que havia sumido)          */}
+        {/* ========================================================= */}
         {isSyncModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -335,18 +367,154 @@ export default function PipeSubirGeral() {
                   variant="outline"
                   onClick={() => setIsSyncModalOpen(false)}
                   disabled={syncing}
-                  className="px-6 h-11"
+                  className="px-6 h-11 cursor-pointer"
                 >
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all px-8 h-11 font-semibold"
+                  className="bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all px-8 h-11 font-semibold cursor-pointer"
                   onClick={sincronizarDados}
                   disabled={syncing}
                 >
                   <ArrowRightLeft className="mr-2 h-5 w-5" />
                   Sincronizar Agora
                 </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* 3. MODAL DE RELATÓRIO DE SINCRONIZAÇÃO (Debug View)       */}
+        {/* ========================================================= */}
+        {isLogModalOpen && syncLogs && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              {/* Header do Modal */}
+              <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <FileJson className="h-6 w-6 text-primary" />
+                  Relatório de Sincronização (Debug View)
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-muted"
+                  onClick={() => setIsLogModalOpen(false)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="flex border-b border-border bg-muted/10">
+                <button
+                  className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${logTab === "sucessos" ? "bg-background border-b-2 border-green-500 text-green-600" : "text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setLogTab("sucessos")}
+                >
+                  <CheckCircle2 className="h-5 w-5" />
+                  Sucessos ({syncLogs.sucessos.length})
+                </button>
+                <button
+                  className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${logTab === "falhas" ? "bg-background border-b-2 border-red-500 text-red-600" : "text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setLogTab("falhas")}
+                >
+                  <XCircle className="h-5 w-5" />
+                  Falhas ({syncLogs.falhas.length})
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 bg-muted/5">
+                {logTab === "sucessos" && (
+                  <div className="space-y-4">
+                    {syncLogs.sucessos.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-10">
+                        Nenhum registro sincronizado com sucesso.
+                      </p>
+                    ) : (
+                      syncLogs.sucessos.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-background border border-green-200 rounded-lg p-4 shadow-sm flex flex-col gap-2"
+                        >
+                          <div className="flex justify-between items-center border-b border-muted pb-2">
+                            <span className="font-bold text-green-700">
+                              CNPJ: {item.payload.cnpj}
+                            </span>
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                              Operação concluída
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm mt-2">
+                            <div>
+                              <strong>Tipo Serviço:</strong>{" "}
+                              {item.payload.tipo_servico}
+                            </div>
+                            <div>
+                              <strong>CRM Owner:</strong>{" "}
+                              {item.payload.codigo_crm}
+                            </div>
+                            <div>
+                              <strong>Status Deal:</strong>{" "}
+                              {item.payload.is_ganho ? "Ganho" : "Perda"}
+                            </div>
+                          </div>
+                          <details className="mt-2 text-xs bg-muted/30 p-2 rounded cursor-pointer">
+                            <summary className="font-semibold text-muted-foreground">
+                              Ver Payload Completo
+                            </summary>
+                            <pre className="mt-2 whitespace-pre-wrap break-all text-blue-600">
+                              {JSON.stringify(item.payload, null, 2)}
+                            </pre>
+                            <pre className="mt-2 whitespace-pre-wrap break-all text-green-600">
+                              Response:{" "}
+                              {JSON.stringify(item.respostaApi, null, 2)}
+                            </pre>
+                          </details>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {logTab === "falhas" && (
+                  <div className="space-y-4">
+                    {syncLogs.falhas.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-10">
+                        Nenhuma falha registrada. Tudo certo!
+                      </p>
+                    ) : (
+                      syncLogs.falhas.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-background border border-red-200 rounded-lg p-4 shadow-sm flex flex-col gap-2"
+                        >
+                          <div className="flex justify-between items-center border-b border-muted pb-2">
+                            <span className="font-bold text-red-700">
+                              CNPJ: {item.payload.cnpj}
+                            </span>
+                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                              Falha na API Interna
+                            </span>
+                          </div>
+                          <div className="text-sm mt-2 p-2 bg-red-50 text-red-800 rounded border border-red-100">
+                            <strong>Motivo da Falha:</strong>{" "}
+                            {typeof item.erro === "object"
+                              ? JSON.stringify(item.erro)
+                              : item.erro}
+                          </div>
+                          <details className="mt-2 text-xs bg-muted/30 p-2 rounded cursor-pointer">
+                            <summary className="font-semibold text-muted-foreground">
+                              Ver Payload Enviado
+                            </summary>
+                            <pre className="mt-2 whitespace-pre-wrap break-all text-blue-600">
+                              {JSON.stringify(item.payload, null, 2)}
+                            </pre>
+                          </details>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -361,7 +529,7 @@ export default function PipeSubirGeral() {
               <div className="flex flex-col sm:flex-row gap-3 items-center w-full mt-2">
                 <Button
                   size="lg"
-                  className="h-10 px-6 text-base w-full sm:w-auto shadow-md transition-all"
+                  className="h-10 px-6 text-base w-full sm:w-auto cursor-pointer shadow-md transition-all"
                   onClick={() => setIsSyncModalOpen(true)}
                   disabled={syncing}
                 >
@@ -489,12 +657,18 @@ export default function PipeSubirGeral() {
                 </label>
                 <select
                   value={filtroTipoCarteira}
-                  onChange={(e) => setFiltroTipoCarteira(e.target.value as TipoCarteiraFilter)}
+                  onChange={(e) =>
+                    setFiltroTipoCarteira(e.target.value as TipoCarteiraFilter)
+                  }
                   className="border-2 border-input focus:border-primary focus:ring-1 focus:ring-primary bg-background rounded-lg h-10 px-3 w-full sm:w-80 outline-none transition-colors"
                 >
                   <option value="Todos">Todos (Padrão)</option>
-                  <option value="Carteira">Somente Clientes com Carteira</option>
-                  <option value="Renov/Port">Renovação e Portabilidade (Sem Carteira)</option>
+                  <option value="Carteira">
+                    Somente Clientes com Carteira
+                  </option>
+                  <option value="Renov/Port">
+                    Renovação e Portabilidade (Sem Carteira)
+                  </option>
                 </select>
                 <span className="text-xs text-muted-foreground ml-2">
                   *Este filtro mestre afeta os totais processados abaixo.
@@ -631,7 +805,7 @@ export default function PipeSubirGeral() {
                 </div>
               </div>
             </div>
-            
+
             <div className="w-full flex flex-col md:flex-row justify-around items-center gap-3 py-6">
               <div className="w-full md:w-1/3 flex flex-col items-center">
                 <h3 className="text-xl font-bold">Renovação</h3>

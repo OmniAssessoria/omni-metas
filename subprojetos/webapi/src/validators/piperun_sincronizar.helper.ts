@@ -7,6 +7,8 @@ import {
   buscarCnpjPorCompanyId,
   buscarTodasAsPaginas,
   obterCustomField,
+  formatarCNPJ, 
+  delay,        
 } from "../helpers/piperun_auxiliares.helper";
 import ServicoClaroService from "../services/servico_claro.service";
 
@@ -53,8 +55,12 @@ export default class Piperun {
       if (dealsBrutos.length > 0) {
         const dealsFormatados = [];
 
+        console.log(`[CRON 19:00] Estruturando ${dealsBrutos.length} deals...`);
+
         for (const deal of dealsBrutos) {
-          let cnpj = obterCustomField(deal.customFields, 592065, "CNPJ");
+          let cnpjBruto = obterCustomField(deal.customFields, 592065, "CNPJ");
+          let cnpj = cnpjBruto ? formatarCNPJ(String(cnpjBruto)) : null;
+
           if (!cnpj && deal.company_id) {
             cnpj = await buscarCnpjPorCompanyId(deal.company_id);
           }
@@ -67,6 +73,7 @@ export default class Piperun {
             "Operadora do Pedido",
           );
           let tipoServico = "CLARO";
+          
           if (Array.isArray(operadoraOriginal) && operadoraOriginal[0]) {
             tipoServico = String(operadoraOriginal[0]).toUpperCase();
           } else if (typeof operadoraOriginal === "string") {
@@ -89,9 +96,12 @@ export default class Piperun {
           });
         }
 
+        console.log(`[CRON 19:00] Gravando dados no banco interno...`);
+
         for (const dado of dealsFormatados) {
           try {
             await this.servicoClaroService.atualizarServicosPiperun(dado);
+            await delay(50); 
           } catch (error: any) {
             console.error(
               `Erro ao sincronizar CNPJ ${dado.cnpj}:`,
@@ -99,6 +109,7 @@ export default class Piperun {
             );
           }
         }
+        
         console.log(
           `[CRON 19:00] Dados sincronizados com sucesso. Processados: ${dealsFormatados.length}`,
         );
@@ -112,7 +123,9 @@ export default class Piperun {
       const repo = new ServicoClaroRepository();
       await repo.executarValidacaoTemporarioClaro();
 
+      console.log(`======================================================`);
       console.log(`[CRON 19:00] Processo noturno finalizado com sucesso!`);
+      console.log(`======================================================\n`);
     } catch (error) {
       console.error("[CRON 19:00] Falha geral na execução noturna:", error);
     }

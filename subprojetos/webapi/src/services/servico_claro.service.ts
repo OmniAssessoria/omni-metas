@@ -41,8 +41,12 @@ class ServicoClaroService {
     const seq_empresa = await this.repository.buscarSeqEmpresaPorCnpj(
       dados.cnpj,
     );
+    
     if (!seq_empresa || seq_empresa.length === 0) {
-      throw new Error(`Nenhuma empresa encontrada para o CNPJ ${dados.cnpj}.`);
+      return {
+        ignorado: true,
+        motivo: `Empresa com CNPJ ${dados.cnpj} não existe no banco de dados da Omni.`,
+      };
     }
     const idEmpresa = seq_empresa[0].seq_empresa;
 
@@ -50,10 +54,12 @@ class ServicoClaroService {
       await this.repositoryConsultor.buscarSeqConsultorPorCodigoCrm(
         dados.codigo_crm,
       );
-    if (!dadosConsultor.seq_consultor) {
-      throw new Error(
-        `Nenhum consultor encontrado para o código CRM ${dados.codigo_crm}.`,
-      );
+
+    if (!dadosConsultor || !dadosConsultor.seq_consultor) {
+      return {
+        ignorado: true,
+        motivo: `Consultor com código CRM ${dados.codigo_crm} não encontrado.`,
+      };
     }
     const idConsultor = dadosConsultor.seq_consultor;
 
@@ -65,6 +71,7 @@ class ServicoClaroService {
         idEmpresa,
         idConsultor,
       );
+
     if (Number(buscarHistorico[0].total) === 0) {
       await this.repository.criarHistoricoEmpresaConsultor({
         seq_empresa: idEmpresa,
@@ -100,7 +107,7 @@ class ServicoClaroService {
         isGanho,
       );
 
-    return servicoAtualizado;
+    return { sucesso: true, dados: servicoAtualizado };
   }
 
   async listarTodosMotivosDeclinio() {
