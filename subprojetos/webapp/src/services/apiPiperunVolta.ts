@@ -22,7 +22,6 @@ const apiInterna = axios.create({
   },
 });
 
-
 /**
  * Função utilitária para criar pausas (evitar erro 429 Too Many Requests)
  */
@@ -34,10 +33,13 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const formatarCNPJ = (cnpj: string): string => {
   if (!cnpj) return "";
   const numeros = cnpj.replace(/\D/g, "");
-  if (numeros.length !== 14) return cnpj; 
+  if (numeros.length !== 14) return cnpj;
   return numeros.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
 };
 
+/**
+ * Busca um campo customizado específico dentro do array de customFields
+ */
 const obterCustomField = (customFields: any[], fieldId: number | string, fieldName: string) => {
   if (!customFields) return null;
   const field = customFields.find((f) => f.id === fieldId || f.name === fieldName);
@@ -49,8 +51,8 @@ const obterCustomField = (customFields: any[], fieldId: number | string, fieldNa
  */
 const buscarCnpjPorCompanyId = async (companyId: number, tentativas = 3): Promise<string | null> => {
   try {
-    await delay(300); 
-    
+    await delay(300);
+
     const response = await apiPipeRun.get(`/companies/${companyId}`);
     if (response.data && response.data.success && response.data.data.cnpj) {
       return formatarCNPJ(response.data.data.cnpj);
@@ -59,7 +61,7 @@ const buscarCnpjPorCompanyId = async (companyId: number, tentativas = 3): Promis
   } catch (error: any) {
     if (error.response && error.response.status === 429 && tentativas > 0) {
       console.warn(`[Rate Limit] 429 no PipeRun para ID ${companyId}. Aguardando 2s para tentar novamente...`);
-      await delay(2000); 
+      await delay(2000);
       return buscarCnpjPorCompanyId(companyId, tentativas - 1);
     }
     console.error(`Erro ao buscar empresa ID ${companyId} no PipeRun:`, error.message);
@@ -67,35 +69,43 @@ const buscarCnpjPorCompanyId = async (companyId: number, tentativas = 3): Promis
   }
 };
 
-const buscarTodasAsPaginas = async (urlBase: string) => {
+/**
+ * Busca todas as páginas de um endpoint utilizando o parâmetro 'page' e 'show=200'
+ * Conforme documentação: /deals?page=123 e /deals?show=123
+ */
+const buscarTodasAsPaginas = async (urlBase: string, parametrosBasicos: any) => {
   let paginaAtual = 1;
   let temMaisDados = true;
   const todosOsResultados = [];
 
   while (temMaisDados) {
-    const urlCompleta = `${urlBase}&page=${paginaAtual}`;
     try {
-      const response = await apiPipeRun.get(urlCompleta);
-      const dadosPagina = response.data.data;
+      const params = {
+        ...parametrosBasicos,
+        page: paginaAtual,
+        show: 200
+      };
 
-      if (!dadosPagina || dadosPagina.length === 0) {
+      const response = await apiPipeRun.get(urlBase, { params });
+      const dadosPagina = response.data?.data || [];
+
+      if (dadosPagina.length === 0) {
         temMaisDados = false;
         break;
       }
 
       todosOsResultados.push(...dadosPagina);
+
       paginaAtual++;
-      await delay(200); 
-    } catch (error) {
-      console.error(`[Erro na Paginação] Falha ao buscar URL: ${urlCompleta}`, error);
+      await delay(200);
+
+    } catch (error: any) {
+      console.error(`[Erro na Paginação] Falha ao buscar página ${paginaAtual}`, error.response?.data || error.message);
       temMaisDados = false;
     }
   }
   return todosOsResultados;
 };
-// ============================================================================
-// FUNÇÃO PRINCIPAL DE SINCRONIZAÇÃO
-// ============================================================================
 
 export interface IProgressState {
   etapa: "iniciando" | "buscando_piperun" | "processando" | "enviando_backend" | "concluido";
@@ -114,42 +124,56 @@ export const sincronizarDadosPipeRun = async (
   dataEscolhida: string,
   onProgress?: (progresso: IProgressState) => void
 ) => {
-  
+
   const emitirProgresso = (
     etapa: IProgressState["etapa"],
     mensagem: string,
     atual: number = 0,
     total: number = 0
   ) => {
-    console.log(`[Progresso - ${etapa}] ${mensagem}`); 
+    console.log(`[Progresso - ${etapa}] ${mensagem}`);
     if (onProgress) {
       const percentual = total > 0 ? Math.round((atual / total) * 100) : 0;
       onProgress({ etapa, mensagem, atual, total, percentual });
     }
   };
 
-  const closedAtStart = `${dataEscolhida} 00:00:00`;
-  const closedAtEnd = `${dataEscolhida} 23:59:59`;
-  const paramsComplementares = `&closed_at_start=${closedAtStart}&closed_at_end=${closedAtEnd}&with=customFields,company,owner,lostReason&show=200`;
-  
+  const paramsComuns = {
+    closed_at_start: dataEscolhida,
+    closed_at_end: dataEscolhida,
+    with: "customFields,company,owner,lostReason"
+  };
+
   const dealsBrutos: any[] = [];
 
   try {
-    emitirProgresso("iniciando", `Iniciando busca para a data: ${dataEscolhida}`);
+    emitirProgresso("iniciando", `Iniciando busca estruturada para a data: ${dataEscolhida}`);
 
     emitirProgresso("buscando_piperun", `Extraindo Ganhos do Hash...`);
-    const urlGanhos = `/deals?cursor=""&hash=${HASH_GANHOS}&status=1${paramsComplementares}`;
-    const ganhosExtraidos = await buscarTodasAsPaginas(urlGanhos);
+    const paramsGanhos = {
+      hash: HASH_GANHOS,
+      status: 1,
+      ...paramsComuns
+    };
+
+    const ganhosExtraidos = await buscarTodasAsPaginas("/deals", paramsGanhos);
     dealsBrutos.push(...ganhosExtraidos);
 
     for (let i = 0; i < FUNIS_PERDAS.length; i++) {
       const pipelineId = FUNIS_PERDAS[i];
+
       emitirProgresso(
-        "buscando_piperun", 
-        `Consultando perdas no funil ${i + 1} de ${FUNIS_PERDAS.length}...`
+        "buscando_piperun",
+        `Consultando perdas no funil ${i + 1} de ${FUNIS_PERDAS.length} (ID: ${pipelineId})...`
       );
-      const urlPerdas = `/deals?cursor=""&pipeline_id=${pipelineId}&status=3${paramsComplementares}`;
-      const perdasExtraidas = await buscarTodasAsPaginas(urlPerdas);
+
+      const paramsPerdas = {
+        pipeline_id: pipelineId,
+        status: 3,
+        ...paramsComuns
+      };
+
+      const perdasExtraidas = await buscarTodasAsPaginas("/deals", paramsPerdas);
       dealsBrutos.push(...perdasExtraidas);
     }
 
@@ -169,12 +193,12 @@ export const sincronizarDadosPipeRun = async (
       const deal = dealsBrutos[i];
 
       if (i % 20 === 0) {
-        emitirProgresso("processando", `Formatando registro ${i} de ${dealsBrutos.length}...`);
+        emitirProgresso("processando", `Formatando registro ${i + 1} de ${dealsBrutos.length}...`);
       }
 
       let cnpjBruto = obterCustomField(deal.customFields, 592065, "CNPJ");
       let cnpj = cnpjBruto ? formatarCNPJ(String(cnpjBruto)) : null;
-      
+
       if (!cnpj && deal.company_id) {
         cnpj = await buscarCnpjPorCompanyId(deal.company_id);
       }
@@ -205,8 +229,11 @@ export const sincronizarDadosPipeRun = async (
       });
     }
 
+    // ========================================================================
+    // 4. ENVIO PARA O BACKEND INTERNO
+    // ========================================================================
     const totalEnvios = dealsFormatados.length;
-    emitirProgresso("enviando_backend", `Iniciando envio ao backend...`, 0, totalEnvios);
+    emitirProgresso("enviando_backend", `Iniciando envio de ${totalEnvios} registros ao backend...`, 0, totalEnvios);
 
     const sucessosProcessados = [];
     const falhasProcessadas = [];
@@ -229,7 +256,7 @@ export const sincronizarDadosPipeRun = async (
       }
     }
 
-    emitirProgresso("concluido", `Processo finalizado.`);
+    emitirProgresso("concluido", `Processo finalizado com sucesso.`);
 
     return {
       sucesso: true,
