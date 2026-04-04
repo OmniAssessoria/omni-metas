@@ -1,7 +1,8 @@
 import axios from "axios";
-import { TOKEN_PIPERUN } from "../configs/piperun.config"; 
+import { TOKEN_PIPERUN } from "../configs/piperun.config";
 
-const apiPipeRun = axios.create({
+// Exportamos a instância do Axios para que as funções internas tenham acesso a ela
+export const apiPipeRun = axios.create({
   baseURL: "https://api.pipe.run/v1",
   headers: {
     accept: "application/json",
@@ -20,7 +21,7 @@ export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve
 export const formatarCNPJ = (cnpj: string): string => {
   if (!cnpj) return "";
   const numeros = cnpj.replace(/\D/g, "");
-  if (numeros.length !== 14) return cnpj; 
+  if (numeros.length !== 14) return cnpj;
   return numeros.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
 };
 
@@ -35,8 +36,8 @@ export const obterCustomField = (customFields: any[], fieldId: number | string, 
  */
 export const buscarCnpjPorCompanyId = async (companyId: number, tentativas = 3): Promise<string | null> => {
   try {
-    await delay(300); 
-    
+    await delay(300);
+
     const response = await apiPipeRun.get(`/companies/${companyId}`);
     if (response.data && response.data.success && response.data.data.cnpj) {
       return formatarCNPJ(response.data.data.cnpj);
@@ -45,7 +46,7 @@ export const buscarCnpjPorCompanyId = async (companyId: number, tentativas = 3):
   } catch (error: any) {
     if (error.response && error.response.status === 429 && tentativas > 0) {
       console.warn(`[CRON Rate Limit] 429 no PipeRun para ID ${companyId}. Aguardando 2s para tentar novamente...`);
-      await delay(2000); 
+      await delay(2000);
       return buscarCnpjPorCompanyId(companyId, tentativas - 1);
     }
     console.error(`[CRON] Erro ao buscar empresa ID ${companyId} no PipeRun:`, error.message);
@@ -54,29 +55,38 @@ export const buscarCnpjPorCompanyId = async (companyId: number, tentativas = 3):
 };
 
 /**
- * Motor de busca paginada com delay integrado
+ * Motor de busca paginada com delay integrado (Refatorado para objetos params do Axios)
  */
-export const buscarTodasAsPaginas = async (urlBase: string) => {
+export const buscarTodasAsPaginas = async (urlBase: string, parametrosBasicos: any) => {
   let paginaAtual = 1;
   let temMaisDados = true;
   const todosOsResultados = [];
 
   while (temMaisDados) {
-    const urlCompleta = `${urlBase}&page=${paginaAtual}`;
     try {
-      const response = await apiPipeRun.get(urlCompleta);
-      const dadosPagina = response.data.data;
+      const params = {
+        ...parametrosBasicos,
+        page: paginaAtual,
+        show: 200
+      };
 
-      if (!dadosPagina || dadosPagina.length === 0) {
+      const response = await apiPipeRun.get(urlBase, { params });
+      const dadosPagina = response.data?.data || [];
+
+      if (dadosPagina.length === 0) {
         temMaisDados = false;
         break;
       }
 
       todosOsResultados.push(...dadosPagina);
       paginaAtual++;
-      await delay(200); // Delay entre páginas
-    } catch (error) {
-      console.error(`[CRON Erro Paginação] Falha ao buscar URL: ${urlCompleta}`, error);
+      await delay(200);
+
+    } catch (error: any) {
+      console.error(
+        `[CRON Erro Paginação] Falha ao buscar página ${paginaAtual} no endpoint ${urlBase}`,
+        error.response?.data || error.message
+      );
       temMaisDados = false;
     }
   }
