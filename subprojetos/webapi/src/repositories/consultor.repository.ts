@@ -121,6 +121,91 @@ export default class ConsultorRepository {
     return result.rows[0];
   }
 
+  async buscarConsultoresDisponiveis(seq_empresa: number, indicacao: string, carteira?: string) {
+    const query = `
+      WITH dados_empresa AS (
+          SELECT 
+              COALESCE((SELECT qtd_servico_claro FROM omni.empresa WHERE seq_empresa = $1 AND cliente_ativo = TRUE), 0) as qtd_linhas,
+              (SELECT EXISTS (SELECT 1 FROM omni.historico_empresa_consultor WHERE seq_empresa = $1 AND tipo_servico = 'CLARO')) as tem_historico,
+              ($3::varchar <> '') as tem_carteira
+      )
+      SELECT 
+          c.seq_consultor,
+          c.nome,
+          c.perfil_indicacao,
+          c.perfil_qtd_linhas_min,
+          c.perfil_qtd_linhas_max,
+          (
+              SELECT COUNT(*) 
+              FROM omni.historico_empresa_consultor h_carga
+              JOIN omni.empresa e_carga ON e_carga.seq_empresa = h_carga.seq_empresa
+              WHERE h_carga.seq_consultor = c.seq_consultor
+                AND e_carga.cliente_ativo = TRUE
+          ) as carga_atual
+      FROM omni.consultor c
+      CROSS JOIN dados_empresa de
+      WHERE c.perfil_indicacao IS NOT NULL
+        AND (
+            (de.tem_carteira AND c.perfil_indicacao = 'CARTEIRA' AND de.qtd_linhas BETWEEN c.perfil_qtd_linhas_min AND c.perfil_qtd_linhas_max)
+            OR 
+            (NOT de.tem_carteira AND (
+                (c.perfil_indicacao <> 'CARTEIRA' AND (
+                    ($2 = 'RENOVACAO' AND c.perfil_indicacao IN ('RENOVACAO', 'AMBOS'))
+                    OR 
+                    ($2 = 'PORTABILIDADE' AND c.perfil_indicacao IN ('PORTABILIDADE', 'AMBOS'))
+                ) AND de.qtd_linhas BETWEEN c.perfil_qtd_linhas_min AND c.perfil_qtd_linhas_max)
+                OR 
+                (c.perfil_indicacao = 'CARTEIRA' AND $2 = 'RENOVACAO' AND de.qtd_linhas >= 2 AND de.qtd_linhas <= 9)
+            ))
+        )
+        AND (
+            NOT de.tem_historico 
+            OR NOT EXISTS (
+                SELECT 1 
+                FROM omni.historico_empresa_consultor h_check 
+                WHERE h_check.seq_empresa = $1 
+                  AND h_check.seq_consultor = c.seq_consultor 
+                  AND h_check.tipo_servico = 'CLARO'
+            )
+        )
+      ORDER BY carga_atual ASC, c.nome ASC;
+    `;
+
+    // CORREÇÃO AQUI: Forçamos uma string vazia '' em vez de null para evitar crash de Data Type do Postgres
+    const values = [seq_empresa, indicacao, carteira || ''];
+
+    try {
+      const result = await pool.query(query, values);
+      return result.rows;
+    } catch (error) {
+      // Agora, se algo der errado no banco, aparecerá detalhado no console do Node.js
+      console.error("[ConsultorRepository] Erro SQL crítico ao buscar consultores disponíveis:", error);
+      throw error;
+    }
+  }
+
+  async atualizarConsultorEmpresa(seq_consultor_novo: number, seq_empresa: number) {
+    const query = `
+        UPDATE omni.servico_claro
+        SET seq_consultor = $1
+        WHERE seq_empresa = $2
+        RETURNING *;
+    `;
+
+    const values = [seq_consultor_novo, seq_empresa];
+
+    try {
+      const result = await pool.query(query, values);
+      return result.rows[0];
+    } catch (error) {
+      console.error(
+        `[ConsultorRepository] Falha ao sobreescrever o seq_consultor (${seq_consultor_novo}) para a empresa (${seq_empresa}) no serviço CLARO:`,
+        error
+      );
+      throw error;
+    }
+  }
+
   async atualizarMetaMensal(seq_consultor: number, meta: number) {
     const query = `
             UPDATE omni.consultor
@@ -128,9 +213,7 @@ export default class ConsultorRepository {
             WHERE seq_consultor = $2
             RETURNING *
         `;
-
     const result = await pool.query(query, [meta, seq_consultor]);
-
     return result.rows[0];
   }
 }

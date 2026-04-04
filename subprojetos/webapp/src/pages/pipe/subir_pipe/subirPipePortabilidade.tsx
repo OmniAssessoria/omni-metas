@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
@@ -36,6 +37,8 @@ import {
   Smartphone,
   CheckSquare,
   PieChart as PieChartIcon,
+  UserPlus,
+  Save,
 } from "lucide-react";
 import {
   BarChart,
@@ -59,14 +62,25 @@ import DialogHistoricoPortabilidade, {
 } from "@/components/historico_empresa_consultor/historico_portabilidade";
 import { DadosServicoOperadora } from "@/interfaces/servico_operadora.interface";
 
+// Interface para a tipagem dos consultores disponíveis vindos da nova rota
+export interface IConsultorDisponivel {
+  seq_consultor: number;
+  nome: string;
+  perfil_indicacao: string;
+  perfil_qtd_linhas_min: number;
+  perfil_qtd_linhas_max: number;
+  carga_atual: number;
+}
+
 export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
+  // Estado local para permitir atualização otimista na tabela
+  const [dadosLocais, setDadosLocais] = useState<any[]>([]);
+
   const [consultorSelecionado, setConsultorSelecionado] = useState<
     number | null | "nao_atribuidos"
   >(null);
   const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
-  const [empresasSelecionadas, setEmpresasSelecionadas] = useState<number[]>(
-    [],
-  );
+  const [empresasSelecionadas, setEmpresasSelecionadas] = useState<number[]>([]);
   const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
   const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
   const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
@@ -77,14 +91,34 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const [dadosHistorico, setDadosHistorico] = useState<IHistoricoEmpresa[]>([]);
   const [isCarregandoHistorico, setIsCarregandoHistorico] = useState(false);
 
-  // Estados da nova Modal de Linhas
+  // Estados da Modal de Linhas
   const [modalLinhasAberto, setModalLinhasAberto] = useState(false);
   const [empresaLinhasNome, setEmpresaLinhasNome] = useState("");
   const [dadosLinhas, setDadosLinhas] = useState<DadosServicoOperadora[]>([]);
   const [isCarregandoLinhas, setIsCarregandoLinhas] = useState(false);
 
+  // =========================================================================
+  // NOVOS ESTADOS: Modal de Atribuição Manual de Consultor
+  // =========================================================================
+  const [modalAtribuicaoAberto, setModalAtribuicaoAberto] = useState(false);
+  const [empresaAtribuicao, setEmpresaAtribuicao] = useState<{
+    seq: number;
+    nome: string;
+  } | null>(null);
+  const [consultoresDisponiveis, setConsultoresDisponiveis] = useState<IConsultorDisponivel[]>([]);
+  const [isCarregandoConsultoresDisponiveis, setIsCarregandoConsultoresDisponiveis] = useState(false);
+  const [consultorSelecionadoAtribuicao, setConsultorSelecionadoAtribuicao] = useState<string>("");
+  const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
+
   const hashConsultores = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
+
+  // Sincroniza as props iniciais com o estado local para edições in-memory
+  useEffect(() => {
+    if (Array.isArray(dados)) {
+      setDadosLocais(dados);
+    }
+  }, [dados]);
 
   // Utilitários de Data
   const formatarDataApenasDia = (
@@ -149,7 +183,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
         try {
           cachedData = sessionStorage.getItem(cacheKey);
-        } catch (e) {}
+        } catch (e) { }
 
         if (cachedData) {
           try {
@@ -169,7 +203,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           setConsultores(listaConsultores);
           try {
             sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
-          } catch (e) {}
+          } catch (e) { }
         }
       } catch (error) {
         console.error("Falha na busca de consultores:", error);
@@ -287,19 +321,80 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     }
   };
 
+  // =========================================================================
+  // FUNÇÕES DA NOVA MODAL DE ATRIBUIÇÃO (CONTEXTO: PORTABILIDADE)
+  // =========================================================================
+
+  const abrirModalAtribuicao = async (seq_empresa: number, razao: string) => {
+    setEmpresaAtribuicao({ seq: seq_empresa, nome: razao });
+    setConsultorSelecionadoAtribuicao("");
+    setConsultoresDisponiveis([]);
+    setModalAtribuicaoAberto(true);
+    setIsCarregandoConsultoresDisponiveis(true);
+
+    try {
+      // Diferença principal: Passamos o contexto indicacao=PORTABILIDADE para a API
+      const response = await API.get(
+        `/api/consultor/disponiveis/empresa/${seq_empresa}?indicacao=PORTABILIDADE`
+      );
+      if (response.data && response.data.dados) {
+        setConsultoresDisponiveis(response.data.dados);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar consultores disponíveis:", error);
+      alert("Falha ao buscar consultores disponíveis para esta empresa.");
+    } finally {
+      setIsCarregandoConsultoresDisponiveis(false);
+    }
+  };
+
+  const salvarNovaAtribuicao = async () => {
+    if (!empresaAtribuicao || !consultorSelecionadoAtribuicao) {
+      alert("Por favor, selecione um consultor da lista.");
+      return;
+    }
+
+    setIsSalvandoAtribuicao(true);
+    try {
+      await API.put(`/api/consultor/empresa/${empresaAtribuicao.seq}`, {
+        seq_consultor: Number(consultorSelecionadoAtribuicao),
+      });
+
+      // Atualização Otimista local
+      setDadosLocais((prev) =>
+        prev.map((item) =>
+          item.seq_empresa === empresaAtribuicao.seq
+            ? { ...item, seq_consultor: Number(consultorSelecionadoAtribuicao) }
+            : item
+        )
+      );
+
+      setModalAtribuicaoAberto(false);
+      console.log(`[Sucesso] Consultor alterado para a empresa ${empresaAtribuicao.nome}`);
+    } catch (error: any) {
+      console.error("Erro ao atribuir novo consultor:", error);
+      alert(error.response?.data?.mensagem || "Ocorreu um erro ao salvar o novo consultor. Tente novamente.");
+    } finally {
+      setIsSalvandoAtribuicao(false);
+    }
+  };
+
+  // =========================================================================
+
   const consultorAtual = useMemo(
     () => consultores.find((c) => c.seq_consultor === consultorSelecionado),
     [consultores, consultorSelecionado],
   );
 
+  // Refatorado para usar dadosLocais em vez da prop estática 'dados'
   const dadosFiltrados = useMemo(() => {
-    if (!Array.isArray(dados)) return [];
-    if (consultorSelecionado === null) return dados;
+    if (!Array.isArray(dadosLocais)) return [];
+    if (consultorSelecionado === null) return dadosLocais;
     if (consultorSelecionado === "nao_atribuidos") {
-      return dados.filter((item) => !item.seq_consultor);
+      return dadosLocais.filter((item) => !item.seq_consultor);
     }
-    return dados.filter((item) => item.seq_consultor === consultorSelecionado);
-  }, [dados, consultorSelecionado]);
+    return dadosLocais.filter((item) => item.seq_consultor === consultorSelecionado);
+  }, [dadosLocais, consultorSelecionado]);
 
   const dadosGrafico = useMemo(() => {
     return dadosFiltrados.map((item) => ({
@@ -311,9 +406,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   }, [dadosFiltrados]);
 
   const totalServicosGeral = useMemo(() => {
-    if (!Array.isArray(dados)) return 0;
-    return dados.length;
-  }, [dados]);
+    if (!Array.isArray(dadosLocais)) return 0;
+    return dadosLocais.length;
+  }, [dadosLocais]);
 
   const totalServicosFiltrados = useMemo(() => {
     return dadosFiltrados.length;
@@ -359,7 +454,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     handleSubirServicos({
       tipoOperacao: "Portabilidade",
       hashFunil: hashConsultores,
-      dadosGlobais: dados,
+      dadosGlobais: dadosLocais,
       consultoresEnvio: consultoresEnvio,
       empresasEnvio: empresasSelecionadas,
       limiteEnvio: limiteEnvio,
@@ -412,36 +507,36 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           <div className="flex flex-col items-end gap-3">
             {(consultoresEnvio.length > 0 ||
               empresasSelecionadas.length > 0) && (
-              <div className="flex flex-wrap justify-end gap-2 max-w-lg">
-                {consultoresEnvio.map((id) => (
-                  <span
-                    key={`badge-consultor-${id}`}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700 shadow-sm"
-                  >
-                    <Users size={14} />
-                    {mapaConsultores.get(id)?.textoExibicao || "Desconhecido"}
-                    <button
-                      onClick={() => handleRemoverConsultorEnvio(id)}
-                      className="p-0.5 transition-colors rounded-full hover:bg-blue-200"
+                <div className="flex flex-wrap justify-end gap-2 max-w-lg">
+                  {consultoresEnvio.map((id) => (
+                    <span
+                      key={`badge-consultor-${id}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700 shadow-sm"
                     >
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
-                {empresasSelecionadas.length > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 shadow-sm">
-                    <CheckSquare size={14} />
-                    {empresasSelecionadas.length} Empresa(s) Selecionada(s)
-                    <button
-                      onClick={() => setEmpresasSelecionadas([])}
-                      className="p-0.5 transition-colors rounded-full hover:bg-emerald-200"
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
-                )}
-              </div>
-            )}
+                      <Users size={14} />
+                      {mapaConsultores.get(id)?.textoExibicao || "Desconhecido"}
+                      <button
+                        onClick={() => handleRemoverConsultorEnvio(id)}
+                        className="p-0.5 transition-colors rounded-full hover:bg-blue-200"
+                      >
+                        <X size={14} />
+                      </button>
+                    </span>
+                  ))}
+                  {empresasSelecionadas.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 shadow-sm">
+                      <CheckSquare size={14} />
+                      {empresasSelecionadas.length} Empresa(s) Selecionada(s)
+                      <button
+                        onClick={() => setEmpresasSelecionadas([])}
+                        className="p-0.5 transition-colors rounded-full hover:bg-emerald-200"
+                      >
+                        <X size={14} />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
 
             <div className="flex items-center gap-3">
               <div className="w-80">
@@ -759,20 +854,36 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                               )}
                             </TableCell>
                             <TableCell className="text-center">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="transition-colors border-blue-200 text-blue-600 hover:bg-yellow-50"
-                                onClick={() =>
-                                  abrirHistorico(
-                                    item.seq_empresa,
-                                    item.razao || "Empresa Desconhecida",
-                                  )
-                                }
-                              >
-                                <History className="w-4 h-4 mr-2" />
-                                Histórico
-                              </Button>
+                              <div className="flex justify-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="px-2 transition-colors border-blue-200 text-blue-600 hover:bg-blue-50"
+                                  title="Histórico"
+                                  onClick={() =>
+                                    abrirHistorico(
+                                      item.seq_empresa,
+                                      item.razao || "Empresa Desconhecida",
+                                    )
+                                  }
+                                >
+                                  <History className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="px-2 transition-colors border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                                  title="Alterar Consultor Manualmente"
+                                  onClick={() =>
+                                    abrirModalAtribuicao(
+                                      item.seq_empresa,
+                                      item.razao || "Empresa Desconhecida",
+                                    )
+                                  }
+                                >
+                                  <UserPlus className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -784,6 +895,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             )}
           </div>
         </div>
+
         <DialogHistoricoPortabilidade
           open={modalHistoricoAberto}
           onOpenChange={setModalHistoricoAberto}
@@ -791,6 +903,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           dadosHistorico={dadosHistorico}
           isCarregando={isCarregandoHistorico}
         />
+
         <Dialog open={modalLinhasAberto} onOpenChange={setModalLinhasAberto}>
           <DialogContent className="sm:max-w-6xl w-[95vw] max-h[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-background [&>button.absolute]:hidden">
             <div className="p-6 border-b border-border bg-muted/10 shrink-0 flex items-start justify-between">
@@ -870,13 +983,12 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                           </TableCell>
                           <TableCell className="py-3">
                             <span
-                              className={`font-bold text-xs px-2.5 py-1 rounded-md ${
-                                linha.tipo_servico === "CLARO"
-                                  ? "bg-red-50 text-red-700 border border-red-200"
-                                  : linha.tipo_servico === "VIVO"
-                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                    : "bg-muted text-white border border-border"
-                              }`}
+                              className={`font-bold text-xs px-2.5 py-1 rounded-md ${linha.tipo_servico === "CLARO"
+                                ? "bg-red-50 text-red-700 border border-red-200"
+                                : linha.tipo_servico === "VIVO"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                  : "bg-muted text-white border border-border"
+                                }`}
                             >
                               {linha.tipo_servico}
                             </span>
@@ -896,11 +1008,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                           <TableCell className="py-3">
                             <div className="flex items-center justify-center gap-2">
                               <span
-                                className={`w-2.5 h-2.5 rounded-full ${
-                                  linha.linha_ativa
-                                    ? "bg-green-500"
-                                    : "bg-red-500"
-                                }`}
+                                className={`w-2.5 h-2.5 rounded-full ${linha.linha_ativa
+                                  ? "bg-green-500"
+                                  : "bg-red-500"
+                                  }`}
                                 title={linha.linha_ativa ? "Ativa" : "Inativa"}
                               />
                               <span className="text-sm font-bold text-white text-left">
@@ -917,6 +1028,93 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* ===================================================================== */}
+        {/* NOVA MODAL: ATRIBUIR CONSULTOR MANUALMENTE */}
+        {/* ===================================================================== */}
+        <Dialog open={modalAtribuicaoAberto} onOpenChange={setModalAtribuicaoAberto}>
+          <DialogContent className="sm:max-w-xl bg-background border border-border rounded-xl">
+            <DialogHeader className="pb-4 border-b border-border">
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold text-white">
+                <UserPlus className="w-5 h-5 text-blue-500" />
+                Atribuir Consultor Manualmente
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground mt-2">
+                Empresa: <strong className="text-white">{empresaAtribuicao?.nome}</strong>
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-6 flex flex-col gap-4">
+              {isCarregandoConsultoresDisponiveis ? (
+                <div className="flex flex-col items-center justify-center py-6">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+                  <span className="text-sm text-muted-foreground">Calculando consultores elegíveis com base na carga...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-white">
+                      Selecione um Consultor Disponível
+                    </label>
+                    <Select
+                      onValueChange={setConsultorSelecionadoAtribuicao}
+                      value={consultorSelecionadoAtribuicao}
+                      disabled={consultoresDisponiveis.length === 0}
+                    >
+                      <SelectTrigger className="w-full bg-muted/50 border-border focus:ring-blue-500 text-white h-12">
+                        <SelectValue placeholder={consultoresDisponiveis.length === 0 ? "Nenhum consultor atende aos critérios" : "Escolha na lista..."} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {consultoresDisponiveis.map((c) => (
+                          <SelectItem key={`atribuicao-${c.seq_consultor}`} value={String(c.seq_consultor)}>
+                            <div className="flex justify-between items-center w-[400px]">
+                              <span className="font-semibold">{c.nome}</span>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span>Carga: {c.carga_atual}</span>
+                                <span className="bg-muted px-2 py-1 rounded">Min: {c.perfil_qtd_linhas_min} | Máx: {c.perfil_qtd_linhas_max}</span>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {consultoresDisponiveis.length === 0 && !isCarregandoConsultoresDisponiveis && (
+                    <div className="p-4 border rounded-md bg-red-500/10 border-red-500/20">
+                      <p className="text-sm font-medium text-red-400">A lógica de distribuição não encontrou nenhum consultor compatível com a carga de linhas desta empresa para Portabilidade.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="flex justify-end gap-2 pt-4 border-t border-border">
+              <Button
+                variant="ghost"
+                onClick={() => setModalAtribuicaoAberto(false)}
+                disabled={isSalvandoAtribuicao}
+                className="text-white hover:bg-muted"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={salvarNovaAtribuicao}
+                disabled={isSalvandoAtribuicao || !consultorSelecionadoAtribuicao || consultoresDisponiveis.length === 0}
+                className="font-semibold text-white bg-blue-600 min-w-[120px] hover:bg-blue-700"
+              >
+                {isSalvandoAtribuicao ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" /> Salvar Atribuição
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </main>
     </div>
   );

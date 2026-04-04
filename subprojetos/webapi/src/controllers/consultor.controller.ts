@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import ConsultorService from "../services/consultor_metas.service";
+import ConsultorService from "../services/consultor.service";
+
 
 class ConsultorController {
   private consultorService: ConsultorService;
@@ -107,12 +108,13 @@ class ConsultorController {
         dados: atualizado,
       });
     } catch (error: any) {
-      if (error.message === "CONSULTOR_NAO_ENCONTRADO") {
-        return res.status(404).json({
+      if (error.message === "SERVICO_CLARO_NAO_ENCONTRADO_PARA_EMPRESA") {
+        res.status(404).json({
           status: false,
-          mensagem: "Consultor não encontrado",
+          mensagem: "Não foi encontrado um serviço CLARO ativo para esta empresa.",
           dados: [],
         });
+        return;
       }
 
       res.status(500).json({
@@ -121,7 +123,7 @@ class ConsultorController {
         dados: error,
       });
     }
-  };
+  }
 
   obterHistoricoEmpresa = async (
     req: Request,
@@ -153,6 +155,88 @@ class ConsultorController {
         status: false,
         mensagem: "Erro interno ao buscar histórico da empresa.",
         detalhes: error.message,
+      });
+    }
+  };
+
+  buscarConsultoresDisponiveisEmpresa = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const seq_empresa = Number(req.params.seq_empresa);
+      const indicacao = req.query.indicacao as string;
+      const carteira = req.query.carteira as string;
+
+      if (isNaN(seq_empresa)) {
+        res.status(400).json({
+          status: false,
+          mensagem: "O seq_empresa informado é inválido.",
+          dados: []
+        });
+        return;
+      }
+
+      if (!indicacao) {
+        res.status(400).json({
+          status: false,
+          mensagem: "O parâmetro 'indicacao' (RENOVACAO ou PORTABILIDADE) é obrigatório na query string.",
+          dados: []
+        });
+        return;
+      }
+
+      const consultores = await this.consultorService.listarConsultoresDisponiveisEmpresa(seq_empresa, indicacao, carteira);
+
+      res.status(200).json({
+        status: true,
+        mensagem: "Consultores disponíveis listados com sucesso.",
+        dados: consultores,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: false,
+        mensagem: error.message || "Erro ao buscar consultores disponíveis",
+        dados: error,
+      });
+    }
+  };
+
+  atualizarConsultorEmpresa = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const seq_empresa = Number(req.params.seq_empresa);
+      const { seq_consultor } = req.body;
+
+      if (isNaN(seq_empresa) || !seq_consultor) {
+        res.status(400).json({
+          status: false,
+          mensagem: "Parâmetros seq_empresa ou seq_consultor ausentes/inválidos.",
+          dados: []
+        });
+        return;
+      }
+
+      const atualizado = await this.consultorService.atualizarConsultorEmpresa(
+        seq_consultor,
+        seq_empresa,
+      );
+
+      res.json({
+        status: true,
+        mensagem: "Consultor alterado para o serviço da empresa com sucesso!",
+        dados: atualizado,
+      });
+    } catch (error: any) {
+      if (error.message === "FALHA_AO_ATUALIZAR_CONSULTOR_EMPRESA") {
+        res.status(404).json({
+          status: false,
+          mensagem: "Não foi possível realizar a alteração de consultor na empresa.",
+          dados: [],
+        });
+        return;
+      }
+
+      res.status(500).json({
+        status: false,
+        mensagem: error.message,
+        dados: error,
       });
     }
   };

@@ -52,6 +52,36 @@ class ConsultorService {
     const dados = await this.repo.buscarHistoricoPorSeqEmpresa(seq_empresa);
     return dados && dados.length > 0 ? dados : [];
   }
+
+  async listarConsultoresDisponiveisEmpresa(seq_empresa: number, indicacao: string, carteira?: string) {
+    if (!seq_empresa || seq_empresa <= 0) {
+      throw new Error("PARAMETRO_EMPRESA_INVALIDO");
+    }
+    if (!indicacao) {
+      throw new Error("PARAMETRO_INDICACAO_OBRIGATORIO");
+    }
+
+    const consultores = await this.repo.buscarConsultoresDisponiveis(seq_empresa, indicacao, carteira);
+    return consultores || [];
+  }
+
+  async atualizarConsultorEmpresa(seq_consultor: number, seq_empresa: number) {
+    if (!seq_consultor || seq_consultor <= 0) {
+      throw new Error("PARAMETRO_CONSULTOR_INVALIDO");
+    }
+
+    if (!seq_empresa || seq_empresa <= 0) {
+      throw new Error("PARAMETRO_EMPRESA_INVALIDO");
+    }
+
+    const servicoAtualizado = await this.repo.atualizarConsultorEmpresa(seq_consultor, seq_empresa);
+
+    if (!servicoAtualizado) {
+      throw new Error("SERVICO_CLARO_NAO_ENCONTRADO_PARA_EMPRESA");
+    }
+
+    return servicoAtualizado;
+  }
 }
 
 export default ConsultorService;
