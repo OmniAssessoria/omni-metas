@@ -4,7 +4,10 @@ import axios from "axios";
 // CONFIGURAÇÕES E CONSTANTES
 // ============================================================================
 const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
-const HASH_GANHOS = "c1d9312f-db68-4379-8820-a5d3619ec002";
+
+const PIPELINE_GANHOS = 95219;
+const STAGE_GANHOS = 607025;
+
 const FUNIS_PERDAS = [93990, 91356, 103176, 91369, 77127, 90697, 102509];
 
 const apiPipeRun = axios.create({
@@ -21,6 +24,10 @@ const apiInterna = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+// ============================================================================
+// FUNÇÕES UTILITÁRIAS
+// ============================================================================
 
 /**
  * Função utilitária para criar pausas (evitar erro 429 Too Many Requests)
@@ -107,6 +114,10 @@ const buscarTodasAsPaginas = async (urlBase: string, parametrosBasicos: any) => 
   return todosOsResultados;
 };
 
+// ============================================================================
+// FUNÇÃO PRINCIPAL DE SINCRONIZAÇÃO
+// ============================================================================
+
 export interface IProgressState {
   etapa: "iniciando" | "buscando_piperun" | "processando" | "enviando_backend" | "concluido";
   mensagem: string;
@@ -149,9 +160,15 @@ export const sincronizarDadosPipeRun = async (
   try {
     emitirProgresso("iniciando", `Iniciando busca estruturada para a data: ${dataEscolhida}`);
 
-    emitirProgresso("buscando_piperun", `Extraindo Ganhos do Hash...`);
+    // ========================================================================
+    // 1. BUSCA DE GANHOS (Usando IDs Absolutas de Pipeline e Stage)
+    // ========================================================================
+    emitirProgresso("buscando_piperun", `Extraindo Ganhos do Funil ${PIPELINE_GANHOS}...`);
+
+    // Aplicando a sua correção: buscando pelo pipeline_id, stage_id e status=1
     const paramsGanhos = {
-      hash: HASH_GANHOS,
+      pipeline_id: PIPELINE_GANHOS,
+      stage_id: STAGE_GANHOS,
       status: 1,
       ...paramsComuns
     };
@@ -159,6 +176,9 @@ export const sincronizarDadosPipeRun = async (
     const ganhosExtraidos = await buscarTodasAsPaginas("/deals", paramsGanhos);
     dealsBrutos.push(...ganhosExtraidos);
 
+    // ========================================================================
+    // 2. BUSCA DE PERDAS (Iterando pelos Funis)
+    // ========================================================================
     for (let i = 0; i < FUNIS_PERDAS.length; i++) {
       const pipelineId = FUNIS_PERDAS[i];
 
@@ -186,6 +206,9 @@ export const sincronizarDadosPipeRun = async (
       };
     }
 
+    // ========================================================================
+    // 3. ESTRUTURAÇÃO E TRATAMENTO DOS DADOS
+    // ========================================================================
     emitirProgresso("processando", `Estruturando ${dealsBrutos.length} deals encontrados...`);
     const dealsFormatados = [];
 
