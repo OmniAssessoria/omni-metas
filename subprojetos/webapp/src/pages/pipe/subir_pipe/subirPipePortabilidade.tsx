@@ -508,21 +508,38 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             {(consultoresEnvio.length > 0 ||
               empresasSelecionadas.length > 0) && (
                 <div className="flex flex-wrap justify-end gap-2 max-w-lg">
-                  {consultoresEnvio.map((id) => (
-                    <span
-                      key={`badge-consultor-${id}`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700 shadow-sm"
-                    >
-                      <Users size={14} />
-                      {mapaConsultores.get(id)?.textoExibicao || "Desconhecido"}
-                      <button
-                        onClick={() => handleRemoverConsultorEnvio(id)}
-                        className="p-0.5 transition-colors rounded-full hover:bg-blue-200"
+                  {consultoresEnvio.map((id) => {
+                    const nomeConsultor = mapaConsultores.get(id)?.nome || "Desconhecido";
+                    const totalDoConsultor = dadosLocais.filter((item) => item.seq_consultor === id).length;
+                    const qtdParaEnviar = typeof limiteEnvio === "number" && limiteEnvio > 0
+                      ? limiteEnvio
+                      : totalDoConsultor;
+
+                    return (
+                      <span
+                        key={`badge-consultor-${id}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-blue-300 bg-blue-50 pl-3 pr-1 py-1 text-sm text-blue-700 shadow-sm"
                       >
-                        <X size={14} />
-                      </button>
-                    </span>
-                  ))}
+                        <Users size={14} className="opacity-70" />
+                        <span className="font-semibold">{nomeConsultor}</span>
+                        <span
+                          className="flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-blue-900 rounded-full shadow-sm min-w-[24px]"
+                          title="Quantidade de serviços que serão enviados ao Pipe"
+                        >
+                          {qtdParaEnviar}
+                        </span>
+
+                        <button
+                          onClick={() => handleRemoverConsultorEnvio(id)}
+                          className="p-1 ml-1 transition-colors rounded-full hover:bg-red-100 hover:text-red-700 text-blue-400"
+                        >
+                          <X size={14} />
+                        </button>
+                      </span>
+                    );
+                  })}
+
+                  {/* Badge de Empresas Selecionadas */}
                   {empresasSelecionadas.length > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 shadow-sm">
                       <CheckSquare size={14} />
