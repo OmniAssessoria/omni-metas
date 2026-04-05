@@ -215,4 +215,54 @@ export default class ServicoClaroRepository {
       throw error;
     }
   }
+
+  async buscarDashboardHistorico() {
+    const query = `SELECT * FROM omni.vw_historico_atendimento_declinio;`;
+    try {
+      console.log(`[DB] Buscando dados da view vw_historico_atendimento_declinio...`);
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error("[ServicoClaroRepository] Erro ao buscar Dashboard de Histórico:", error);
+      throw error;
+    }
+  }
+
+  async buscarDashboardServicoBase() {
+    const query = `SELECT * FROM omni.vw_servico_claro_base;`;
+    try {
+      console.log(`[DB] Buscando dados da view consolidada vw_servico_claro_base...`);
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error("[ServicoClaroRepository] Erro ao buscar Dashboard Base de Serviços:", error);
+      throw error;
+    }
+  }
+
+  async buscarDashboardPorIndicacao(tipoIndicacao: string) {
+    const mapaViews: { [key: string]: string } = {
+      'renovacao': 'vw_servico_claro_renovacao',
+      'fora-do-prazo': 'vw_servico_claro_fora_prazo',
+      'portabilidade': 'vw_servico_claro_portabilidade',
+      'prazo-limitado': 'vw_servico_claro_prazo_limitado',
+      'prazo-excedido': 'vw_servico_claro_prazo_excedido'
+    };
+
+    const nomeView = mapaViews[tipoIndicacao.toLowerCase()];
+
+    if (!nomeView) {
+      throw new Error(`A indicação informada (${tipoIndicacao}) não possui uma View mapeada no sistema.`);
+    }
+
+    const query = `SELECT * FROM omni.${nomeView};`;
+    try {
+      console.log(`[DB] Buscando dados dinâmicos da view ${nomeView}...`);
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error(`[ServicoClaroRepository] Erro ao buscar dados da view ${nomeView}:`, error);
+      throw error;
+    }
+  }
 }

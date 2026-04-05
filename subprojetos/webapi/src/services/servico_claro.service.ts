@@ -132,6 +132,24 @@ class ServicoClaroService {
       await this.repository.buscarTodosMotivosDeclinio();
     return dados && dados.length > 0 ? dados : [];
   }
+
+  async obterDashboardHistorico() {
+    const dados = await this.repository.buscarDashboardHistorico();
+    return dados && dados.length > 0 ? dados : [];
+  }
+
+  async obterDashboardServicoBase() {
+    const dados = await this.repository.buscarDashboardServicoBase();
+    return dados && dados.length > 0 ? dados : [];
+  }
+
+  async obterDashboardIndicacaoEspecifica(tipoIndicacao: string) {
+    if (!tipoIndicacao) {
+      throw new Error("O parâmetro de indicação é obrigatório para a busca.");
+    }
+    const dados = await this.repository.buscarDashboardPorIndicacao(tipoIndicacao);
+    return dados && dados.length > 0 ? dados : [];
+  }
 }
 
 export default ServicoClaroService;

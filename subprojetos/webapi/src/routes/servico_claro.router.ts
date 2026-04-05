@@ -12,26 +12,14 @@ class RotasServicoClaro {
   }
 
   private registrarRotas() {
-    this.router.get(
-      "/servico-claro/piperun/portabilidade",
-      this.servicoClaroController.buscarServicosClaroPipePortabilidade,
-    );
-    this.router.get(
-      "/servico-claro/piperun/renovacao",
-      this.servicoClaroController.buscarServicosClaroPipeRenovacao,
-    );
-    this.router.get(
-      "/servico-claro/piperun/motivos-declinio",
-      this.servicoClaroController.obterTodosMotivosDeclinio,
-    );
-    this.router.patch(
-      "/servico-claro/piperun/sincronizar",
-      this.servicoClaroController.sincronizarDados,
-    );
-    this.router.patch(
-      "/servico-claro/piperun/:seq_claro",
-      this.servicoClaroController.atualizarStatusCrm,
-    );
+    this.router.get("/servico-claro/piperun/portabilidade", this.servicoClaroController.buscarServicosClaroPipePortabilidade);
+    this.router.get("/servico-claro/piperun/renovacao", this.servicoClaroController.buscarServicosClaroPipeRenovacao);
+    this.router.get("/servico-claro/piperun/motivos-declinio", this.servicoClaroController.obterTodosMotivosDeclinio);
+    this.router.patch("/servico-claro/piperun/sincronizar", this.servicoClaroController.sincronizarDados);
+    this.router.patch("/servico-claro/piperun/:seq_claro", this.servicoClaroController.atualizarStatusCrm);
+    this.router.get("/servico-claro/dashboard/historico", this.servicoClaroController.buscarDashboardHistorico);
+    this.router.get("/servico-claro/dashboard/base", this.servicoClaroController.buscarDashboardBase);
+    this.router.get("/servico-claro/dashboard/indicacao/:tipo_indicacao", this.servicoClaroController.buscarDashboardPorIndicacao);
   }
 
   public retornarRotas(): Router {
