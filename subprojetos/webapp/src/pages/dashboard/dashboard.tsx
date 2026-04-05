@@ -12,7 +12,9 @@ import {
     ToggleRight,
     Loader2,
     Database,
-    CloudCog // Adicionado ícone para representar o PipeRun (Nuvem/SaaS)
+    CloudCog,
+    Calendar,
+    Eraser
 } from "lucide-react";
 import {
     PieChart,
@@ -29,6 +31,7 @@ export interface IServicoViewAPI {
     situacao: string;
     classificacao_contrato: string;
     dt_ultima_leitura_servico: string;
+    dt_fim_contrato: string | null;
     empresa_razao: string;
     consultor_nome: string | null;
     qtd_linhas_total: number;
@@ -46,8 +49,6 @@ interface IApiResponseView {
 type ViewState = "geral" | "renovacao" | "portabilidade";
 type TipoCarteiraFilter = "AMBOS" | "COM_CARTEIRA" | "SEM_CARTEIRA";
 type TipoSituacaoFilter = "TODOS" | "ABERTO" | "INVIAVEL" | "TEMPORARIO" | "PAUSADO" | "GANHO" | "BLACKLIST";
-
-// NOVO TIPO: Define os estados possíveis para o filtro do PipeRun
 type TipoPiperunFilter = "AMBOS" | "SIM" | "NAO";
 
 type DadosPorIndicacao = {
@@ -73,10 +74,8 @@ export default function DashboardAnaliticoMultiView() {
 
     const [filtroSituacao, setFiltroSituacao] = useState<TipoSituacaoFilter>("TODOS");
     const [filtroCarteira, setFiltroCarteira] = useState<TipoCarteiraFilter>("AMBOS");
-
-    // NOVO ESTADO: Armazena o valor do filtro do PipeRun
     const [filtroPiperun, setFiltroPiperun] = useState<TipoPiperunFilter>("AMBOS");
-
+    const [filtroDataFim, setFiltroDataFim] = useState<string>("");
     const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
     const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
 
@@ -138,19 +137,21 @@ export default function DashboardAnaliticoMultiView() {
     const aplicarFiltrosGlobais = () => {
         const aplicarRegras = (array: IServicoViewAPI[]) => {
             return array.filter(item => {
-                // Filtro 1: Situação
                 if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao) return false;
 
-                // Filtro 2: Carteira
                 const isCarteiraPreenchida = item.carteira !== null && item.carteira !== undefined && item.carteira.trim() !== "";
                 if (filtroCarteira === "COM_CARTEIRA" && !isCarteiraPreenchida) return false;
                 if (filtroCarteira === "SEM_CARTEIRA" && isCarteiraPreenchida) return false;
 
-                // Filtro 3: Sincronizado no PipeRun (CRM)
                 if (filtroPiperun === "SIM" && item.flag_crm_servico !== true) return false;
                 if (filtroPiperun === "NAO" && item.flag_crm_servico === true) return false;
 
-                // Filtro 4: Quantidade de Linhas
+                if (filtroDataFim !== "") {
+                    if (!item.dt_fim_contrato) return false;
+                    const dataFormatada = item.dt_fim_contrato.substring(0, 10);
+                    if (dataFormatada !== filtroDataFim) return false;
+                }
+
                 if (filtroLinhasAtivo && Number(item.qtd_linhas_total || 0) !== filtroLinhasValor) return false;
 
                 return true;
@@ -164,6 +165,16 @@ export default function DashboardAnaliticoMultiView() {
             prazo_limitado: aplicarRegras(dadosBrutos.prazo_limitado),
             prazo_excedido: aplicarRegras(dadosBrutos.prazo_excedido)
         });
+    };
+
+    const limparFiltros = () => {
+        setFiltroSituacao("TODOS");
+        setFiltroCarteira("AMBOS");
+        setFiltroPiperun("AMBOS");
+        setFiltroDataFim("");
+        setFiltroLinhasAtivo(false);
+        setFiltroLinhasValor(0);
+        setDadosFiltrados(dadosBrutos);
     };
 
     const totais = useMemo(() => {
@@ -255,17 +266,21 @@ export default function DashboardAnaliticoMultiView() {
 
                     <Card className="border-none shadow-md bg-white">
                         <CardContent className="p-6">
-                            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 border-b border-slate-100 pb-4 gap-4">
                                 <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
                                     <Filter className="h-5 w-5 text-primary" /> Filtros Globais Simultâneos
                                 </h2>
-                                <Button onClick={aplicarFiltrosGlobais} className="px-8 shadow-md hover:scale-105 transition-transform">
-                                    Aplicar aos 5 Gráficos
-                                </Button>
+                                <div className="flex items-center gap-3">
+                                    <Button onClick={limparFiltros} variant="outline" className="text-slate-600 hover:text-slate-900 shadow-sm transition-colors cursor-pointer">
+                                        <Eraser className="h-4 w-4 mr-2" /> Limpar Filtros
+                                    </Button>
+                                    <Button onClick={aplicarFiltrosGlobais} className="px-8 shadow-md hover:scale-105 transition-transform cursor-pointer">
+                                        Aplicar aos 5 Gráficos
+                                    </Button>
+                                </div>
                             </div>
 
-                            {/* O Grid foi alterado para xl:grid-cols-4 para acomodar perfeitamente os 4 filtros */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
 
                                 <div className="space-y-3">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
@@ -301,7 +316,6 @@ export default function DashboardAnaliticoMultiView() {
                                     </select>
                                 </div>
 
-                                {/* NOVO FILTRO: Status PipeRun */}
                                 <div className="space-y-3">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                                         <CloudCog className="h-4 w-4 text-indigo-500" /> Dentro do PipeRun?
@@ -318,11 +332,24 @@ export default function DashboardAnaliticoMultiView() {
                                 </div>
 
                                 <div className="space-y-3">
+                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                        <Calendar className="h-4 w-4 text-red-500" /> Vencimento do Contrato
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={filtroDataFim}
+                                        onChange={(e) => setFiltroDataFim(e.target.value)}
+                                        className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm cursor-pointer"
+                                    />
+                                    <p className="text-xs text-slate-400 mt-1">Filtre para visualizar janelas de renovação.</p>
+                                </div>
+
+                                <div className="space-y-3 xl:col-span-2">
                                     <div className="flex items-center justify-between">
                                         <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                                             <Briefcase className="h-4 w-4 text-amber-500" /> Escopo (Linhas)
                                         </label>
-                                        <button onClick={() => setFiltroLinhasAtivo(!filtroLinhasAtivo)} className="text-primary hover:opacity-80 transition-opacity">
+                                        <button onClick={() => setFiltroLinhasAtivo(!filtroLinhasAtivo)} className="text-primary hover:opacity-80 transition-opacity cursor-pointer">
                                             {filtroLinhasAtivo ? <ToggleRight className="h-8 w-8 text-emerald-500" /> : <ToggleLeft className="h-8 w-8 text-slate-400" />}
                                         </button>
                                     </div>
@@ -346,6 +373,7 @@ export default function DashboardAnaliticoMultiView() {
                                         </div>
                                     </div>
                                 </div>
+
                             </div>
                         </CardContent>
                     </Card>
