@@ -377,13 +377,51 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   }, [dadosLocais, consultorSelecionado]);
 
   const dadosGrafico = useMemo(() => {
+    if (consultorSelecionado === null) {
+      const contagem = new Map<string | number, { nome: string; valor: number }>();
+
+      consultoresElegiveis.forEach((c) => {
+        contagem.set(c.seq_consultor, {
+          nome: c.nome,
+          valor: 0,
+        });
+      });
+
+      let qtdNaoAtribuidos = 0;
+
+      dadosFiltrados.forEach((item) => {
+        if (item.seq_consultor) {
+          if (contagem.has(item.seq_consultor)) {
+            contagem.get(item.seq_consultor)!.valor += 1;
+          } else {
+            const nomeConsultor = mapaConsultores.get(Number(item.seq_consultor))?.nome || `Consultor ${item.seq_consultor}`;
+            contagem.set(item.seq_consultor, { nome: nomeConsultor, valor: 1 });
+          }
+        } else {
+          qtdNaoAtribuidos += 1;
+        }
+      });
+
+      const arrayGrafico = Array.from(contagem.values()).sort((a, b) => b.valor - a.valor);
+
+      if (qtdNaoAtribuidos > 0) {
+        arrayGrafico.push({ nome: "Não Atribuídos", valor: qtdNaoAtribuidos });
+      }
+
+      return arrayGrafico.map((item) => ({
+        chave_x: item.nome,
+        valor_y: item.valor,
+        tooltip_label: "Serviços Atribuídos",
+      }));
+    }
+
     return dadosFiltrados.map((item) => ({
-      empresa: item.razao || "Empresa sem Razão",
-      linhas:
-        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0,
+      chave_x: item.razao || "Empresa sem Razão",
+      valor_y: typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0,
+      tooltip_label: "Linhas a Renovar",
       cnpj: item.cnpj || "Sem CNPJ",
     }));
-  }, [dadosFiltrados]);
+  }, [dadosFiltrados, consultorSelecionado, consultoresElegiveis, mapaConsultores]);
 
   const totalServicosGeral = useMemo(() => {
     if (!Array.isArray(dadosLocais)) return 0;
@@ -651,12 +689,19 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
             ) : (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Gráficos omitidos por brevidade visual, mas não removidos */}
                   <div className="h-[350px] lg:col-span-2 border rounded-lg p-4 bg-muted/5 flex flex-col shadow-sm">
                     <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                      <Building2 size={16} /> Volume de Linhas a Renovar por
-                      Empresa
+                      {consultorSelecionado === null ? (
+                        <>
+                          <Users size={16} /> Volume de Serviços por Consultor
+                        </>
+                      ) : (
+                        <>
+                          <Building2 size={16} /> Volume de Linhas a Renovar por Empresa
+                        </>
+                      )}
                     </h3>
+
                     <div className="flex-1 w-full min-h-[250px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
@@ -670,20 +715,30 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                             opacity={0.1}
                           />
                           <XAxis
-                            dataKey="empresa"
-                            tick={{ fontSize: 12, color: "white" }}
-                            hide={dadosFiltrados.length > 20}
+                            dataKey="chave_x"
+                            tick={{ fontSize: 12, fill: "#ffffff" }}
+                            tickMargin={10}
+                            hide={consultorSelecionado !== null && dadosFiltrados.length > 20}
                             tickFormatter={(value: string) =>
                               value ? value.substring(0, 15) + "..." : ""
                             }
                           />
                           <YAxis
-                            tick={{ fontSize: 12, color: "white" }}
+                            tick={{ fontSize: 12, fill: "#ffffff" }}
+                            tickMargin={10}
                             allowDecimals={false}
                           />
-                          <Tooltip cursor={{ fill: "#ffffff4d" }} />
+                          <Tooltip
+                            cursor={{ fill: "#ffffff2a" }}
+                            formatter={(value, name, props) => [
+                              value,
+                              props.payload.tooltip_label
+                            ]}
+                            contentStyle={{ backgroundColor: "#1f2937", borderColor: "#374151", color: "#ffffff" }}
+                            itemStyle={{ color: "#eab308" }}
+                          />
                           <Bar
-                            dataKey="linhas"
+                            dataKey="valor_y"
                             fill="#eab308"
                             radius={[4, 4, 0, 0]}
                           />
@@ -691,7 +746,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                       </ResponsiveContainer>
                     </div>
                   </div>
-
                   <div className="h-[350px] lg:col-span-1 border rounded-lg p-4 bg-muted/5 flex flex-col items-center relative shadow-sm">
                     <h3 className="flex items-center gap-2 mb-2 text-sm font-medium text-muted-foreground w-full">
                       <PieChartIcon size={16} /> Distribuição de Serviços

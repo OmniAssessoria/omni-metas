@@ -359,8 +359,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
       await API.put(`/api/consultor/empresa/${empresaAtribuicao.seq}`, {
         seq_consultor: Number(consultorSelecionadoAtribuicao),
       });
-
-      // Atualização Otimista local
       setDadosLocais((prev) =>
         prev.map((item) =>
           item.seq_empresa === empresaAtribuicao.seq
@@ -368,7 +366,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             : item
         )
       );
-
       setModalAtribuicaoAberto(false);
       console.log(`[Sucesso] Consultor alterado para a empresa ${empresaAtribuicao.nome}`);
     } catch (error: any) {
@@ -379,14 +376,11 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     }
   };
 
-  // =========================================================================
-
   const consultorAtual = useMemo(
     () => consultores.find((c) => c.seq_consultor === consultorSelecionado),
     [consultores, consultorSelecionado],
   );
 
-  // Refatorado para usar dadosLocais em vez da prop estática 'dados'
   const dadosFiltrados = useMemo(() => {
     if (!Array.isArray(dadosLocais)) return [];
     if (consultorSelecionado === null) return dadosLocais;
@@ -397,13 +391,48 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   }, [dadosLocais, consultorSelecionado]);
 
   const dadosGrafico = useMemo(() => {
+    if (consultorSelecionado === null) {
+      const contagem = new Map<string | number, { nome: string; valor: number }>();
+      consultoresElegiveis.forEach((c) => {
+        contagem.set(c.seq_consultor, {
+          nome: c.nome,
+          valor: 0,
+        });
+      });
+
+      let qtdNaoAtribuidos = 0;
+
+      dadosFiltrados.forEach((item) => {
+        if (item.seq_consultor) {
+          if (contagem.has(item.seq_consultor)) {
+            contagem.get(item.seq_consultor)!.valor += 1;
+          } else {
+            const nomeConsultor = mapaConsultores.get(Number(item.seq_consultor))?.nome || `Consultor ${item.seq_consultor}`;
+            contagem.set(item.seq_consultor, { nome: nomeConsultor, valor: 1 });
+          }
+        } else {
+          qtdNaoAtribuidos += 1;
+        }
+      });
+
+      const arrayGrafico = Array.from(contagem.values()).sort((a, b) => b.valor - a.valor);
+      if (qtdNaoAtribuidos > 0) {
+        arrayGrafico.push({ nome: "Não Atribuídos", valor: qtdNaoAtribuidos });
+      }
+      return arrayGrafico.map((item) => ({
+        chave_x: item.nome,
+        valor_y: item.valor,
+        tooltip_label: "Serviços Atribuídos",
+      }));
+    }
+
     return dadosFiltrados.map((item) => ({
-      empresa: item.razao || "Empresa sem Razão",
-      linhas:
-        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0,
+      chave_x: item.razao || "Empresa sem Razão",
+      valor_y: typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0,
+      tooltip_label: "Linhas Ativas",
       cnpj: item.cnpj || "N/D",
     }));
-  }, [dadosFiltrados]);
+  }, [dadosFiltrados, consultorSelecionado, consultoresElegiveis, mapaConsultores]);
 
   const totalServicosGeral = useMemo(() => {
     if (!Array.isArray(dadosLocais)) return 0;
@@ -539,7 +568,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     );
                   })}
 
-                  {/* Badge de Empresas Selecionadas */}
                   {empresasSelecionadas.length > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 shadow-sm">
                       <CheckSquare size={14} />
@@ -673,8 +701,17 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="h-[350px] lg:col-span-2 border rounded-lg p-4 bg-muted/5 flex flex-col shadow-sm">
                     <h3 className="flex items-center gap-2 mb-4 text-sm font-medium text-muted-foreground">
-                      <Building2 size={16} /> Volume de Linhas por Empresa
+                      {consultorSelecionado === null ? (
+                        <>
+                          <Users size={16} /> Volume de Serviços por Consultor
+                        </>
+                      ) : (
+                        <>
+                          <Building2 size={16} /> Volume de Linhas por Empresa
+                        </>
+                      )}
                     </h3>
+
                     <div className="flex-1 w-full min-h-[250px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
@@ -688,17 +725,23 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             opacity={0.1}
                           />
                           <XAxis
-                            dataKey="empresa"
+                            dataKey="chave_x"
                             tick={{ fontSize: 12 }}
-                            hide={dadosFiltrados.length > 20}
+                            hide={dadosGrafico.length > 20}
                           />
                           <YAxis
                             tick={{ fontSize: 12 }}
                             allowDecimals={false}
                           />
-                          <Tooltip cursor={{ fill: "#fff6f66b" }} />
+                          <Tooltip
+                            cursor={{ fill: "#fff6f66b" }}
+                            formatter={(value, name, props) => [
+                              value,
+                              props.payload.tooltip_label
+                            ]}
+                          />
                           <Bar
-                            dataKey="linhas"
+                            dataKey="valor_y"
                             fill="#3b82f6"
                             radius={[4, 4, 0, 0]}
                           />
