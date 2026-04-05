@@ -43,7 +43,7 @@ interface IApiResponseView {
 }
 
 type ViewState = "geral" | "renovacao" | "portabilidade";
-type TipoCarteiraFilter = "TODOS" | "COM_CARTEIRA" | "SEM_CARTEIRA";
+type TipoCarteiraFilter = "AMBOS" | "COM_CARTEIRA" | "SEM_CARTEIRA";
 type TipoSituacaoFilter = "TODOS" | "ABERTO" | "INVIAVEL" | "TEMPORARIO" | "PAUSADO" | "GANHO" | "BLACKLIST";
 
 type DadosPorIndicacao = {
@@ -68,7 +68,7 @@ export default function DashboardAnaliticoMultiView() {
     });
 
     const [filtroSituacao, setFiltroSituacao] = useState<TipoSituacaoFilter>("TODOS");
-    const [filtroCarteira, setFiltroCarteira] = useState<TipoCarteiraFilter>("TODOS");
+    const [filtroCarteira, setFiltroCarteira] = useState<TipoCarteiraFilter>("AMBOS");
     const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
     const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
 
@@ -131,9 +131,11 @@ export default function DashboardAnaliticoMultiView() {
         const aplicarRegras = (array: IServicoViewAPI[]) => {
             return array.filter(item => {
                 if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao) return false;
-                if (filtroCarteira === "COM_CARTEIRA" && (!item.consultor_nome || item.consultor_nome.trim() === "")) return false;
-                if (filtroCarteira === "SEM_CARTEIRA" && (item.consultor_nome && item.consultor_nome.trim() !== "")) return false;
+                const isCarteiraPreenchida = item.carteira !== null && item.carteira !== undefined && item.carteira.trim() !== "";
+                if (filtroCarteira === "COM_CARTEIRA" && !isCarteiraPreenchida) return false;
+                if (filtroCarteira === "SEM_CARTEIRA" && isCarteiraPreenchida) return false;
                 if (filtroLinhasAtivo && Number(item.qtd_linhas_total || 0) !== filtroLinhasValor) return false;
+
                 return true;
             });
         };
@@ -253,7 +255,7 @@ export default function DashboardAnaliticoMultiView() {
                                     <select
                                         value={filtroSituacao}
                                         onChange={(e) => setFiltroSituacao(e.target.value as TipoSituacaoFilter)}
-                                        className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
+                                        className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
                                     >
                                         <option value="TODOS">Todas as Situações</option>
                                         <option value="ABERTO">Aberto (Em Negociação)</option>
@@ -272,11 +274,11 @@ export default function DashboardAnaliticoMultiView() {
                                     <select
                                         value={filtroCarteira}
                                         onChange={(e) => setFiltroCarteira(e.target.value as TipoCarteiraFilter)}
-                                        className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
+                                        className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
                                     >
-                                        <option value="TODOS">Visão Mista (Com e Sem Consultor)</option>
-                                        <option value="COM_CARTEIRA">Somente Clientes Atribuídos</option>
-                                        <option value="SEM_CARTEIRA">Somente Clientes Avulsos</option>
+                                        <option value="AMBOS">Ambos (Com e Sem Carteira)</option>
+                                        <option value="COM_CARTEIRA">Com Carteira</option>
+                                        <option value="SEM_CARTEIRA">Sem Carteira</option>
                                     </select>
                                 </div>
 
