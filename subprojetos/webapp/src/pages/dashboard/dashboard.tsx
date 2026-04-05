@@ -137,21 +137,28 @@ export default function DashboardAnaliticoMultiView() {
     const aplicarFiltrosGlobais = () => {
         const aplicarRegras = (array: IServicoViewAPI[]) => {
             return array.filter(item => {
+                // Filtro 1: Situação
                 if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao) return false;
 
-                const isCarteiraPreenchida = item.carteira !== null && item.carteira !== undefined && item.carteira.trim() !== "";
-                if (filtroCarteira === "COM_CARTEIRA" && !isCarteiraPreenchida) return false;
-                if (filtroCarteira === "SEM_CARTEIRA" && isCarteiraPreenchida) return false;
+                // Filtro 2: Carteira (Lógica Corrigida)
+                // Checa se o valor é null, undefined, ou uma string vazia (após remover os espaços)
+                const isCarteiraVazia = !item.carteira || item.carteira.trim() === "";
 
+                if (filtroCarteira === "COM_CARTEIRA" && isCarteiraVazia) return false;
+                if (filtroCarteira === "SEM_CARTEIRA" && !isCarteiraVazia) return false;
+
+                // Filtro 3: Sincronizado no PipeRun (CRM)
                 if (filtroPiperun === "SIM" && item.flag_crm_servico !== true) return false;
                 if (filtroPiperun === "NAO" && item.flag_crm_servico === true) return false;
 
+                // Filtro 4: Data Fim de Contrato
                 if (filtroDataFim !== "") {
                     if (!item.dt_fim_contrato) return false;
                     const dataFormatada = item.dt_fim_contrato.substring(0, 10);
                     if (dataFormatada !== filtroDataFim) return false;
                 }
 
+                // Filtro 5: Quantidade de Linhas
                 if (filtroLinhasAtivo && Number(item.qtd_linhas_total || 0) !== filtroLinhasValor) return false;
 
                 return true;
