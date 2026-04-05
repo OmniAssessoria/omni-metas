@@ -11,7 +11,8 @@ import {
     ToggleLeft,
     ToggleRight,
     Loader2,
-    Database
+    Database,
+    CloudCog // Adicionado ícone para representar o PipeRun (Nuvem/SaaS)
 } from "lucide-react";
 import {
     PieChart,
@@ -46,6 +47,9 @@ type ViewState = "geral" | "renovacao" | "portabilidade";
 type TipoCarteiraFilter = "AMBOS" | "COM_CARTEIRA" | "SEM_CARTEIRA";
 type TipoSituacaoFilter = "TODOS" | "ABERTO" | "INVIAVEL" | "TEMPORARIO" | "PAUSADO" | "GANHO" | "BLACKLIST";
 
+// NOVO TIPO: Define os estados possíveis para o filtro do PipeRun
+type TipoPiperunFilter = "AMBOS" | "SIM" | "NAO";
+
 type DadosPorIndicacao = {
     renovacao: IServicoViewAPI[];
     portabilidade: IServicoViewAPI[];
@@ -69,6 +73,10 @@ export default function DashboardAnaliticoMultiView() {
 
     const [filtroSituacao, setFiltroSituacao] = useState<TipoSituacaoFilter>("TODOS");
     const [filtroCarteira, setFiltroCarteira] = useState<TipoCarteiraFilter>("AMBOS");
+
+    // NOVO ESTADO: Armazena o valor do filtro do PipeRun
+    const [filtroPiperun, setFiltroPiperun] = useState<TipoPiperunFilter>("AMBOS");
+
     const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
     const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
 
@@ -130,10 +138,19 @@ export default function DashboardAnaliticoMultiView() {
     const aplicarFiltrosGlobais = () => {
         const aplicarRegras = (array: IServicoViewAPI[]) => {
             return array.filter(item => {
+                // Filtro 1: Situação
                 if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao) return false;
+
+                // Filtro 2: Carteira
                 const isCarteiraPreenchida = item.carteira !== null && item.carteira !== undefined && item.carteira.trim() !== "";
                 if (filtroCarteira === "COM_CARTEIRA" && !isCarteiraPreenchida) return false;
                 if (filtroCarteira === "SEM_CARTEIRA" && isCarteiraPreenchida) return false;
+
+                // Filtro 3: Sincronizado no PipeRun (CRM)
+                if (filtroPiperun === "SIM" && item.flag_crm_servico !== true) return false;
+                if (filtroPiperun === "NAO" && item.flag_crm_servico === true) return false;
+
+                // Filtro 4: Quantidade de Linhas
                 if (filtroLinhasAtivo && Number(item.qtd_linhas_total || 0) !== filtroLinhasValor) return false;
 
                 return true;
@@ -247,7 +264,9 @@ export default function DashboardAnaliticoMultiView() {
                                 </Button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                            {/* O Grid foi alterado para xl:grid-cols-4 para acomodar perfeitamente os 4 filtros */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+
                                 <div className="space-y-3">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                                         <AlertCircle className="h-4 w-4 text-sky-500" /> Situação do Atendimento
@@ -282,7 +301,23 @@ export default function DashboardAnaliticoMultiView() {
                                     </select>
                                 </div>
 
-                                <div className="space-y-3 xl:col-span-1 md:col-span-2">
+                                {/* NOVO FILTRO: Status PipeRun */}
+                                <div className="space-y-3">
+                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                        <CloudCog className="h-4 w-4 text-indigo-500" /> Dentro do PipeRun?
+                                    </label>
+                                    <select
+                                        value={filtroPiperun}
+                                        onChange={(e) => setFiltroPiperun(e.target.value as TipoPiperunFilter)}
+                                        className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
+                                    >
+                                        <option value="AMBOS">Ambos (No Pipe e Fora)</option>
+                                        <option value="SIM">Sim (No CRM)</option>
+                                        <option value="NAO">Não (Fora do CRM)</option>
+                                    </select>
+                                </div>
+
+                                <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                                             <Briefcase className="h-4 w-4 text-amber-500" /> Escopo (Linhas)
