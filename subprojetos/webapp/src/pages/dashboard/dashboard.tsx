@@ -15,6 +15,7 @@ import {
   CloudCog,
   Calendar,
   Eraser,
+  Users,
 } from "lucide-react";
 import {
   PieChart,
@@ -80,6 +81,7 @@ export default function DashboardAnaliticoMultiView() {
   const [view, setView] = useState<ViewState>("geral");
   const [loading, setLoading] = useState<boolean>(true);
   const [notification, setNotification] = useState<string | null>(null);
+  
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
     renovacao: [],
     portabilidade: [],
@@ -96,16 +98,14 @@ export default function DashboardAnaliticoMultiView() {
     prazo_excedido: [],
   });
 
-  const [filtroSituacao, setFiltroSituacao] =
-    useState<TipoSituacaoFilter>("TODOS");
-  const [filtroCarteira, setFiltroCarteira] =
-    useState<TipoCarteiraFilter>("AMBOS");
-  const [filtroPiperun, setFiltroPiperun] =
-    useState<TipoPiperunFilter>("AMBOS");
+  const [filtroSituacao, setFiltroSituacao] = useState<TipoSituacaoFilter>("TODOS");
+  const [filtroCarteira, setFiltroCarteira] = useState<TipoCarteiraFilter>("AMBOS");
+  const [filtroPiperun, setFiltroPiperun] = useState<TipoPiperunFilter>("AMBOS");
   const [filtroDataFim, setFiltroDataFim] = useState<string>("");
   const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
   const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
   const [filtroDDD, setFiltroDDD] = useState<string>("TODOS");
+  const [filtroConsultor, setFiltroConsultor] = useState<string>("TODOS");
 
   const CORES = {
     renovacao: "#eab308",
@@ -120,27 +120,17 @@ export default function DashboardAnaliticoMultiView() {
     setLoading(true);
     try {
       const [resRenov, resPort, resFora, resLim, resExc] = await Promise.all([
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/renovacao",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/portabilidade",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/fora-do-prazo",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/prazo-limitado",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/prazo-excedido",
-        ),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/renovacao"),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/portabilidade"),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/fora-do-prazo"),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-limitado"),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-excedido"),
       ]);
 
       const prepararDados = (lista: IServicoViewAPI[]) => {
         return lista.map((item) => ({
           ...item,
-          ddd_predominante: item.ddd_predominante || "00",
+          ddd_predominante: item.ddd_predominante ? String(item.ddd_predominante).trim() : "00",
         }));
       };
 
@@ -182,23 +172,45 @@ export default function DashboardAnaliticoMultiView() {
     );
   }, [dadosBrutos]);
 
+  const listaConsultoresUnicos = useMemo(() => {
+    const mapaConsultores = new Map<number, string>();
+    const todosServicos = [
+      ...dadosBrutos.renovacao,
+      ...dadosBrutos.portabilidade,
+      ...dadosBrutos.fora_prazo,
+      ...dadosBrutos.prazo_limitado,
+      ...dadosBrutos.prazo_excedido,
+    ];
+
+    todosServicos.forEach((item) => {
+      if (item.seq_consultor && item.consultor_nome) {
+        mapaConsultores.set(item.seq_consultor, item.consultor_nome);
+      }
+    });
+
+    return Array.from(mapaConsultores.entries())
+      .map(([seq, nome]) => ({ seq, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [dadosBrutos]);
+
   const aplicarFiltrosGlobais = () => {
     const aplicarRegras = (array: IServicoViewAPI[]) => {
       return array.filter((item) => {
-        if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao)
-          return false;
-
+        if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao) return false;
         const isCarteiraVazia = !item.carteira || item.carteira.trim() === "";
         if (filtroCarteira === "COM_CARTEIRA" && isCarteiraVazia) return false;
         if (filtroCarteira === "SEM_CARTEIRA" && !isCarteiraVazia) return false;
+        if (filtroPiperun === "SIM" && item.flag_crm_servico !== true) return false;
+        if (filtroPiperun === "NAO" && item.flag_crm_servico === true) return false;
+        if (filtroDDD !== "TODOS" && item.ddd_predominante !== filtroDDD) return false;
 
-        if (filtroPiperun === "SIM" && item.flag_crm_servico !== true)
-          return false;
-        if (filtroPiperun === "NAO" && item.flag_crm_servico === true)
-          return false;
-
-        if (filtroDDD !== "TODOS" && item.ddd_predominante !== filtroDDD)
-          return false;
+        if (filtroConsultor !== "TODOS") {
+          if (filtroConsultor === "NAO_ATRIBUIDO") {
+            if (item.seq_consultor !== null) return false; 
+          } else {
+            if (String(item.seq_consultor) !== filtroConsultor) return false;
+          }
+        }
 
         if (filtroDataFim !== "") {
           if (!item.dt_fim_contrato) return false;
@@ -206,13 +218,11 @@ export default function DashboardAnaliticoMultiView() {
           if (dataFormatada !== filtroDataFim) return false;
         }
 
-        if (
-          filtroLinhasAtivo &&
-          Number(item.qtd_linhas_total || 0) !== filtroLinhasValor
-        )
+        if (filtroLinhasAtivo && Number(item.qtd_linhas_total || 0) !== filtroLinhasValor) {
           return false;
+        }
 
-        return true;
+        return true; 
       });
     };
 
@@ -230,6 +240,7 @@ export default function DashboardAnaliticoMultiView() {
     setFiltroCarteira("AMBOS");
     setFiltroPiperun("AMBOS");
     setFiltroDDD("TODOS");
+    setFiltroConsultor("TODOS"); 
     setFiltroDataFim("");
     setFiltroLinhasAtivo(false);
     setFiltroLinhasValor(0);
@@ -278,8 +289,8 @@ export default function DashboardAnaliticoMultiView() {
     ];
 
     return (
-      <div className="flex flex-col items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-        <h3 className="text-sm font-bold text-slate-700 text-center mb-2 h-10 flex items-center justify-center uppercase tracking-wide">
+      <div className="flex flex-col items-center p-4 transition-shadow bg-white border shadow-sm rounded-xl border-slate-100 hover:shadow-md">
+        <h3 className="flex items-center justify-center h-10 mb-2 text-sm font-bold tracking-wide text-center uppercase text-slate-700">
           {titulo}
         </h3>
         <div className="w-40 h-40">
@@ -313,74 +324,74 @@ export default function DashboardAnaliticoMultiView() {
   };
 
   return (
-    <div className="h-screen w-screen flex bg-slate-50 text-slate-900 overflow-hidden">
+    <div className="flex h-screen overflow-hidden w-screen bg-slate-50 text-slate-900">
       <div className="w-[280px] h-full flex-shrink-0">
         <Sidebar />
       </div>
 
-      <main className="relative flex-1 h-full overflow-y-auto flex flex-col p-6 sm:p-10">
+      <main className="relative flex flex-col flex-1 h-full p-6 overflow-y-auto sm:p-10">
         {notification && (
-          <div className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-slate-800 text-white px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-right-8 duration-300">
-            <Bell className="h-5 w-5 text-emerald-400" />
+          <div className="fixed z-50 flex items-center gap-3 px-6 py-4 text-white shadow-2xl top-6 right-6 bg-slate-800 rounded-xl animate-in slide-in-from-right-8 duration-300">
+            <Bell className="w-5 h-5 text-emerald-400" />
             <p className="font-medium">{notification}</p>
           </div>
         )}
 
         {loading && totais.geral === 0 && (
-          <div className="absolute inset-0 z-40 bg-slate-50/80 backdrop-blur-sm flex flex-col items-center justify-center">
-            <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-sm bg-slate-50/80">
+            <Loader2 className="w-12 h-12 mb-4 animate-spin text-primary" />
             <h2 className="text-xl font-bold text-slate-700">
               Extraindo dados das Views...
             </h2>
           </div>
         )}
 
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8 w-full max-w-7xl mx-auto">
+        <div className="flex flex-col items-start justify-between w-full max-w-7xl gap-6 mb-8 mx-auto lg:flex-row lg:items-center">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-800">
               Análise Multi-Views Operacional
             </h1>
-            <p className="text-slate-500 mt-1">
+            <p className="mt-1 text-slate-500">
               Consumo direto do banco fatiado por Indicação e Situação.
             </p>
           </div>
         </div>
 
-        <div className="w-full max-w-7xl mx-auto space-y-6">
-          <Card className="border-none shadow-md bg-white">
+        <div className="w-full space-y-6 max-w-7xl mx-auto">
+          <Card className="bg-white border-none shadow-md">
             <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 border-b border-slate-100 pb-4 gap-4">
-                <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
-                  <Filter className="h-5 w-5 text-primary" /> Filtros Globais
+              <div className="flex flex-col justify-between gap-4 pb-4 mb-6 border-b md:flex-row md:items-center border-slate-100">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                  <Filter className="w-5 h-5 text-primary" /> Filtros Globais
                   Simultâneos
                 </h2>
                 <div className="flex items-center gap-3">
                   <Button
                     onClick={limparFiltros}
                     variant="outline"
-                    className="text-white-600 hover:text-slate-900 shadow-sm transition-colors cursor-pointer"
+                    className="transition-colors shadow-sm cursor-pointer text-slate-600 hover:text-slate-900"
                   >
-                    <Eraser className="h-4 w-4 mr-2" /> Limpar Filtros
+                    <Eraser className="w-4 h-4 mr-2" /> Limpar Filtros
                   </Button>
                   <Button
                     onClick={aplicarFiltrosGlobais}
-                    className="px-8 shadow-md hover:scale-105 transition-transform cursor-pointer"
+                    className="px-8 shadow-md cursor-pointer hover:scale-105 transition-transform"
                   >
                     Aplicar aos 5 Gráficos
                   </Button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
                 <div className="space-y-3">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
                     <span className="font-extrabold text-blue-500">📞</span>{" "}
                     Região (DDD Maioral)
                   </label>
                   <select
                     value={filtroDDD}
                     onChange={(e) => setFiltroDDD(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
+                    className="w-full h-12 px-4 transition-all border shadow-sm outline-none border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                   >
                     <option value="TODOS">Todos os DDDs</option>
                     <option value="11">11 - São Paulo/Metropolitana</option>
@@ -397,8 +408,29 @@ export default function DashboardAnaliticoMultiView() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-sky-500" /> Situação do
+                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                    <Users className="w-4 h-4 text-purple-500" /> Consultor Atribuído
+                  </label>
+                  <select
+                    value={filtroConsultor}
+                    onChange={(e) => setFiltroConsultor(e.target.value)}
+                    className="w-full h-12 px-4 transition-all border shadow-sm outline-none border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="TODOS">Todos os Consultores</option>
+                    <option value="NAO_ATRIBUIDO">❌ Não Atribuídos</option>
+                    <optgroup label="Consultores Disponíveis">
+                      {listaConsultoresUnicos.map((consultor) => (
+                        <option key={consultor.seq} value={String(consultor.seq)}>
+                          {consultor.nome}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                    <AlertCircle className="w-4 h-4 text-sky-500" /> Situação do
                     Atendimento
                   </label>
                   <select
@@ -406,7 +438,7 @@ export default function DashboardAnaliticoMultiView() {
                     onChange={(e) =>
                       setFiltroSituacao(e.target.value as TipoSituacaoFilter)
                     }
-                    className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
+                    className="w-full h-12 px-4 transition-all border shadow-sm outline-none border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                   >
                     <option value="TODOS">Todas as Situações</option>
                     <option value="ABERTO">Aberto (Em Negociação)</option>
@@ -421,8 +453,8 @@ export default function DashboardAnaliticoMultiView() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-emerald-500" /> Atribuição
+                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                    <Wallet className="w-4 h-4 text-emerald-500" /> Atribuição
                     de Carteira
                   </label>
                   <select
@@ -430,7 +462,7 @@ export default function DashboardAnaliticoMultiView() {
                     onChange={(e) =>
                       setFiltroCarteira(e.target.value as TipoCarteiraFilter)
                     }
-                    className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
+                    className="w-full h-12 px-4 transition-all border shadow-sm outline-none border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                   >
                     <option value="AMBOS">Ambos (Com e Sem Carteira)</option>
                     <option value="COM_CARTEIRA">Com Carteira</option>
@@ -439,8 +471,8 @@ export default function DashboardAnaliticoMultiView() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <CloudCog className="h-4 w-4 text-indigo-500" /> Dentro do
+                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                    <CloudCog className="w-4 h-4 text-indigo-500" /> Dentro do
                     PipeRun?
                   </label>
                   <select
@@ -448,7 +480,7 @@ export default function DashboardAnaliticoMultiView() {
                     onChange={(e) =>
                       setFiltroPiperun(e.target.value as TipoPiperunFilter)
                     }
-                    className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
+                    className="w-full h-12 px-4 transition-all border shadow-sm outline-none border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                   >
                     <option value="AMBOS">Ambos (No Pipe e Fora)</option>
                     <option value="SIM">Sim (No CRM)</option>
@@ -457,35 +489,35 @@ export default function DashboardAnaliticoMultiView() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-red-500" /> Vencimento do
+                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                    <Calendar className="w-4 h-4 text-red-500" /> Vencimento do
                     Contrato
                   </label>
                   <input
                     type="date"
                     value={filtroDataFim}
                     onChange={(e) => setFiltroDataFim(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg h-12 px-4 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm cursor-pointer"
+                    className="w-full h-12 px-4 transition-all border shadow-sm outline-none cursor-pointer border-slate-200 rounded-lg bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                   />
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="mt-1 text-xs text-slate-400">
                     Filtre para visualizar janelas de renovação.
                   </p>
                 </div>
 
-                <div className="space-y-3 xl:col-span-2">
+                <div className="space-y-3 xl:col-span-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-amber-500" /> Escopo
+                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                      <Briefcase className="w-4 h-4 text-amber-500" /> Escopo
                       (Linhas)
                     </label>
                     <button
                       onClick={() => setFiltroLinhasAtivo(!filtroLinhasAtivo)}
-                      className="text-primary hover:opacity-80 transition-opacity cursor-pointer"
+                      className="transition-opacity cursor-pointer text-primary hover:opacity-80"
                     >
                       {filtroLinhasAtivo ? (
-                        <ToggleRight className="h-8 w-8 text-emerald-500" />
+                        <ToggleRight className="w-8 h-8 text-emerald-500" />
                       ) : (
-                        <ToggleLeft className="h-8 w-8 text-slate-400" />
+                        <ToggleLeft className="w-8 h-8 text-slate-400" />
                       )}
                     </button>
                   </div>
@@ -494,7 +526,7 @@ export default function DashboardAnaliticoMultiView() {
                     className={`relative pt-4 transition-opacity duration-300 ${filtroLinhasAtivo ? "opacity-100" : "opacity-40 pointer-events-none"}`}
                   >
                     <div
-                      className="absolute -top-1 bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg transition-all"
+                      className="absolute px-2 py-1 text-xs text-white transition-all shadow-lg -top-1 bg-slate-800 rounded"
                       style={{
                         left: `calc(${(filtroLinhasValor / (maxLinhasGlobal || 1)) * 100}% - 12px)`,
                       }}
@@ -509,9 +541,9 @@ export default function DashboardAnaliticoMultiView() {
                       onChange={(e) =>
                         setFiltroLinhasValor(Number(e.target.value))
                       }
-                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200 accent-primary"
                     />
-                    <div className="flex justify-between text-xs text-slate-400 mt-2">
+                    <div className="flex justify-between mt-2 text-xs text-slate-400">
                       <span>0</span>
                       <span>{maxLinhasGlobal} Máx</span>
                     </div>
@@ -522,12 +554,12 @@ export default function DashboardAnaliticoMultiView() {
           </Card>
 
           <div className="mt-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <PieChart className="h-6 w-6 text-primary" /> Visualização
+            <h2 className="flex items-center gap-2 mb-4 text-xl font-bold text-slate-800">
+              <PieChart className="w-6 h-6 text-primary" /> Visualização
               Comparativa por Indicação
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {renderMiniGrafico(
                 "Fora do Prazo",
                 totais.fora_prazo,
@@ -556,35 +588,35 @@ export default function DashboardAnaliticoMultiView() {
             </div>
           </div>
 
-          <Card className="bg-slate-800 text-white border-none shadow-xl mt-8">
-            <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between">
+          <Card className="mt-8 text-white border-none shadow-xl bg-slate-800">
+            <CardContent className="flex flex-col items-center justify-between p-6 md:flex-row">
               <div className="flex items-center gap-4 mb-4 md:mb-0">
-                <div className="bg-white/10 p-4 rounded-full">
-                  <Database className="h-8 w-8 text-emerald-400" />
+                <div className="p-4 rounded-full bg-white/10">
+                  <Database className="w-8 h-8 text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">
+                  <p className="text-sm font-medium tracking-wider uppercase text-slate-400">
                     Volume Total Filtrado
                   </p>
-                  <h3 className="text-4xl font-black">{totais.geral}</h3>
+                  <h3 className="font-black text-4xl">{totais.geral}</h3>
                 </div>
               </div>
 
               <div className="flex gap-6 text-sm">
                 <div className="text-right">
-                  <p className="text-slate-400 mb-1">Volume Atual</p>
-                  <p className="font-bold flex items-center gap-2 text-amber-400">
+                  <p className="mb-1 text-slate-400">Volume Atual</p>
+                  <p className="flex items-center gap-2 font-bold text-amber-400">
                     Renovação{" "}
-                    <span className="bg-white/20 px-2 py-1 rounded text-white">
+                    <span className="px-2 py-1 text-white rounded bg-white/20">
                       {totais.renovacao}
                     </span>
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-slate-400 mb-1">Volume Atual</p>
-                  <p className="font-bold flex items-center gap-2 text-blue-400">
+                  <p className="mb-1 text-slate-400">Volume Atual</p>
+                  <p className="flex items-center gap-2 font-bold text-blue-400">
                     Portabilidade{" "}
-                    <span className="bg-white/20 px-2 py-1 rounded text-white">
+                    <span className="px-2 py-1 text-white rounded bg-white/20">
                       {totais.portabilidade}
                     </span>
                   </p>
