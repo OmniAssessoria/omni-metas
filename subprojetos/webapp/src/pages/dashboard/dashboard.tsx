@@ -27,46 +27,29 @@ import API from "@/services/api";
 
 export interface IServicoViewAPI {
   seq_claro: number;
+  seq_empresa: number;
+  seq_consultor: number | null;
+  empresa_razao: string;
+  empresa_cnpj: string;
+  ddd_predominante: string;
   indicacao: string;
   situacao: string;
-  classificacao_contrato: string;
-  dt_ultima_leitura_servico: string;
-  dt_fim_contrato: string | null;
-  empresa_razao: string;
-  consultor_nome: string | null;
+  classificacao_contrato: string | null;
+  carteira: string | null;
+  observacao: string | null;
   qtd_linhas_total: number;
+  qtd_linhas_ativas: number;
+  qtd_linhas_claro_operadora: number;
+  dt_fim_contrato: string | null;
+  dt_fechamento: string | null;
+  dt_ultima_leitura_servico: string | null;
+  dt_leitura_cpc_empresa: string | null;
   flag_crm_servico: boolean;
   flag_cpc_servico: boolean;
-  carteira: string | null;
-  observacao?: string;
-  ddd_predominante?: string;
+  flag_edoc_servico: boolean;
+  servico_claro_ativo: boolean;
+  consultor_nome: string | null;
 }
-
-const extrairDDDPredominante = (observacao?: string): string => {
-  if (!observacao) return "00";
-
-  const regex = /P\[\d+\]\s*-\s*([0-9\-\s\(\)]+)/g;
-  let match;
-  const contagemDDD: Record<string, number> = {};
-  let dddMaisFrequente = "00";
-  let maxCount = 0;
-
-  while ((match = regex.exec(observacao)) !== null) {
-    const numeroLimpo = match[1].replace(/\D/g, "");
-
-    if (numeroLimpo.length >= 10) {
-      const ddd = numeroLimpo.substring(0, 2);
-      contagemDDD[ddd] = (contagemDDD[ddd] || 0) + 1;
-
-      if (contagemDDD[ddd] > maxCount) {
-        maxCount = contagemDDD[ddd];
-        dddMaisFrequente = ddd;
-      }
-    }
-  }
-
-  return dddMaisFrequente;
-};
 
 interface IApiResponseView {
   status: boolean;
