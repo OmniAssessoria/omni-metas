@@ -61,8 +61,9 @@ import DialogHistoricoPortabilidade, {
   IHistoricoEmpresa,
 } from "@/components/historico_empresa_consultor/historico_portabilidade";
 import { DadosServicoOperadora } from "@/interfaces/servico_operadora.interface";
+import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
+import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 
-// Interface para a tipagem dos consultores disponíveis vindos da nova rota
 export interface IConsultorDisponivel {
   seq_consultor: number;
   nome: string;
@@ -73,54 +74,50 @@ export interface IConsultorDisponivel {
 }
 
 export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
-  // Estado local para permitir atualização otimista na tabela
   const [dadosLocais, setDadosLocais] = useState<any[]>([]);
-
   const [consultorSelecionado, setConsultorSelecionado] = useState<
     number | null | "nao_atribuidos"
   >(null);
   const [consultoresEnvio, setConsultoresEnvio] = useState<number[]>([]);
-  const [empresasSelecionadas, setEmpresasSelecionadas] = useState<number[]>([]);
+  const [empresasSelecionadas, setEmpresasSelecionadas] = useState<number[]>(
+    [],
+  );
   const [limiteEnvio, setLimiteEnvio] = useState<number | "">("");
   const [consultores, setConsultores] = useState<ConsultorBD[]>([]);
   const [isCarregandoConsultores, setIsCarregandoConsultores] = useState(true);
-
-  // Estados do Histórico
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
   const [empresaHistoricoNome, setEmpresaHistoricoNome] = useState("");
   const [dadosHistorico, setDadosHistorico] = useState<IHistoricoEmpresa[]>([]);
   const [isCarregandoHistorico, setIsCarregandoHistorico] = useState(false);
-
-  // Estados da Modal de Linhas
   const [modalLinhasAberto, setModalLinhasAberto] = useState(false);
   const [empresaLinhasNome, setEmpresaLinhasNome] = useState("");
   const [dadosLinhas, setDadosLinhas] = useState<DadosServicoOperadora[]>([]);
   const [isCarregandoLinhas, setIsCarregandoLinhas] = useState(false);
-
-  // =========================================================================
-  // NOVOS ESTADOS: Modal de Atribuição Manual de Consultor
-  // =========================================================================
   const [modalAtribuicaoAberto, setModalAtribuicaoAberto] = useState(false);
   const [empresaAtribuicao, setEmpresaAtribuicao] = useState<{
     seq: number;
     nome: string;
   } | null>(null);
-  const [consultoresDisponiveis, setConsultoresDisponiveis] = useState<IConsultorDisponivel[]>([]);
-  const [isCarregandoConsultoresDisponiveis, setIsCarregandoConsultoresDisponiveis] = useState(false);
-  const [consultorSelecionadoAtribuicao, setConsultorSelecionadoAtribuicao] = useState<string>("");
+  const [consultoresDisponiveis, setConsultoresDisponiveis] = useState<
+    IConsultorDisponivel[]
+  >([]);
+  const [
+    isCarregandoConsultoresDisponiveis,
+    setIsCarregandoConsultoresDisponiveis,
+  ] = useState(false);
+  const [consultorSelecionadoAtribuicao, setConsultorSelecionadoAtribuicao] =
+    useState<string>("");
   const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
-
   const hashConsultores = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
 
-  // Sincroniza as props iniciais com o estado local para edições in-memory
+  
   useEffect(() => {
     if (Array.isArray(dados)) {
       setDadosLocais(dados);
     }
   }, [dados]);
 
-  // Utilitários de Data
   const formatarDataApenasDia = (
     dataString: string | Date | undefined | null,
   ) => {
@@ -183,7 +180,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
         try {
           cachedData = sessionStorage.getItem(cacheKey);
-        } catch (e) { }
+        } catch (e) {}
 
         if (cachedData) {
           try {
@@ -203,7 +200,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           setConsultores(listaConsultores);
           try {
             sessionStorage.setItem(cacheKey, JSON.stringify(listaConsultores));
-          } catch (e) { }
+          } catch (e) {}
         }
       } catch (error) {
         console.error("Falha na busca de consultores:", error);
@@ -218,7 +215,11 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     return consultores.filter((c) => {
       if (!c.perfil_indicacao) return false;
       const perfil = String(c.perfil_indicacao).trim().toUpperCase();
-      return perfil === "PORTABILIDADE" || perfil === "AMBOS" || perfil === "CARTEIRA";
+      return (
+        perfil === "PORTABILIDADE" ||
+        perfil === "AMBOS" ||
+        perfil === "CARTEIRA"
+      );
     });
   }, [consultores]);
 
@@ -321,10 +322,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     }
   };
 
-  // =========================================================================
-  // FUNÇÕES DA NOVA MODAL DE ATRIBUIÇÃO (CONTEXTO: PORTABILIDADE)
-  // =========================================================================
-
   const abrirModalAtribuicao = async (seq_empresa: number, razao: string) => {
     setEmpresaAtribuicao({ seq: seq_empresa, nome: razao });
     setConsultorSelecionadoAtribuicao("");
@@ -333,9 +330,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     setIsCarregandoConsultoresDisponiveis(true);
 
     try {
-      // Diferença principal: Passamos o contexto indicacao=PORTABILIDADE para a API
       const response = await API.get(
-        `/api/consultor/disponiveis/empresa/${seq_empresa}?indicacao=PORTABILIDADE`
+        `/api/consultor/disponiveis/empresa/${seq_empresa}?indicacao=PORTABILIDADE`,
       );
       if (response.data && response.data.dados) {
         setConsultoresDisponiveis(response.data.dados);
@@ -363,14 +359,19 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         prev.map((item) =>
           item.seq_empresa === empresaAtribuicao.seq
             ? { ...item, seq_consultor: Number(consultorSelecionadoAtribuicao) }
-            : item
-        )
+            : item,
+        ),
       );
       setModalAtribuicaoAberto(false);
-      console.log(`[Sucesso] Consultor alterado para a empresa ${empresaAtribuicao.nome}`);
+      console.log(
+        `[Sucesso] Consultor alterado para a empresa ${empresaAtribuicao.nome}`,
+      );
     } catch (error: any) {
       console.error("Erro ao atribuir novo consultor:", error);
-      alert(error.response?.data?.mensagem || "Ocorreu um erro ao salvar o novo consultor. Tente novamente.");
+      alert(
+        error.response?.data?.mensagem ||
+          "Ocorreu um erro ao salvar o novo consultor. Tente novamente.",
+      );
     } finally {
       setIsSalvandoAtribuicao(false);
     }
@@ -383,16 +384,43 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
   const dadosFiltrados = useMemo(() => {
     if (!Array.isArray(dadosLocais)) return [];
-    if (consultorSelecionado === null) return dadosLocais;
+
+    const dadosComDddInjetado = dadosLocais.map((item) => {
+      const resEmpresa = extrairTelefonesEmpresaDaObservacao(item.observacao);
+      const resDecisor = extrairEFormatarTelefonesDecisor(
+        item.decisor_numero,
+        item.decisor_num_obs,
+      );
+
+      const dddEmp = resEmpresa.dddPrincipal;
+      const dddDec = resDecisor.dddPrincipal;
+
+      const dddFinal =
+        dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
+
+      return {
+        ...item,
+        dddPredominante: dddFinal,
+      };
+    });
+
+    if (consultorSelecionado === null) return dadosComDddInjetado;
+
     if (consultorSelecionado === "nao_atribuidos") {
-      return dadosLocais.filter((item) => !item.seq_consultor);
+      return dadosComDddInjetado.filter((item) => !item.seq_consultor);
     }
-    return dadosLocais.filter((item) => item.seq_consultor === consultorSelecionado);
+
+    return dadosComDddInjetado.filter(
+      (item) => item.seq_consultor === consultorSelecionado,
+    );
   }, [dadosLocais, consultorSelecionado]);
 
   const dadosGrafico = useMemo(() => {
     if (consultorSelecionado === null) {
-      const contagem = new Map<string | number, { nome: string; valor: number }>();
+      const contagem = new Map<
+        string | number,
+        { nome: string; valor: number }
+      >();
       consultoresElegiveis.forEach((c) => {
         contagem.set(c.seq_consultor, {
           nome: c.nome,
@@ -407,7 +435,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           if (contagem.has(item.seq_consultor)) {
             contagem.get(item.seq_consultor)!.valor += 1;
           } else {
-            const nomeConsultor = mapaConsultores.get(Number(item.seq_consultor))?.nome || `Consultor ${item.seq_consultor}`;
+            const nomeConsultor =
+              mapaConsultores.get(Number(item.seq_consultor))?.nome ||
+              `Consultor ${item.seq_consultor}`;
             contagem.set(item.seq_consultor, { nome: nomeConsultor, valor: 1 });
           }
         } else {
@@ -415,7 +445,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         }
       });
 
-      const arrayGrafico = Array.from(contagem.values()).sort((a, b) => b.valor - a.valor);
+      const arrayGrafico = Array.from(contagem.values()).sort(
+        (a, b) => b.valor - a.valor,
+      );
       if (qtdNaoAtribuidos > 0) {
         arrayGrafico.push({ nome: "Não Atribuídos", valor: qtdNaoAtribuidos });
       }
@@ -428,11 +460,17 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
     return dadosFiltrados.map((item) => ({
       chave_x: item.razao || "Empresa sem Razão",
-      valor_y: typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0,
+      valor_y:
+        typeof item.qtd_servico_claro === "number" ? item.qtd_servico_claro : 0,
       tooltip_label: "Linhas Ativas",
       cnpj: item.cnpj || "N/D",
     }));
-  }, [dadosFiltrados, consultorSelecionado, consultoresElegiveis, mapaConsultores]);
+  }, [
+    dadosFiltrados,
+    consultorSelecionado,
+    consultoresElegiveis,
+    mapaConsultores,
+  ]);
 
   const totalServicosGeral = useMemo(() => {
     if (!Array.isArray(dadosLocais)) return 0;
@@ -536,52 +574,56 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           <div className="flex flex-col items-end gap-3">
             {(consultoresEnvio.length > 0 ||
               empresasSelecionadas.length > 0) && (
-                <div className="flex flex-wrap justify-end gap-2 max-w-lg">
-                  {consultoresEnvio.map((id) => {
-                    const nomeConsultor = mapaConsultores.get(id)?.nome || "Desconhecido";
-                    const totalDoConsultor = dadosLocais.filter((item) => item.seq_consultor === id).length;
-                    const qtdParaEnviar = typeof limiteEnvio === "number" && limiteEnvio > 0
+              <div className="flex flex-wrap justify-end gap-2 max-w-lg">
+                {consultoresEnvio.map((id) => {
+                  const nomeConsultor =
+                    mapaConsultores.get(id)?.nome || "Desconhecido";
+                  const totalDoConsultor = dadosLocais.filter(
+                    (item) => item.seq_consultor === id,
+                  ).length;
+                  const qtdParaEnviar =
+                    typeof limiteEnvio === "number" && limiteEnvio > 0
                       ? limiteEnvio
                       : totalDoConsultor;
 
-                    return (
+                  return (
+                    <span
+                      key={`badge-consultor-${id}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-blue-300 bg-blue-50 pl-3 pr-1 py-1 text-sm text-blue-700 shadow-sm"
+                    >
+                      <Users size={14} className="opacity-70" />
+                      <span className="font-semibold">{nomeConsultor}</span>
                       <span
-                        key={`badge-consultor-${id}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-blue-300 bg-blue-50 pl-3 pr-1 py-1 text-sm text-blue-700 shadow-sm"
+                        className="flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-blue-900 rounded-full shadow-sm min-w-[24px]"
+                        title="Quantidade de serviços que serão enviados ao Pipe"
                       >
-                        <Users size={14} className="opacity-70" />
-                        <span className="font-semibold">{nomeConsultor}</span>
-                        <span
-                          className="flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-blue-900 rounded-full shadow-sm min-w-[24px]"
-                          title="Quantidade de serviços que serão enviados ao Pipe"
-                        >
-                          {qtdParaEnviar}
-                        </span>
-
-                        <button
-                          onClick={() => handleRemoverConsultorEnvio(id)}
-                          className="p-1 ml-1 transition-colors rounded-full hover:bg-red-100 hover:text-red-700 text-blue-400"
-                        >
-                          <X size={14} />
-                        </button>
+                        {qtdParaEnviar}
                       </span>
-                    );
-                  })}
 
-                  {empresasSelecionadas.length > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 shadow-sm">
-                      <CheckSquare size={14} />
-                      {empresasSelecionadas.length} Empresa(s) Selecionada(s)
                       <button
-                        onClick={() => setEmpresasSelecionadas([])}
-                        className="p-0.5 transition-colors rounded-full hover:bg-emerald-200"
+                        onClick={() => handleRemoverConsultorEnvio(id)}
+                        className="p-1 ml-1 transition-colors rounded-full hover:bg-red-100 hover:text-red-700 text-blue-400"
                       >
                         <X size={14} />
                       </button>
                     </span>
-                  )}
-                </div>
-              )}
+                  );
+                })}
+
+                {empresasSelecionadas.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 shadow-sm">
+                    <CheckSquare size={14} />
+                    {empresasSelecionadas.length} Empresa(s) Selecionada(s)
+                    <button
+                      onClick={() => setEmpresasSelecionadas([])}
+                      className="p-0.5 transition-colors rounded-full hover:bg-emerald-200"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center gap-3">
               <div className="w-80">
@@ -737,7 +779,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             cursor={{ fill: "#fff6f66b" }}
                             formatter={(value, name, props) => [
                               value,
-                              props.payload.tooltip_label
+                              props.payload.tooltip_label,
                             ]}
                           />
                           <Bar
@@ -830,7 +872,13 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                           />
                         </TableHead>
                         <TableHead className="bg-muted">Empresa</TableHead>
+                        {/* NOVA COLUNA: DDD */}
+                        <TableHead className="text-center bg-muted w-[70px]">
+                          DDD
+                        </TableHead>
                         <TableHead className="bg-muted">CNPJ</TableHead>
+                        {/* NOVA COLUNA: Carteira */}
+                        <TableHead className="bg-muted">Carteira</TableHead>
                         {typeof consultorSelecionado !== "number" && (
                           <TableHead className="bg-muted">Consultor</TableHead>
                         )}
@@ -857,6 +905,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                           item.seq_empresa,
                         );
 
+                        const possuiCarteira =
+                          item.carteira && item.carteira.trim() !== "";
+
                         return (
                           <TableRow
                             key={`row-${item.seq_empresa}-${item.seq_claro}`}
@@ -879,7 +930,27 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             <TableCell className="max-w-[200px] truncate font-medium">
                               {item.razao}
                             </TableCell>
+
+                            <TableCell className="font-bold text-center text-white">
+                              {item.dddPredominante !== "00"
+                                ? item.dddPredominante
+                                : "-"}
+                            </TableCell>
+
                             <TableCell>{item.cnpj}</TableCell>
+
+                            <TableCell className="whitespace-nowrap">
+                              {possuiCarteira ? (
+                                <span className="font-bold tracking-wide text-emerald-500">
+                                  {item.carteira}
+                                </span>
+                              ) : (
+                                <span className="font-medium text-muted-foreground">
+                                  -
+                                </span>
+                              )}
+                            </TableCell>
+
                             {typeof consultorSelecionado !== "number" && (
                               <TableCell className="text-white">
                                 {mapaConsultores.get(Number(item.seq_consultor))
@@ -903,7 +974,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             <TableCell className="text-right text-white">
                               {formatarDataApenasDia(item.dt_fim_contrato)}
                             </TableCell>
-                            <TableCell className="whitespace-nowrap text-right">
+                            <TableCell className="text-right whitespace-nowrap">
                               <span className="mr-2 text-white">
                                 {formatarDataApenasDia(item.dt_ultima_leitura)}
                               </span>
@@ -1043,12 +1114,13 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                           </TableCell>
                           <TableCell className="py-3">
                             <span
-                              className={`font-bold text-xs px-2.5 py-1 rounded-md ${linha.tipo_servico === "CLARO"
-                                ? "bg-red-50 text-red-700 border border-red-200"
-                                : linha.tipo_servico === "VIVO"
-                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                  : "bg-muted text-white border border-border"
-                                }`}
+                              className={`font-bold text-xs px-2.5 py-1 rounded-md ${
+                                linha.tipo_servico === "CLARO"
+                                  ? "bg-red-50 text-red-700 border border-red-200"
+                                  : linha.tipo_servico === "VIVO"
+                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                    : "bg-muted text-white border border-border"
+                              }`}
                             >
                               {linha.tipo_servico}
                             </span>
@@ -1068,10 +1140,11 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                           <TableCell className="py-3">
                             <div className="flex items-center justify-center gap-2">
                               <span
-                                className={`w-2.5 h-2.5 rounded-full ${linha.linha_ativa
-                                  ? "bg-green-500"
-                                  : "bg-red-500"
-                                  }`}
+                                className={`w-2.5 h-2.5 rounded-full ${
+                                  linha.linha_ativa
+                                    ? "bg-green-500"
+                                    : "bg-red-500"
+                                }`}
                                 title={linha.linha_ativa ? "Ativa" : "Inativa"}
                               />
                               <span className="text-sm font-bold text-white text-left">
@@ -1092,7 +1165,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         {/* ===================================================================== */}
         {/* NOVA MODAL: ATRIBUIR CONSULTOR MANUALMENTE */}
         {/* ===================================================================== */}
-        <Dialog open={modalAtribuicaoAberto} onOpenChange={setModalAtribuicaoAberto}>
+        <Dialog
+          open={modalAtribuicaoAberto}
+          onOpenChange={setModalAtribuicaoAberto}
+        >
           <DialogContent className="sm:max-w-xl bg-background border border-border rounded-xl">
             <DialogHeader className="pb-4 border-b border-border">
               <DialogTitle className="flex items-center gap-2 text-xl font-bold text-white">
@@ -1100,7 +1176,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 Atribuir Consultor Manualmente
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground mt-2">
-                Empresa: <strong className="text-white">{empresaAtribuicao?.nome}</strong>
+                Empresa:{" "}
+                <strong className="text-white">
+                  {empresaAtribuicao?.nome}
+                </strong>
               </DialogDescription>
             </DialogHeader>
 
@@ -1108,7 +1187,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               {isCarregandoConsultoresDisponiveis ? (
                 <div className="flex flex-col items-center justify-center py-6">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
-                  <span className="text-sm text-muted-foreground">Calculando consultores elegíveis com base na carga...</span>
+                  <span className="text-sm text-muted-foreground">
+                    Calculando consultores elegíveis com base na carga...
+                  </span>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1122,16 +1203,28 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                       disabled={consultoresDisponiveis.length === 0}
                     >
                       <SelectTrigger className="w-full bg-muted/50 border-border focus:ring-blue-500 text-white h-12">
-                        <SelectValue placeholder={consultoresDisponiveis.length === 0 ? "Nenhum consultor atende aos critérios" : "Escolha na lista..."} />
+                        <SelectValue
+                          placeholder={
+                            consultoresDisponiveis.length === 0
+                              ? "Nenhum consultor atende aos critérios"
+                              : "Escolha na lista..."
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
                         {consultoresDisponiveis.map((c) => (
-                          <SelectItem key={`atribuicao-${c.seq_consultor}`} value={String(c.seq_consultor)}>
+                          <SelectItem
+                            key={`atribuicao-${c.seq_consultor}`}
+                            value={String(c.seq_consultor)}
+                          >
                             <div className="flex justify-between items-center w-[400px]">
                               <span className="font-semibold">{c.nome}</span>
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <span>Carga: {c.carga_atual}</span>
-                                <span className="bg-muted px-2 py-1 rounded">Min: {c.perfil_qtd_linhas_min} | Máx: {c.perfil_qtd_linhas_max}</span>
+                                <span className="bg-muted px-2 py-1 rounded">
+                                  Min: {c.perfil_qtd_linhas_min} | Máx:{" "}
+                                  {c.perfil_qtd_linhas_max}
+                                </span>
                               </div>
                             </div>
                           </SelectItem>
@@ -1140,11 +1233,16 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     </Select>
                   </div>
 
-                  {consultoresDisponiveis.length === 0 && !isCarregandoConsultoresDisponiveis && (
-                    <div className="p-4 border rounded-md bg-red-500/10 border-red-500/20">
-                      <p className="text-sm font-medium text-red-400">A lógica de distribuição não encontrou nenhum consultor compatível com a carga de linhas desta empresa para Portabilidade.</p>
-                    </div>
-                  )}
+                  {consultoresDisponiveis.length === 0 &&
+                    !isCarregandoConsultoresDisponiveis && (
+                      <div className="p-4 border rounded-md bg-red-500/10 border-red-500/20">
+                        <p className="text-sm font-medium text-red-400">
+                          A lógica de distribuição não encontrou nenhum
+                          consultor compatível com a carga de linhas desta
+                          empresa para Portabilidade.
+                        </p>
+                      </div>
+                    )}
                 </div>
               )}
             </div>
@@ -1160,7 +1258,11 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               </Button>
               <Button
                 onClick={salvarNovaAtribuicao}
-                disabled={isSalvandoAtribuicao || !consultorSelecionadoAtribuicao || consultoresDisponiveis.length === 0}
+                disabled={
+                  isSalvandoAtribuicao ||
+                  !consultorSelecionadoAtribuicao ||
+                  consultoresDisponiveis.length === 0
+                }
                 className="font-semibold text-white bg-blue-600 min-w-[120px] hover:bg-blue-700"
               >
                 {isSalvandoAtribuicao ? (
@@ -1174,7 +1276,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
       </main>
     </div>
   );
