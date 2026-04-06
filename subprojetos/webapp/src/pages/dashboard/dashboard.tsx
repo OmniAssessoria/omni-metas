@@ -145,29 +145,17 @@ export default function DashboardAnaliticoMultiView() {
     setLoading(true);
     try {
       const [resRenov, resPort, resFora, resLim, resExc] = await Promise.all([
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/renovacao",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/portabilidade",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/fora-do-prazo",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/prazo-limitado",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/prazo-excedido",
-        ),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/renovacao"),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/portabilidade"),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/fora-do-prazo"),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-limitado"),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-excedido"),
       ]);
 
       const prepararDados = (lista: IServicoViewAPI[]) => {
         return lista.map((item) => ({
           ...item,
-          ddd_predominante: item.ddd_predominante
-            ? String(item.ddd_predominante).trim()
-            : "00",
+          ddd_predominante: item.ddd_predominante ? String(item.ddd_predominante).trim() : "00",
         }));
       };
 
@@ -245,25 +233,29 @@ export default function DashboardAnaliticoMultiView() {
   const aplicarFiltrosGlobais = () => {
     const aplicarRegras = (array: IServicoViewAPI[]) => {
       return array.filter((item) => {
-        if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao)
-          return false;
+        if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao) return false;
 
         const isCarteiraVazia = !item.carteira || item.carteira.trim() === "";
         if (filtroCarteira === "COM_CARTEIRA" && isCarteiraVazia) return false;
         if (filtroCarteira === "SEM_CARTEIRA" && !isCarteiraVazia) return false;
 
-        if (filtroPiperun === "SIM" && item.flag_crm_servico !== true)
-          return false;
-        if (filtroPiperun === "NAO" && item.flag_crm_servico === true)
-          return false;
+        if (filtroPiperun === "SIM" && item.flag_crm_servico !== true) return false;
+        if (filtroPiperun === "NAO" && item.flag_crm_servico === true) return false;
 
-        if (filtroAtivo === "SIM" && item.servico_claro_ativo !== true)
-          return false;
-        if (filtroAtivo === "NAO" && item.servico_claro_ativo === true)
-          return false;
+        if (filtroAtivo === "SIM" && item.servico_claro_ativo !== true) return false;
+        if (filtroAtivo === "NAO" && item.servico_claro_ativo === true) return false;
 
-        if (filtroDDD !== "TODOS" && item.ddd_predominante !== filtroDDD)
-          return false;
+        if (filtroDDD !== "TODOS") {
+          if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
+            if (item.ddd_predominante === "11" && item.indicacao === "RENOVACAO") {
+            }
+          } else if (filtroDDD === "FORA_SP") {
+             const dddNum = Number(item.ddd_predominante);
+             if (dddNum >= 11 && dddNum <= 19) return false;
+          } else {
+             if (item.ddd_predominante !== filtroDDD) return false;
+          }
+        }
 
         if (filtroConsultor !== "TODOS") {
           if (filtroConsultor === "NAO_ATRIBUIDO") {
@@ -287,10 +279,7 @@ export default function DashboardAnaliticoMultiView() {
           if (dataFormatada !== filtroDataFim) return false;
         }
 
-        if (
-          filtroLinhasAtivo &&
-          Number(item.qtd_linhas_total || 0) !== filtroLinhasValor
-        ) {
+        if (filtroLinhasAtivo && Number(item.qtd_linhas_total || 0) !== filtroLinhasValor) {
           return false;
         }
 
@@ -508,7 +497,7 @@ export default function DashboardAnaliticoMultiView() {
                     onClick={limparFiltros}
                     variant="outline"
                     size="sm"
-                    className="transition-colors shadow-sm cursor-pointer text-slate-600 hover:text-slate-900"
+                    className="transition-colors shadow-sm cursor-pointer text-white"
                   >
                     <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
                   </Button>
@@ -552,16 +541,24 @@ export default function DashboardAnaliticoMultiView() {
                     className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                   >
                     <option value="TODOS">Todos os DDDs</option>
-                    <option value="11">11 - São Paulo/Metropol.</option>
-                    <option value="12">12 - Vale do Paraíba/Lit.</option>
-                    <option value="13">13 - Baixada Santista</option>
-                    <option value="14">14 - Bauru/Marília</option>
-                    <option value="15">15 - Sorocaba/Itapetininga</option>
-                    <option value="16">16 - Ribeirão Preto/Franca</option>
-                    <option value="17">17 - S. José do Rio Preto</option>
-                    <option value="18">18 - Pres. Prud./Araçatuba</option>
-                    <option value="19">19 - Campinas/Piracicaba</option>
-                    <option value="00">Indefinido/Sem Linhas</option>
+                    <optgroup label="Filtros Inteligentes">
+                      <option value="EXCLUSO_11_RENOVACAO">Todos (Excluso 11 Renovação)</option>
+                      <option value="FORA_SP">DDDs Fora de São Paulo</option>
+                    </optgroup>
+                    <optgroup label="São Paulo">
+                      <option value="11">11 - São Paulo/Metropol.</option>
+                      <option value="12">12 - Vale do Paraíba/Lit.</option>
+                      <option value="13">13 - Baixada Santista</option>
+                      <option value="14">14 - Bauru/Marília</option>
+                      <option value="15">15 - Sorocaba/Itapetininga</option>
+                      <option value="16">16 - Ribeirão Preto/Franca</option>
+                      <option value="17">17 - S. José do Rio Preto</option>
+                      <option value="18">18 - Pres. Prud./Araçatuba</option>
+                      <option value="19">19 - Campinas/Piracicaba</option>
+                    </optgroup>
+                    <optgroup label="Outros">
+                      <option value="00">Indefinido/Sem Linhas</option>
+                    </optgroup>
                   </select>
                 </div>
 
