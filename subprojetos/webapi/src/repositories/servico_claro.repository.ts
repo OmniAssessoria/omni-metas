@@ -219,7 +219,6 @@ export default class ServicoClaroRepository {
   async buscarDashboardHistorico() {
     const query = `SELECT * FROM omni.vw_historico_atendimento_declinio;`;
     try {
-      console.log(`[DB] Buscando dados da view vw_historico_atendimento_declinio...`);
       const result = await pool.query(query);
       return result.rows;
     } catch (error) {
@@ -231,7 +230,6 @@ export default class ServicoClaroRepository {
   async buscarDashboardServicoBase() {
     const query = `SELECT * FROM omni.vw_servico_claro_base;`;
     try {
-      console.log(`[DB] Buscando dados da view consolidada vw_servico_claro_base...`);
       const result = await pool.query(query);
       return result.rows;
     } catch (error) {
@@ -257,7 +255,6 @@ export default class ServicoClaroRepository {
 
     const query = `SELECT * FROM omni.${nomeView};`;
     try {
-      console.log(`[DB] Buscando dados dinâmicos da view ${nomeView}...`);
       const result = await pool.query(query);
       return result.rows;
     } catch (error) {
