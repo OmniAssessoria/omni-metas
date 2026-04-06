@@ -279,7 +279,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   };
 
   // ============================================================================
-  // NOVA REGRA DE SANEAMENTO: Base de dados estrita para DDDs de SP (11 a 19)
+  // NOVA REGRA DE SANEAMENTO: Base de dados estrita para DDDs de SP (11 a 19) e 2+ Linhas
   // ============================================================================
   const dadosGeraisFiltrados = useMemo(() => {
     if (!Array.isArray(dadosLocais)) return [];
@@ -299,14 +299,20 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         return { ...item, dddPredominante: dddFinal };
       })
       .filter((item) => {
+        // REGRA 1: Obrigatoriamente ter 2 ou mais linhas (Bloqueia quem tem só 1)
+        const qtdLinhas = Number(item.qtd_servico_claro) || 0;
+        if (qtdLinhas < 2) {
+          return false;
+        }
+
         const dddNum = parseInt(item.dddPredominante, 10);
 
-        // 1. OBRIGAÇÃO: Apenas DDDs do estado de São Paulo (11 a 19)
+        // REGRA 2: Apenas DDDs do estado de São Paulo (11 a 19)
         if (isNaN(dddNum) || dddNum < 11 || dddNum > 19) {
           return false;
         }
 
-        // 2. EXCEÇÃO: Se for RENOVAÇÃO, bloqueamos os de DDD 11
+        // REGRA 3: Se for RENOVAÇÃO, bloqueamos os de DDD 11
         if (item.indicacao === "RENOVACAO" && item.dddPredominante === "11") {
           return false;
         }
@@ -517,7 +523,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     if (consultorSelecionado === null) {
       return [
         {
-          name: "Total Renovação (SP)",
+          name: "Total Renovação (SP e >1 linha)",
           value: totalServicosGeral,
           color: COR_AMARELO,
         },

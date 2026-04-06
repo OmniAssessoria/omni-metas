@@ -113,7 +113,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
 
-  // NOVOS ESTADOS PARA O MODAL DE LOGS
   const [syncLogs, setSyncLogs] = useState<{ sucessos: any[]; falhas: any[] } | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
@@ -275,6 +274,57 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     );
   };
 
+  // ============================================================================
+  // NOVA REGRA DE SANEAMENTO: Base estrita (>1 linha e apenas DDDs SP 11 a 19)
+  // ============================================================================
+  const dadosGeraisFiltrados = useMemo(() => {
+    if (!Array.isArray(dadosLocais)) return [];
+
+    return dadosLocais
+      .map((item) => {
+        const resEmpresa = extrairTelefonesEmpresaDaObservacao(item.observacao || "");
+        const resDecisor = extrairEFormatarTelefonesDecisor(
+          item.decisor_numero || "",
+          item.decisor_num_obs || "",
+        );
+
+        const dddEmp = resEmpresa.dddPrincipal;
+        const dddDec = resDecisor.dddPrincipal;
+        const dddFinal = dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
+
+        return { ...item, dddPredominante: dddFinal };
+      })
+      .filter((item) => {
+        // REGRA 1: Obrigatoriamente ter 2 ou mais linhas (Bloqueia quem tem só 1)
+        const qtdLinhas = Number(item.qtd_servico_claro) || 0;
+        if (qtdLinhas < 2) {
+          return false;
+        }
+
+        // REGRA 2: Apenas DDDs do estado de São Paulo (11 a 19)
+        const dddNum = parseInt(item.dddPredominante, 10);
+        if (isNaN(dddNum) || dddNum < 11 || dddNum > 19) {
+          return false;
+        }
+
+        return true;
+      });
+  }, [dadosLocais]);
+
+
+  // O estado visual principal agora baseia-se na base já saneada
+  const dadosFiltrados = useMemo(() => {
+    if (consultorSelecionado === null) return dadosGeraisFiltrados;
+
+    if (consultorSelecionado === "nao_atribuidos") {
+      return dadosGeraisFiltrados.filter((item) => !item.seq_consultor);
+    }
+
+    return dadosGeraisFiltrados.filter(
+      (item) => item.seq_consultor === consultorSelecionado,
+    );
+  }, [dadosGeraisFiltrados, consultorSelecionado]);
+
   const handleToggleTodasEmpresas = (checked: boolean) => {
     if (checked) {
       const todosIds = dadosFiltrados.map((item) => item.seq_empresa);
@@ -388,39 +438,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     [consultores, consultorSelecionado],
   );
 
-  const dadosFiltrados = useMemo(() => {
-    if (!Array.isArray(dadosLocais)) return [];
-
-    const dadosComDddInjetado = dadosLocais.map((item) => {
-      const resEmpresa = extrairTelefonesEmpresaDaObservacao(item.observacao);
-      const resDecisor = extrairEFormatarTelefonesDecisor(
-        item.decisor_numero,
-        item.decisor_num_obs,
-      );
-
-      const dddEmp = resEmpresa.dddPrincipal;
-      const dddDec = resDecisor.dddPrincipal;
-
-      const dddFinal =
-        dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
-
-      return {
-        ...item,
-        dddPredominante: dddFinal,
-      };
-    });
-
-    if (consultorSelecionado === null) return dadosComDddInjetado;
-
-    if (consultorSelecionado === "nao_atribuidos") {
-      return dadosComDddInjetado.filter((item) => !item.seq_consultor);
-    }
-
-    return dadosComDddInjetado.filter(
-      (item) => item.seq_consultor === consultorSelecionado,
-    );
-  }, [dadosLocais, consultorSelecionado]);
-
   const dadosGrafico = useMemo(() => {
     if (consultorSelecionado === null) {
       const contagem = new Map<
@@ -478,10 +495,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     mapaConsultores,
   ]);
 
+  // Contabiliza com base na base estrita de Portabilidade (SP e >= 2 linhas)
   const totalServicosGeral = useMemo(() => {
-    if (!Array.isArray(dadosLocais)) return 0;
-    return dadosLocais.length;
-  }, [dadosLocais]);
+    return dadosGeraisFiltrados.length;
+  }, [dadosGeraisFiltrados]);
 
   const totalServicosFiltrados = useMemo(() => {
     return dadosFiltrados.length;
@@ -494,7 +511,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     if (consultorSelecionado === null) {
       return [
         {
-          name: "Total Portabilidade",
+          name: "Total Portabilidade (SP e >1 linha)",
           value: totalServicosGeral,
           color: COR_AZUL,
         },
@@ -526,7 +543,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const onClickSubirServicos = () => {
     handleSubirServicos({
       tipoOperacao: "Portabilidade",
-      dadosGlobais: dadosLocais,
+      // Garantimos que a API só recebe os dados devidamente validados
+      dadosGlobais: dadosGeraisFiltrados,
       consultoresEnvio: consultoresEnvio,
       empresasEnvio: empresasSelecionadas,
       limiteEnvio: limiteEnvio,
@@ -535,7 +553,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         setEmpresasSelecionadas([]);
         setLimiteEnvio("");
         
-        // Se vieram logs do envio, abre a Modal de Relatório!
         if (logs) {
           setSyncLogs(logs);
           setLogTab(logs.falhas.length > 0 ? "falhas" : "sucessos");
@@ -590,9 +607,12 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 {consultoresEnvio.map((id) => {
                   const nomeConsultor =
                     mapaConsultores.get(id)?.nome || "Desconhecido";
-                  const totalDoConsultor = dadosLocais.filter(
+                  
+                  // A contagem do pill agora respeita a base validada de 2+ linhas para bater com o visual
+                  const totalDoConsultor = dadosGeraisFiltrados.filter(
                     (item) => item.seq_consultor === id,
                   ).length;
+                  
                   const qtdParaEnviar =
                     typeof limiteEnvio === "number" && limiteEnvio > 0
                       ? limiteEnvio
@@ -1046,7 +1066,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         />
 
         <Dialog open={modalLinhasAberto} onOpenChange={setModalLinhasAberto}>
-          {/* O conteúdo da modal de linhas continua igualzinho, não mexi! */}
           <DialogContent className="sm:max-w-6xl w-[95vw] max-h[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-background [&>button.absolute]:hidden">
             <div className="p-6 border-b border-border bg-muted/10 shrink-0 flex items-start justify-between">
               <DialogHeader>
@@ -1120,7 +1139,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         </Dialog>
 
         <Dialog open={modalAtribuicaoAberto} onOpenChange={setModalAtribuicaoAberto}>
-          {/* Modal de atribuição manual mantido idêntico */}
           <DialogContent className="sm:max-w-xl bg-background border border-border rounded-xl">
             <DialogHeader className="pb-4 border-b border-border">
               <DialogTitle className="flex items-center gap-2 text-xl font-bold text-white">
@@ -1182,9 +1200,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           </DialogContent>
         </Dialog>
 
-        {/* ========================================================= */}
-        {/* NOVA MODAL DE LOGS DE ENVIO (SUCESSOS E FALHAS)           */}
-        {/* ========================================================= */}
         {isLogModalOpen && syncLogs && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
