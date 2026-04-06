@@ -11,65 +11,62 @@ import {
 } from "@/utils/funtionFormataDados.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
-import { extrairEmailsDecisor } from "@/utils/functionEmailsDecisor.util";
+// import { extrairEmailsDecisor } from "@/utils/functionEmailsDecisor.util"; // Comentado pois o Passo 1 está pulado
 
 const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
-const URL_INTEGRADOR_PIPERUN = "https://app.pipe.run/webservice/integradorJson";
+
 
 const apiPipeRunRest = axios.create({
   baseURL: "https://api.pipe.run/v1",
   headers: {
-    accept: "application/json",
-    token: TOKEN_PIPERUN,
+    "accept": "application/json",
+    "content-type": "application/json",
+    "token": TOKEN_PIPERUN,
   },
 });
 
 export const API_PIPERUN = async ({
   servicos,
-  hashFunil,
-}: IPipeRunIntegrationParams): Promise<IPipeRunIntegrationResult> => {
+  tipoOperacao,
+}: IPipeRunIntegrationParams & { tipoOperacao?: string }): Promise<IPipeRunIntegrationResult> => {
   let sucessos = 0;
   let falhas = 0;
+  let pulados = 0;
 
   for (const servico of servicos) {
-    console.log(
-      `\n================================================================`,
-    );
-    console.log(
-      `[PipeRun] Iniciando processamento cronológico: ${servico.razao}`,
-    );
+    console.log(`\n================================================================`);
+    console.log(`[PipeRun REST] Iniciando processamento cronológico: ${servico.razao}`);
 
     try {
-      const cpfLimpo = limparPontuacao(servico.decisor_cpf);
-      const cpfFormatado = formatarCPF(servico.decisor_cpf);
+      // Formatação Base de Dados
+      // const cpfLimpo = limparPontuacao(servico.decisor_cpf);
+      // const cpfFormatado = formatarCPF(servico.decisor_cpf);
       const cnpjLimpo = limparPontuacao(servico.cnpj);
       const cnpjFormatado = formatarCNPJ(servico.cnpj);
-
-      const decisorNomeOriginal = servico.decisor_nome
-        ? servico.decisor_nome.trim()
-        : null;
-      const decisorNomeUpper = decisorNomeOriginal
-        ? decisorNomeOriginal.toUpperCase()
-        : null;
 
       const resultDecisor = extrairEFormatarTelefonesDecisor(
         servico.decisor_numero,
         servico.decisor_num_obs,
       );
-      const telefonesDecisor = resultDecisor.telefonesFormatados;
       const dddDecisor = resultDecisor.dddPrincipal;
 
-      const resultEmpresa = extrairTelefonesEmpresaDaObservacao(
-        servico.observacao,
-      );
+      const resultEmpresa = extrairTelefonesEmpresaDaObservacao(servico.observacao);
       const telefonesEmpresa = resultEmpresa.telefonesFormatados;
       const dddEmpresa = resultEmpresa.dddPrincipal;
+      
       const dddFinal =
         dddEmpresa !== "00"
           ? dddEmpresa
           : dddDecisor !== "00"
             ? dddDecisor
             : "00";
+
+      const dddNumerico = parseInt(dddFinal, 10);
+      if (isNaN(dddNumerico) || dddNumerico < 11 || dddNumerico > 19) {
+        console.warn(`[PipeRun] 🚧 PULADO (Fora de SP ou Inválido): ${servico.razao} possui DDD ${dddFinal}. Permitido apenas 11 ao 19.`);
+        pulados++;
+        continue;
+      }
 
       const indicacaoCrua = servico.indicacao || "";
       const indicacaoNormalizada = indicacaoCrua
@@ -79,242 +76,131 @@ export const API_PIPERUN = async ({
         .replace(/[\u0300-\u036f]/g, "");
 
       if (indicacaoNormalizada === "RENOVACAO" && dddFinal === "11") {
-        console.warn(
-          `[PipeRun] CLIENTE PULADO: ${servico.razao} possui DDD 11 e é RENOVACAO.`,
-        );
+        console.warn(`[PipeRun] 🚧 PULADO: ${servico.razao} possui DDD 11 e é de RENOVACAO.`);
+        pulados++;
         continue;
       }
 
-      const emailsFormatados = extrairEmailsDecisor(
-        servico.decisor_email,
-        servico.decisor_email_observacao,
-      );
-
       const dataFimFormatada = formatarDataBR(servico.dt_fim_contrato);
-      const dataInicioFormatada = obterDataInicioContrato(
-        servico.dt_fim_contrato,
-      );
+      const dataInicioFormatada = obterDataInicioContrato(servico.dt_fim_contrato);
       const mesesContrato = calcularMesesAteInicioContrato(dataInicioFormatada);
 
-      let personId = null;
+      console.log(`[Passo 1] ⏸️ PULADO TEMPORARIAMENTE: Criação de Pessoa comentada devido a erros de CPF na base.`);
+      // let personId = null; 
 
-      if (decisorNomeUpper) {
-        console.log(
-          `[Passo 1] Validando Pessoa: ${decisorNomeUpper} (CPF: ${cpfLimpo})`,
-        );
-
-        if (cpfLimpo) {
-          let resPerson = await apiPipeRunRest.get("/persons", {
-            params: { cpf: cpfLimpo },
-          });
-
-          if (!resPerson.data?.data?.length) {
-            resPerson = await apiPipeRunRest.get("/persons", {
-              params: { cpf: cpfFormatado },
-            });
-          }
-
-          if (resPerson.data?.data && resPerson.data.data.length > 0) {
-            personId = resPerson.data.data[0].id;
-            console.log(
-              `[Passo 1] Pessoa existente encontrada via CPF. ID: ${personId}`,
-            );
-          }
-        }
-
-        if (!personId) {
-          const resPersonName = await apiPipeRunRest.get("/persons", {
-            params: { name: decisorNomeUpper },
-          });
-          if (resPersonName.data?.data && resPersonName.data.data.length > 0) {
-            personId = resPersonName.data.data[0].id;
-            console.log(
-              `[Passo 1] Pessoa existente encontrada via Nome. ID: ${personId}`,
-            );
-          }
-        }
-
-        const payloadPerson = {
-          name: decisorNomeUpper,
-          cpf: cpfFormatado,
-          contactPhones: telefonesDecisor,
-          contactEmails: emailsFormatados,
-          observation: `Emails extras: ${servico.decisor_email_observacao || ""}`,
-        };
-
-        console.log(
-          `[DEBUG - Passo 1] Payload Pessoa Formatado:\n`,
-          JSON.stringify(payloadPerson, null, 2),
-        );
-
-        if (personId) {
-          console.log(
-            `[Passo 1] Disparando PUT para atualizar Pessoa (ID: ${personId})...`,
-          );
-          await apiPipeRunRest.put(`/persons/${personId}`, payloadPerson);
-        } else {
-          console.log(
-            `[Passo 1] Disparando POST para cadastrar nova Pessoa...`,
-          );
-          const createPerson = await apiPipeRunRest.post(
-            "/persons",
-            payloadPerson,
-          );
-          personId = createPerson.data?.data?.id || null;
-        }
-      } else {
-        console.log(
-          `[Passo 1] IGNORADO: Dados do decisor ausentes ou nulos. Procedendo apenas com a Empresa.`,
-        );
-      }
 
       let companyId = null;
-      console.log(
-        `[Passo 2] Validando Empresa: ${servico.razao} (CNPJ: ${cnpjLimpo})`,
-      );
+      console.log(`[Passo 2] 🏢 Validando Empresa: ${servico.razao} (CNPJ: ${cnpjLimpo})`);
 
       if (cnpjLimpo) {
-        let resCompany = await apiPipeRunRest.get("/companies", {
-          params: { cnpj: cnpjLimpo },
-        });
+        let resCompany = await apiPipeRunRest.get("/companies", { params: { cnpj: cnpjLimpo } });
 
         if (!resCompany.data?.data?.length) {
-          resCompany = await apiPipeRunRest.get("/companies", {
-            params: { cnpj: cnpjFormatado },
-          });
+          resCompany = await apiPipeRunRest.get("/companies", { params: { cnpj: cnpjFormatado } });
         }
 
         if (resCompany.data?.data && resCompany.data.data.length > 0) {
           companyId = resCompany.data.data[0].id;
-          console.log(
-            `[Passo 2] Empresa existente encontrada. ID: ${companyId}`,
-          );
+          console.log(`[Passo 2] Empresa existente encontrada. ID: ${companyId}`);
         }
       }
 
       const payloadCompany = {
         name: servico.razao,
-        cnpj: cnpjFormatado,
+        cnpj: cnpjFormatado, 
         contactPhones: telefonesEmpresa,
       };
 
-      console.log(
-        `[DEBUG - Passo 2] Payload Empresa Formatado:\n`,
-        JSON.stringify(payloadCompany, null, 2),
-      );
-
       if (companyId) {
-        console.log(
-          `[Passo 2] Disparando PUT para atualizar Empresa (ID: ${companyId})...`,
-        );
-        await apiPipeRunRest.put(`/companies/${companyId}`, payloadCompany);
+        console.log(`[Passo 2] Disparando PUT para atualizar Empresa (ID: ${companyId})...`);
+        const { cnpj, ...payloadPutSemCnpj } = payloadCompany; 
+        await apiPipeRunRest.put(`/companies/${companyId}`, payloadPutSemCnpj);
       } else {
         console.log(`[Passo 2] Disparando POST para cadastrar nova Empresa...`);
-        const createCompany = await apiPipeRunRest.post(
-          "/companies",
-          payloadCompany,
-        );
+        const createCompany = await apiPipeRunRest.post("/companies", payloadCompany);
         companyId = createCompany.data?.data?.id || null;
       }
 
-      console.log(`[Passo 3] Gerando payload formatado para a Oportunidade...`);
-      const titleCard = `(${dddFinal}) ${servico.indicacao} >> ${servico.razao}`;
+      console.log(`[Passo 3] 🤝 Gerando payload da Oportunidade via REST...`);
+      const titleCard = `(${dddFinal}) ${servico.indicacao || 'GERAL'} >> ${servico.razao}`;
 
-      const payloadIntegrador = {
-        leads: [
-          {
-            user: servico.consultor_email,
-            title: titleCard,
-            company: servico.razao,
-            cnpj: cnpjFormatado,
-            DDD: dddFinal,
-            custom_fields: {
-              "Inicio do Contrato": dataInicioFormatada,
-              "Final do Contrato": dataFimFormatada,
-              "Tempo de Contrato": mesesContrato,
-              "Quantidade de linhas móveis": servico.qtd_servico_claro || 0,
-              "Obs de fechamento": servico.observacao_fechamento || "",
-              Observacao: servico.observacao || "",
-              Carteira: servico.carteira || "",
-              Indicacao: servico.indicacao,
-              Classificação: servico.classificacao_contrato || "",
-              "Tipo de Servico": "CLARO",
-              "DOC DRIVE": servico.servico_docdrive || "",
-            },
-          },
-        ],
+      let stageIdDefinido = 578431; 
+      
+      const isCarteira = servico.carteira && String(servico.carteira).trim() !== "";
+      const isPortabilidade = tipoOperacao === "Portabilidade" || indicacaoNormalizada === "PORTABILIDADE";
+      const emailConsultor = servico.consultor_email ? String(servico.consultor_email).trim().toLowerCase() : "";
+      const isConsultorCarolina = Number(servico.seq_consultor) === 8 || emailConsultor === "carolina.souza@rennovatecnologia.com.br";
+
+      if (isConsultorCarolina) {
+        console.log(`[Regra Especial] Consultora Carolina Souza detectada. Roteando para etapa CARTEIRA (598026).`);
+        stageIdDefinido = 598026;
+      } else if (isCarteira) {
+        console.log(`[Regra Especial] Cliente de Carteira detectado. Roteando para etapa CARTEIRA (598026).`);
+        stageIdDefinido = 598026;
+      } else if (isPortabilidade) {
+        console.log(`[Regra Especial] Operação de Portabilidade detectada. Roteando para etapa PORTABILIDADE (659600).`);
+        stageIdDefinido = 659600; 
+      } else {
+        console.log(`[Regra Especial] Fluxo Padrão. Roteando para etapa (578431).`);
+      }
+
+      const descricaoFormatada = `
+**INFORMAÇÕES DO SERVIÇO (Enviado via API):**
+- **Início do Contrato:** ${dataInicioFormatada}
+- **Final do Contrato:** ${dataFimFormatada}
+- **Tempo de Contrato:** ${mesesContrato} meses
+- **Quantidade de linhas móveis:** ${servico.qtd_servico_claro || 0}
+- **Obs de fechamento:** ${servico.observacao_fechamento || "N/A"}
+- **Observação:** ${servico.observacao || "N/A"}
+- **Carteira:** ${servico.carteira || "N/A"}
+- **Indicação:** ${servico.indicacao || "N/A"}
+- **Classificação:** ${servico.classificacao_contrato || "N/A"}
+- **Tipo de Servico:** CLARO
+- **DOC DRIVE:** ${servico.servico_docdrive || "N/A"}
+- **Consultor Origem:** ${servico.consultor_email || "N/A"}
+      `.trim();
+
+      const payloadDeal = {
+        title: titleCard,
+        company_id: companyId,
+        stage_id: stageIdDefinido, 
+        description: descricaoFormatada,
+        probability: 10
       };
 
-      console.log(
-        `[DEBUG - Passo 3] Payload Oportunidade (Integrador):\n`,
-        JSON.stringify(payloadIntegrador, null, 2),
-      );
+      console.log(`[DEBUG] Rota /deals | Payload sendo enviado:\n`, JSON.stringify(payloadDeal, null, 2));
 
-      console.log(
-        `[Passo 3] Disparando Integrador JSON para criar a Oportunidade...`,
-      );
-      const responseIntegrador = await axios.post(
-        URL_INTEGRADOR_PIPERUN,
-        payloadIntegrador,
-        {
-          params: { hash: hashFunil },
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+      const responseDeal = await apiPipeRunRest.post('/deals', payloadDeal);
+      const dealIdCriado = responseDeal.data?.data?.id || responseDeal.data?.id;
 
-      let dealIdCriado = null;
-      if (
-        responseIntegrador.data &&
-        responseIntegrador.data.data &&
-        Array.isArray(responseIntegrador.data.data)
-      ) {
-        dealIdCriado = responseIntegrador.data.data[0]?.id;
-      } else if (responseIntegrador.data?.id) {
-        dealIdCriado = responseIntegrador.data.id;
+      if (dealIdCriado) {
+        console.log(`✅ Oportunidade Criada com Sucesso! Deal ID: ${dealIdCriado} na Etapa ID: ${stageIdDefinido}`);
       }
 
-      if (dealIdCriado && personId) {
-        console.log(
-          `[Passo 4] Vinculando Pessoa (ID: ${personId}) à Oportunidade (ID: ${dealIdCriado})...`,
-        );
-        await apiPipeRunRest.put(`/deals/${dealIdCriado}/persons/${personId}`);
-        console.log(`[Passo 4] Vínculo realizado com sucesso.`);
-      } else {
-        console.warn(
-          `[Passo 4] Vínculo ignorado ou indisponível. dealId: ${dealIdCriado}, personId: ${personId}`,
-        );
-      }
+      console.log(`[Passo 4] ⏸️ PULADO TEMPORARIAMENTE: Vínculo Pessoa x Oportunidade ignorado (Passo 1 inativo).`);
 
       console.log(`✅ Fluxo concluído com sucesso para: ${servico.razao}`);
       sucessos++;
+
     } catch (err) {
       falhas++;
-      console.error(
-        `\n[!!! ERRO NO FLUXO !!!] Falha ao processar: ${servico.razao}`,
-      );
+      console.error(`\n[!!! ERRO NO FLUXO !!!] Falha ao processar a empresa: ${servico.razao}`);
 
       if (axios.isAxiosError(err)) {
-        console.error(
-          `Status HTTP: ${err.response?.status} na Rota: ${err.config?.url}`,
-        );
-        console.error(
-          `Resposta da API:`,
-          JSON.stringify(err.response?.data || err.message, null, 2),
-        );
+        console.error(`Status HTTP: ${err.response?.status} na Rota: ${err.config?.url}`);
+        console.error(`Detalhes da Recusa da API:`, JSON.stringify(err.response?.data, null, 2));
+        
+        if (err.response?.status === 403 && err.response?.data?.message?.includes("nesta etapa")) {
+          console.error(`\n💡 DICA DE OURO: O ID da etapa [${err.config?.data ? JSON.parse(err.config.data).stage_id : 'desconhecido'}] NÃO é uma etapa de entrada permitida no PipeRun. Verifique se este ID corresponde à PRIMEIRA COLUNA do funil no painel do PipeRun.`);
+        }
       } else {
-        console.error(
-          `Erro Interno:`,
-          err instanceof Error ? err.message : err,
-        );
+        console.error(`Erro Interno no Node/Browser:`, err instanceof Error ? err.message : err);
       }
     }
   }
 
-  console.log(
-    `\n================================================================`,
-  );
-  console.log(
-    `🏁 [Orquestração Finalizada] Sucessos: ${sucessos} | Falhas: ${falhas}`,
-  );
-  return { sucessos, falhas };
+  console.log(`\n================================================================`);
+  console.log(`🏁 [Orquestração API REST Finalizada] ✅ Sucessos: ${sucessos} | ❌ Falhas: ${falhas} | 🚧 Pulados: ${pulados}`);
+  
+  return { sucessos, falhas, pulados } as any; 
 };

@@ -40,6 +40,9 @@ import {
   PieChart as PieChartIcon,
   UserPlus,
   Save,
+  CheckCircle2,
+  XCircle,
+  FileJson,
 } from "lucide-react";
 import {
   BarChart,
@@ -108,8 +111,15 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const [consultorSelecionadoAtribuicao, setConsultorSelecionadoAtribuicao] =
     useState<string>("");
   const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
-  const hashConsultores = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
+
+  // NOVOS ESTADOS PARA O MODAL DE LOGS
+  const [syncLogs, setSyncLogs] = useState<{
+    sucessos: any[];
+    falhas: any[];
+  } | null>(null);
+  const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
+  const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
 
   useEffect(() => {
     if (Array.isArray(dados)) {
@@ -381,6 +391,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     () => consultores.find((c) => c.seq_consultor === consultorSelecionado),
     [consultores, consultorSelecionado],
   );
+
   const dadosFiltrados = useMemo(() => {
     if (!Array.isArray(dadosLocais)) return [];
 
@@ -529,15 +540,21 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const onClickSubirServicos = () => {
     handleSubirServicos({
       tipoOperacao: "Renovação",
-      hashFunil: hashConsultores,
       dadosGlobais: dadosLocais,
       consultoresEnvio: consultoresEnvio,
       empresasEnvio: empresasSelecionadas,
       limiteEnvio: limiteEnvio,
-      onSuccessCb: () => {
+      onSuccessCb: (logs?: { sucessos: any[]; falhas: any[] }) => {
         setConsultoresEnvio([]);
         setEmpresasSelecionadas([]);
         setLimiteEnvio("");
+
+        // Se vieram logs do envio, abre a Modal de Relatório!
+        if (logs) {
+          setSyncLogs(logs);
+          setLogTab(logs.falhas.length > 0 ? "falhas" : "sucessos");
+          setIsLogModalOpen(true);
+        }
       },
     });
   };
@@ -551,7 +568,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         <Sidebar />
       </div>
 
-      <main className="flex-1 h-full overflow-y-auto p-10 bg-muted/10">
+      <main className="flex-1 h-full overflow-y-auto p-10 bg-muted/10 relative">
         <Button
           variant="ghost"
           onClick={onBack}
@@ -617,7 +634,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                   );
                 })}
 
-                {/* Badge de Empresas Selecionadas */}
                 {empresasSelecionadas.length > 0 && (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 shadow-sm">
                     <CheckSquare size={14} />
@@ -1304,6 +1320,149 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* ========================================================= */}
+        {/* NOVA MODAL DE LOGS DE ENVIO (SUCESSOS E FALHAS)           */}
+        {/* ========================================================= */}
+        {isLogModalOpen && syncLogs && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <FileJson className="h-6 w-6 text-primary" />
+                  Relatório de Envio ao PipeRun
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-muted"
+                  onClick={() => setIsLogModalOpen(false)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="flex border-b border-border bg-muted/10">
+                <button
+                  className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${logTab === "sucessos" ? "bg-background border-b-2 border-green-500 text-green-600" : "text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setLogTab("sucessos")}
+                >
+                  <CheckCircle2 className="h-5 w-5" />
+                  Sucessos ({syncLogs.sucessos.length})
+                </button>
+                <button
+                  className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${logTab === "falhas" ? "bg-background border-b-2 border-red-500 text-red-600" : "text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setLogTab("falhas")}
+                >
+                  <XCircle className="h-5 w-5" />
+                  Falhas ({syncLogs.falhas.length})
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 bg-muted/5">
+                {logTab === "sucessos" && (
+                  <div className="space-y-4">
+                    {syncLogs.sucessos.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-10">
+                        Nenhum registro processado com sucesso desta vez.
+                      </p>
+                    ) : (
+                      syncLogs.sucessos.map((item, idx) => (
+                        <div
+                          key={`suc-${idx}`}
+                          className="bg-background border border-green-200 rounded-lg p-4 shadow-sm flex flex-col gap-2"
+                        >
+                          <div className="flex justify-between items-center border-b border-muted pb-2">
+                            <span className="font-bold text-green-700">
+                              Empresa: {item.payload.razao}
+                            </span>
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-bold">
+                              {item.respostaApi}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4 text-sm mt-2">
+                            <div>
+                              <strong>CNPJ:</strong> {item.payload.cnpj}
+                            </div>
+                            <div>
+                              <strong>Consultor:</strong>{" "}
+                              {item.payload.consultor_email || "Não atribuído"}
+                            </div>
+                            <div>
+                              <strong>Linhas:</strong>{" "}
+                              {item.payload.qtd_servico_claro}
+                            </div>
+                          </div>
+                          <details className="mt-2 text-xs bg-muted/30 p-2 rounded cursor-pointer">
+                            <summary className="font-semibold text-muted-foreground hover:text-white">
+                              Ver Dados do Payload
+                            </summary>
+                            <pre className="mt-2 whitespace-pre-wrap break-all text-blue-600">
+                              {JSON.stringify(item.payload, null, 2)}
+                            </pre>
+                          </details>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {logTab === "falhas" && (
+                  <div className="space-y-4">
+                    {syncLogs.falhas.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-10">
+                        Nenhuma falha registrada. Tudo funcionou perfeitamente!
+                      </p>
+                    ) : (
+                      syncLogs.falhas.map((item, idx) => (
+                        <div
+                          key={`falha-${idx}`}
+                          className="bg-background border border-red-200 rounded-lg p-4 shadow-sm flex flex-col gap-2"
+                        >
+                          <div className="flex justify-between items-center border-b border-muted pb-2">
+                            <span className="font-bold text-red-700">
+                              Empresa: {item.payload?.razao || "Desconhecida"}
+                            </span>
+                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded font-bold">
+                              Falha no Envio
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4 text-sm mt-2">
+                            <div>
+                              <strong>CNPJ:</strong> {item.payload?.cnpj}
+                            </div>
+                            <div>
+                              <strong>Consultor:</strong>{" "}
+                              {item.payload?.consultor_email || "Não atribuído"}
+                            </div>
+                            <div>
+                              <strong>Linhas:</strong>{" "}
+                              {item.payload?.qtd_servico_claro}
+                            </div>
+                          </div>
+                          <div className="text-sm mt-2 p-2 bg-red-50 text-red-800 rounded border border-red-100">
+                            <strong>Motivo da Falha:</strong>{" "}
+                            {typeof item.erro === "object"
+                              ? JSON.stringify(item.erro)
+                              : item.erro}
+                          </div>
+                          <details className="mt-2 text-xs bg-muted/30 p-2 rounded cursor-pointer">
+                            <summary className="font-semibold text-muted-foreground hover:text-white">
+                              Ver Dados da Empresa que Falhou
+                            </summary>
+                            <pre className="mt-2 whitespace-pre-wrap break-all text-blue-600">
+                              {JSON.stringify(item.payload, null, 2)}
+                            </pre>
+                          </details>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

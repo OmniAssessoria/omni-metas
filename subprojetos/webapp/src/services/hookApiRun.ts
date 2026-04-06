@@ -5,12 +5,11 @@ import { API_PIPERUN } from "@/services/apiPiperun";
 
 interface UseIntegracaoProps {
   tipoOperacao: "Renovação" | "Portabilidade";
-  hashFunil: string;
   dadosGlobais: IServicoPipeRun[];
   consultoresEnvio: number[];
   empresasEnvio?: number[];
   limiteEnvio: number | "";
-  onSuccessCb: () => void;
+  onSuccessCb: (logs?: { sucessos: any[]; falhas: any[] }) => void; // <-- AJUSTE AQUI
 }
 
 export function useIntegracaoPipeRun() {
@@ -18,7 +17,6 @@ export function useIntegracaoPipeRun() {
 
   const handleSubirServicos = async ({
     tipoOperacao,
-    hashFunil,
     dadosGlobais,
     consultoresEnvio,
     empresasEnvio = [],
@@ -26,9 +24,7 @@ export function useIntegracaoPipeRun() {
     onSuccessCb,
   }: UseIntegracaoProps) => {
     if (consultoresEnvio.length === 0 && empresasEnvio.length === 0) {
-      alert(
-        "Selecione pelo menos um consultor na lista ou marque empresas específicas na tabela para envio.",
-      );
+      alert("Selecione pelo menos um consultor na lista ou marque empresas específicas na tabela para envio.");
       return;
     }
 
@@ -36,35 +32,22 @@ export function useIntegracaoPipeRun() {
       setIsEnviando(true);
 
       if (!Array.isArray(dadosGlobais)) {
-        throw new Error(
-          `Matriz principal de dados de ${tipoOperacao} está inválida/indisponível.`,
-        );
+        throw new Error(`Matriz principal de dados de ${tipoOperacao} está inválida/indisponível.`);
       }
 
       let servicosParaEnviar = dadosGlobais.filter((item) => {
         try {
-          const pertenceAoConsultor = consultoresEnvio.includes(
-            Number(item.seq_consultor),
-          );
-          const empresaSelecionada = empresasEnvio.includes(
-            Number(item.seq_empresa),
-          );
-
+          const pertenceAoConsultor = consultoresEnvio.includes(Number(item.seq_consultor));
+          const empresaSelecionada = empresasEnvio.includes(Number(item.seq_empresa));
           return pertenceAoConsultor || empresaSelecionada;
         } catch (filterError) {
-          console.error(
-            `🚨 [Filtro] Avaliação de serviço falhou:`,
-            item,
-            filterError,
-          );
+          console.error(`🚨 [Filtro] Avaliação de serviço falhou:`, item, filterError);
           return false;
         }
       });
 
       if (servicosParaEnviar.length === 0) {
-        alert(
-          `Os filtros aplicados não possuem serviços de ${tipoOperacao} disponíveis.`,
-        );
+        alert(`Os filtros aplicados não possuem serviços de ${tipoOperacao} disponíveis.`);
         setIsEnviando(false);
         return;
       }
@@ -73,82 +56,65 @@ export function useIntegracaoPipeRun() {
         servicosParaEnviar = servicosParaEnviar.slice(0, limiteEnvio);
       }
 
-      console.info(
-        `🚀 Iniciando pipeline de ${tipoOperacao} com ${servicosParaEnviar.length} payloads ativos.`,
-      );
+      console.info(`🚀 Iniciando pipeline de ${tipoOperacao} com ${servicosParaEnviar.length} payloads ativos.`);
 
-      let sucessosConfirmados = 0;
-      let falhasConfirmadas = 0;
+      let sucessosLogs: any[] = [];
+      let falhasLogs: any[] = [];
 
       for (const servico of servicosParaEnviar) {
         try {
           if (!servico || !servico.seq_claro) {
-            falhasConfirmadas++;
+            falhasLogs.push({ payload: servico, erro: "Serviço inválido ou sem seq_claro" });
             continue;
           }
 
-          console.info(
-            `⏳ Transacionando ${tipoOperacao} - seq_claro: ${servico.seq_claro}`,
-          );
+          console.info(`⏳ Transacionando ${tipoOperacao} - seq_claro: ${servico.seq_claro}`);
 
           const resultadoPipe = await API_PIPERUN({
             servicos: [servico],
-            hashFunil: hashFunil,
-          });
+            tipoOperacao: tipoOperacao, 
+          } as any);
 
           if (resultadoPipe && resultadoPipe.sucessos > 0) {
             try {
-              const axiosResult = await API.patch(
-                `/api/servico-claro/piperun/${servico.seq_claro}`,
-              );
-              sucessosConfirmados++;
-              console.info(
-                `✅ Commit absoluto no DB (Status ${axiosResult.status}). Seq_claro: ${servico.seq_claro}`,
-              );
+              const axiosResult = await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
+              console.info(`✅ Commit absoluto no DB (Status ${axiosResult.status}). Seq_claro: ${servico.seq_claro}`);
+              
+              sucessosLogs.push({
+                payload: servico,
+                respostaApi: `Criado no PipeRun e Atualizado DB Local (Status: ${axiosResult.status})`
+              });
             } catch (patchError: any) {
-              falhasConfirmadas++;
-              console.error(
-                `\n🚨 FALHA AO REGISTRAR NO DB LOCAL [Seq: ${servico.seq_claro}]`,
-              );
-
+              console.error(`\n🚨 FALHA AO REGISTRAR NO DB LOCAL [Seq: ${servico.seq_claro}]`);
+              
+              let msgErro = "Erro ao atualizar DB interno após sucesso no PipeRun.";
               if (patchError.response) {
-                console.error(
-                  `Rejeição da API Express. Status: ${patchError.response.status}`,
-                );
-                console.error(`Corpo da Resposta:`, patchError.response.data);
+                msgErro = `Rejeição da API Express. Status: ${patchError.response.status}`;
               } else if (patchError.request) {
-                console.error(
-                  `Requisição feita, mas sem resposta do servidor. Possível bloqueio de CORS ou Servidor Offline.`,
-                );
-              } else {
-                console.error(`Erro estrutural no Axios:`, patchError.message);
+                msgErro = "Requisição feita, mas sem resposta do servidor local.";
               }
+              
+              falhasLogs.push({ payload: servico, erro: msgErro });
             }
           } else {
-            console.error(
-              `🚨 Recusa pelo PipeRun. Serviço: ${servico.seq_claro}`,
-              resultadoPipe,
-            );
-            falhasConfirmadas++;
+            console.error(`🚨 Recusa pelo PipeRun. Serviço: ${servico.seq_claro}`, resultadoPipe);
+            falhasLogs.push({ payload: servico, erro: "Recusado pelas regras do PipeRun (ex: CPF/CNPJ inválido, DDD fora de SP, etc)" });
           }
-        } catch (error) {
-          console.error(
-            `🚨 Crash na thread do seq_claro ${servico?.seq_claro}:`,
-            error,
-          );
-          falhasConfirmadas++;
+        } catch (error: any) {
+          console.error(`🚨 Crash na thread do seq_claro ${servico?.seq_claro}:`, error);
+          falhasLogs.push({ payload: servico, erro: error.message || "Erro estrutural inesperado" });
         }
       }
 
-      alert(
-        `Processo de ${tipoOperacao} Finalizado!\n✅ Sucessos: ${sucessosConfirmados}\n❌ Falhas: ${falhasConfirmadas}`,
-      );
+      onSuccessCb({ sucessos: sucessosLogs, falhas: falhasLogs });
+
     } catch (error) {
       console.error(`🚨 Exception sistêmica em ${tipoOperacao}:`, error);
       alert("Ocorreu um erro estrutural durante a execução da integração.");
-    } finally {
       setIsEnviando(false);
       onSuccessCb();
+    } finally {
+      setIsEnviando(false);
     }
   };
 
