@@ -113,7 +113,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
 
-  // NOVOS ESTADOS PARA O MODAL DE LOGS
   const [syncLogs, setSyncLogs] = useState<{
     sucessos: any[];
     falhas: any[];
@@ -279,6 +278,56 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     );
   };
 
+  // ============================================================================
+  // NOVA REGRA DE SANEAMENTO: Base de dados estrita para DDDs de SP (11 a 19)
+  // ============================================================================
+  const dadosGeraisFiltrados = useMemo(() => {
+    if (!Array.isArray(dadosLocais)) return [];
+
+    return dadosLocais
+      .map((item) => {
+        const resEmpresa = extrairTelefonesEmpresaDaObservacao(item.observacao);
+        const resDecisor = extrairEFormatarTelefonesDecisor(
+          item.decisor_numero,
+          item.decisor_num_obs,
+        );
+
+        const dddEmp = resEmpresa.dddPrincipal;
+        const dddDec = resDecisor.dddPrincipal;
+        const dddFinal = dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
+
+        return { ...item, dddPredominante: dddFinal };
+      })
+      .filter((item) => {
+        const dddNum = parseInt(item.dddPredominante, 10);
+
+        // 1. OBRIGAÇÃO: Apenas DDDs do estado de São Paulo (11 a 19)
+        if (isNaN(dddNum) || dddNum < 11 || dddNum > 19) {
+          return false;
+        }
+
+        // 2. EXCEÇÃO: Se for RENOVAÇÃO, bloqueamos os de DDD 11
+        if (item.indicacao === "RENOVACAO" && item.dddPredominante === "11") {
+          return false;
+        }
+
+        return true;
+      });
+  }, [dadosLocais]);
+
+  // A partir daqui, as seleções de tela derivam exclusivamente da base já saneada
+  const dadosFiltrados = useMemo(() => {
+    if (consultorSelecionado === null) return dadosGeraisFiltrados;
+
+    if (consultorSelecionado === "nao_atribuidos") {
+      return dadosGeraisFiltrados.filter((item) => !item.seq_consultor);
+    }
+
+    return dadosGeraisFiltrados.filter(
+      (item) => item.seq_consultor === consultorSelecionado,
+    );
+  }, [dadosGeraisFiltrados, consultorSelecionado]);
+
   const handleToggleTodasEmpresas = (checked: boolean) => {
     if (checked) {
       const todosIds = dadosFiltrados.map((item) => item.seq_empresa);
@@ -392,46 +441,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     [consultores, consultorSelecionado],
   );
 
-  const dadosFiltrados = useMemo(() => {
-    if (!Array.isArray(dadosLocais)) return [];
-
-    const dadosComDddInjetado = dadosLocais.map((item) => {
-      const resEmpresa = extrairTelefonesEmpresaDaObservacao(item.observacao);
-      const resDecisor = extrairEFormatarTelefonesDecisor(
-        item.decisor_numero,
-        item.decisor_num_obs,
-      );
-
-      const dddEmp = resEmpresa.dddPrincipal;
-      const dddDec = resDecisor.dddPrincipal;
-
-      const dddFinal =
-        dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
-
-      return {
-        ...item,
-        dddPredominante: dddFinal,
-      };
-    });
-
-    const dadosValidosPorRegra = dadosComDddInjetado.filter((item) => {
-      if (item.indicacao === "RENOVACAO") {
-        return item.dddPredominante !== "11";
-      }
-      return true;
-    });
-
-    if (consultorSelecionado === null) return dadosValidosPorRegra;
-
-    if (consultorSelecionado === "nao_atribuidos") {
-      return dadosValidosPorRegra.filter((item) => !item.seq_consultor);
-    }
-
-    return dadosValidosPorRegra.filter(
-      (item) => item.seq_consultor === consultorSelecionado,
-    );
-  }, [dadosLocais, consultorSelecionado]);
-
   const dadosGrafico = useMemo(() => {
     if (consultorSelecionado === null) {
       const contagem = new Map<
@@ -492,10 +501,10 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     mapaConsultores,
   ]);
 
+  // Contabiliza com base na base estrita de São Paulo
   const totalServicosGeral = useMemo(() => {
-    if (!Array.isArray(dadosLocais)) return 0;
-    return dadosLocais.length;
-  }, [dadosLocais]);
+    return dadosGeraisFiltrados.length;
+  }, [dadosGeraisFiltrados]);
 
   const totalServicosFiltrados = useMemo(() => {
     return dadosFiltrados.length;
@@ -508,7 +517,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     if (consultorSelecionado === null) {
       return [
         {
-          name: "Total Renovação",
+          name: "Total Renovação (SP)",
           value: totalServicosGeral,
           color: COR_AMARELO,
         },
@@ -540,7 +549,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const onClickSubirServicos = () => {
     handleSubirServicos({
       tipoOperacao: "Renovação",
-      dadosGlobais: dadosLocais,
+      // Garantimos que a API também só enxerga a base restrita de São Paulo (11 a 19 sem 11 p/ Renovação)
+      dadosGlobais: dadosGeraisFiltrados,
       consultoresEnvio: consultoresEnvio,
       empresasEnvio: empresasSelecionadas,
       limiteEnvio: limiteEnvio,
@@ -549,7 +559,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         setEmpresasSelecionadas([]);
         setLimiteEnvio("");
 
-        // Se vieram logs do envio, abre a Modal de Relatório!
         if (logs) {
           setSyncLogs(logs);
           setLogTab(logs.falhas.length > 0 ? "falhas" : "sucessos");
@@ -601,9 +610,12 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 {consultoresEnvio.map((id) => {
                   const nomeConsultor =
                     mapaConsultores.get(id)?.nome || "Desconhecido";
-                  const totalDoConsultor = dadosLocais.filter(
+                  
+                  // A contagem do pill agora respeita a base validada de SP para bater com o visual
+                  const totalDoConsultor = dadosGeraisFiltrados.filter(
                     (item) => item.seq_consultor === id,
                   ).length;
+
                   const qtdParaEnviar =
                     typeof limiteEnvio === "number" && limiteEnvio > 0
                       ? limiteEnvio
@@ -913,12 +925,10 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                             />
                           </TableHead>
                           <TableHead className="bg-muted">Empresa</TableHead>
-                          {/* NOVA COLUNA: DDD (Posicionada antes do CNPJ) */}
                           <TableHead className="bg-muted text-center w-[70px]">
                             DDD
                           </TableHead>
                           <TableHead className="bg-muted">CNPJ</TableHead>
-                          {/* NOVA COLUNA: Carteira */}
                           <TableHead className="bg-muted">Carteira</TableHead>
                           {!consultorSelecionado && (
                             <TableHead className="bg-muted">
@@ -1321,9 +1331,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
           </DialogContent>
         </Dialog>
 
-        {/* ========================================================= */}
-        {/* NOVA MODAL DE LOGS DE ENVIO (SUCESSOS E FALHAS)           */}
-        {/* ========================================================= */}
         {isLogModalOpen && syncLogs && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
