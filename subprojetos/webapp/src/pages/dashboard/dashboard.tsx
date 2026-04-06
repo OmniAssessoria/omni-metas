@@ -358,7 +358,7 @@ export default function DashboardAnaliticoMultiView() {
                   <Button
                     onClick={limparFiltros}
                     variant="outline"
-                    className="text-slate-600 hover:text-slate-900 shadow-sm transition-colors cursor-pointer"
+                    className="text-white-600 hover:text-slate-900 shadow-sm transition-colors cursor-pointer"
                   >
                     <Eraser className="h-4 w-4 mr-2" /> Limpar Filtros
                   </Button>
@@ -572,7 +572,7 @@ export default function DashboardAnaliticoMultiView() {
 
               <div className="flex gap-6 text-sm">
                 <div className="text-right">
-                  <p className="text-slate-400 mb-1">Maior Volume Atual</p>
+                  <p className="text-slate-400 mb-1">Volume Atual</p>
                   <p className="font-bold flex items-center gap-2 text-amber-400">
                     Renovação{" "}
                     <span className="bg-white/20 px-2 py-1 rounded text-white">
@@ -581,7 +581,7 @@ export default function DashboardAnaliticoMultiView() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-slate-400 mb-1">2º Maior Volume</p>
+                  <p className="text-slate-400 mb-1">Volume Atual</p>
                   <p className="font-bold flex items-center gap-2 text-blue-400">
                     Portabilidade{" "}
                     <span className="bg-white/20 px-2 py-1 rounded text-white">
