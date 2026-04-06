@@ -18,6 +18,7 @@ import {
   Users,
   ScanSearch,
   Power,
+  Tag,
 } from "lucide-react";
 import {
   PieChart,
@@ -37,7 +38,7 @@ export interface IServicoViewAPI {
   ddd_predominante: string;
   indicacao: string;
   situacao: string;
-  classificacao_contrato: string | null;
+  classificacao_contrato: string | 'CA' | 'CC' | 'CE' | 'CG' | 'CB' | 'CD' | 'CF';
   carteira: string | null;
   observacao: string | null;
   qtd_linhas_total: number;
@@ -72,6 +73,7 @@ type TipoSituacaoFilter =
   | "BLACKLIST";
 type TipoPiperunFilter = "AMBOS" | "SIM" | "NAO";
 type TipoAtivoFilter = "TODOS" | "SIM" | "NAO";
+type TipoClassificacaoFilter = "TODOS" | "CA" | "CB" | "CC" | "CD" | "CE" | "CF" | "CG" | "SEM_CLASSIFICACAO";
 
 type DadosPorIndicacao = {
   renovacao: IServicoViewAPI[];
@@ -115,16 +117,15 @@ export default function DashboardAnaliticoMultiView() {
     prazo_excedido: [],
   });
 
-  const [filtroSituacao, setFiltroSituacao] =
-    useState<TipoSituacaoFilter>("TODOS");
-  const [filtroCarteira, setFiltroCarteira] =
-    useState<TipoCarteiraFilter>("AMBOS");
-  const [filtroPiperun, setFiltroPiperun] =
-    useState<TipoPiperunFilter>("AMBOS");
+  const [filtroSituacao, setFiltroSituacao] = useState<TipoSituacaoFilter>("TODOS");
+  const [filtroCarteira, setFiltroCarteira] = useState<TipoCarteiraFilter>("AMBOS");
+  const [filtroPiperun, setFiltroPiperun] = useState<TipoPiperunFilter>("AMBOS");
   const [filtroAtivo, setFiltroAtivo] = useState<TipoAtivoFilter>("TODOS");
   const [filtroDataFim, setFiltroDataFim] = useState<string>("");
   const [filtroDDD, setFiltroDDD] = useState<string>("TODOS");
   const [filtroConsultor, setFiltroConsultor] = useState<string>("TODOS");
+  const [filtroClassificacao, setFiltroClassificacao] = useState<TipoClassificacaoFilter>("TODOS"); 
+
   const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
   const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
 
@@ -272,6 +273,14 @@ export default function DashboardAnaliticoMultiView() {
           }
         }
 
+        if (filtroClassificacao !== "TODOS") {
+          if (filtroClassificacao === "SEM_CLASSIFICACAO") {
+            if (item.classificacao_contrato !== null && item.classificacao_contrato.trim() !== "") return false;
+          } else {
+            if (item.classificacao_contrato !== filtroClassificacao) return false;
+          }
+        }
+
         if (filtroDataFim !== "") {
           if (!item.dt_fim_contrato) return false;
           const dataFormatada = item.dt_fim_contrato.substring(0, 10);
@@ -310,6 +319,7 @@ export default function DashboardAnaliticoMultiView() {
     setFiltroAtivo("TODOS");
     setFiltroDDD("TODOS");
     setFiltroConsultor("TODOS");
+    setFiltroClassificacao("TODOS");
     setFiltroDataFim("");
 
     setFiltroLinhasAtivo(false);
@@ -498,7 +508,7 @@ export default function DashboardAnaliticoMultiView() {
                     onClick={limparFiltros}
                     variant="outline"
                     size="sm"
-                    className="transition-colors shadow-sm cursor-pointer text-white hover:text-slate-900"
+                    className="transition-colors shadow-sm cursor-pointer text-slate-600 hover:text-slate-900"
                   >
                     <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
                   </Button>
@@ -651,7 +661,29 @@ export default function DashboardAnaliticoMultiView() {
                   />
                 </div>
 
-                <div className="hidden xl:block"></div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                    <Tag className="w-3.5 h-3.5 text-pink-500" /> Classificação
+                  </label>
+                  <select
+                    value={filtroClassificacao}
+                    onChange={(e) =>
+                      setFiltroClassificacao(e.target.value as TipoClassificacaoFilter)
+                    }
+                    className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="TODOS">Todas as Classificações</option>
+                    <option value="CA">CA</option>
+                    <option value="CB">CB</option>
+                    <option value="CC">CC</option>
+                    <option value="CD">CD</option>
+                    <option value="CE">CE</option>
+                    <option value="CF">CF</option>
+                    <option value="CG">CG</option>
+                    <option value="SEM_CLASSIFICACAO">Sem Classificação</option>
+                  </select>
+                </div>
+
                 {renderRangeSlider(
                   "Total de Linhas",
                   <Briefcase className="w-3.5 h-3.5 text-amber-500" />,
