@@ -31,6 +31,10 @@ import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
 import { CheckCircle2, XCircle, FileJson } from "lucide-react";
 import { Loader2, Database } from "lucide-react";
 
+// Importações dos utilitários para extrair DDD (mesmos usados nas sub-telas)
+import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
+import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
+
 export interface ITelaDetalhesProps {
   dados: IServicoPipeRun[];
   onBack: () => void;
@@ -44,6 +48,38 @@ export interface IApiResponse {
 
 type ViewState = "geral" | "renovacao" | "portabilidade";
 type TipoCarteiraFilter = "Todos" | "Carteira" | "Renov/Port";
+
+// ============================================================================
+// FUNÇÃO DE SANEAMENTO: Aplica a regra de DDDs válidos (Apenas SP 11 a 19 e bloqueia 11 em Renovação)
+// ============================================================================
+const filtrarPorRegraDDD = (dados: any[], indicacaoPadrao: string) => {
+  return dados.filter((item) => {
+    const resEmpresa = extrairTelefonesEmpresaDaObservacao(item.observacao || "");
+    const resDecisor = extrairEFormatarTelefonesDecisor(
+      item.decisor_numero || "",
+      item.decisor_num_obs || ""
+    );
+
+    const dddEmp = resEmpresa.dddPrincipal;
+    const dddDec = resDecisor.dddPrincipal;
+    const dddFinal = dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
+
+    const dddNum = parseInt(dddFinal, 10);
+
+    // Regra 1: Tem que ser do estado de São Paulo (11 a 19)
+    if (isNaN(dddNum) || dddNum < 11 || dddNum > 19) {
+      return false;
+    }
+
+    // Regra 2: Se for Renovação, o DDD 11 está estritamente proibido
+    const indicacao = item.indicacao || indicacaoPadrao;
+    if (indicacao === "RENOVACAO" && dddFinal === "11") {
+      return false;
+    }
+
+    return true;
+  });
+};
 
 export default function PipeSubirGeral() {
   const [view, setView] = useState<ViewState>("geral");
@@ -103,8 +139,10 @@ export default function PipeSubirGeral() {
         );
 
         if (cachedRenovacao && cachedPortabilidade) {
-          const parsedR = JSON.parse(cachedRenovacao);
-          const parsedP = JSON.parse(cachedPortabilidade);
+          // Filtramos até mesmo o cache antigo caso exista sujeira nele
+          const parsedR = filtrarPorRegraDDD(JSON.parse(cachedRenovacao), "RENOVACAO");
+          const parsedP = filtrarPorRegraDDD(JSON.parse(cachedPortabilidade), "PORTABILIDADE");
+          
           setRenovacoes(parsedR);
           setPortabilidades(parsedP);
           setFilteredRenovacoes(parsedR);
@@ -119,14 +157,16 @@ export default function PipeSubirGeral() {
         API.get<IApiResponse>("/api/servico-claro/piperun/portabilidade"),
       ]);
 
-      const dadosR = resRenovacao.data.dados || [];
-      const dadosP = resPortabilidade.data.dados || [];
+      // Aplica a interceptação dos dados crus da API
+      const dadosR = filtrarPorRegraDDD(resRenovacao.data.dados || [], "RENOVACAO");
+      const dadosP = filtrarPorRegraDDD(resPortabilidade.data.dados || [], "PORTABILIDADE");
 
       setRenovacoes(dadosR);
       setPortabilidades(dadosP);
       setFilteredRenovacoes(dadosR);
       setFilteredPortabilidades(dadosP);
 
+      // Salva em cache apenas os dados já saneados
       sessionStorage.setItem("cache_renovacoes", JSON.stringify(dadosR));
       sessionStorage.setItem("cache_portabilidades", JSON.stringify(dadosP));
 
@@ -457,13 +497,9 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* 3. MODAL DE RELATÓRIO DE SINCRONIZAÇÃO (Debug View)       */}
-        {/* ========================================================= */}
         {isLogModalOpen && syncLogs && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-              {/* Header do Modal */}
               <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   <FileJson className="h-6 w-6 text-primary" />
@@ -670,7 +706,7 @@ export default function PipeSubirGeral() {
               <Card className="bg-primary shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-primary-foreground/90">
-                    Total Geral (Sem Filtro)
+                    Total Geral (Saneado)
                   </CardTitle>
                   <Briefcase className="h-4 w-4 text-primary-foreground" />
                 </CardHeader>
