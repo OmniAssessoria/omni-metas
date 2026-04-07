@@ -174,6 +174,7 @@ export const API_PIPERUN = async ({
               "Tempo de Contrato": String(mesesContrato),
               "DDD": dddFinal,
               "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
+              "DOCDRIVE":  servico.servico_docdrive,
               "Observacao": servico.observacao, 
               "Indicacao": servico.indicacao   
             },
