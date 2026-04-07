@@ -9,7 +9,7 @@ interface UseIntegracaoProps {
   consultoresEnvio: number[];
   empresasEnvio?: number[];
   limiteEnvio: number | "";
-  onSuccessCb: (logs?: { sucessos: any[]; falhas: any[] }) => void; // <-- AJUSTE AQUI
+  onSuccessCb: (logs?: { sucessos: any[]; falhas: any[] }) => void; 
 }
 
 export function useIntegracaoPipeRun() {

@@ -15,7 +15,6 @@ import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLi
 
 const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
 
-
 const apiPipeRunRest = axios.create({
   baseURL: "https://api.pipe.run/v1",
   headers: {
@@ -35,12 +34,9 @@ export const API_PIPERUN = async ({
 
   for (const servico of servicos) {
     console.log(`\n================================================================`);
-    console.log(`[PipeRun REST] Iniciando processamento cronológico: ${servico.razao}`);
+    console.log(`[PipeRun REST/Webhook] Iniciando processamento cronológico: ${servico.razao}`);
 
     try {
-      // Formatação Base de Dados
-      // const cpfLimpo = limparPontuacao(servico.decisor_cpf);
-      // const cpfFormatado = formatarCPF(servico.decisor_cpf);
       const cnpjLimpo = limparPontuacao(servico.cnpj);
       const cnpjFormatado = formatarCNPJ(servico.cnpj);
 
@@ -53,7 +49,7 @@ export const API_PIPERUN = async ({
       const resultEmpresa = extrairTelefonesEmpresaDaObservacao(servico.observacao);
       const telefonesEmpresa = resultEmpresa.telefonesFormatados;
       const dddEmpresa = resultEmpresa.dddPrincipal;
-      
+
       const dddFinal =
         dddEmpresa !== "00"
           ? dddEmpresa
@@ -86,8 +82,6 @@ export const API_PIPERUN = async ({
       const mesesContrato = calcularMesesAteInicioContrato(dataInicioFormatada);
 
       console.log(`[Passo 1] ⏸️ PULADO TEMPORARIAMENTE: Criação de Pessoa comentada devido a erros de CPF na base.`);
-      // let personId = null; 
-
 
       let companyId = null;
       console.log(`[Passo 2] 🏢 Validando Empresa: ${servico.razao} (CNPJ: ${cnpjLimpo})`);
@@ -107,13 +101,13 @@ export const API_PIPERUN = async ({
 
       const payloadCompany = {
         name: servico.razao,
-        cnpj: cnpjFormatado, 
+        cnpj: cnpjFormatado,
         contactPhones: telefonesEmpresa,
       };
 
       if (companyId) {
         console.log(`[Passo 2] Disparando PUT para atualizar Empresa (ID: ${companyId})...`);
-        const { cnpj, ...payloadPutSemCnpj } = payloadCompany; 
+        const { cnpj, ...payloadPutSemCnpj } = payloadCompany;
         await apiPipeRunRest.put(`/companies/${companyId}`, payloadPutSemCnpj);
       } else {
         console.log(`[Passo 2] Disparando POST para cadastrar nova Empresa...`);
@@ -121,27 +115,27 @@ export const API_PIPERUN = async ({
         companyId = createCompany.data?.data?.id || null;
       }
 
-      console.log(`[Passo 3] 🤝 Gerando payload da Oportunidade via REST...`);
+      console.log(`[Passo 3] 🤝 Gerando payload da Oportunidade via Webhook/Hash...`);
       const titleCard = `(${dddFinal}) ${servico.indicacao || 'GERAL'} >> ${servico.razao}`;
 
-      let stageIdDefinido = 578431; 
-      
+      let hashDefinido = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
+
       const isCarteira = servico.carteira && String(servico.carteira).trim() !== "";
       const isPortabilidade = tipoOperacao === "Portabilidade" || indicacaoNormalizada === "PORTABILIDADE";
       const emailConsultor = servico.consultor_email ? String(servico.consultor_email).trim().toLowerCase() : "";
       const isConsultorCarolina = Number(servico.seq_consultor) === 8 || emailConsultor === "carolina.souza@rennovatecnologia.com.br";
 
       if (isConsultorCarolina) {
-        console.log(`[Regra Especial] Consultora Carolina Souza detectada. Roteando para etapa CARTEIRA (598026).`);
-        stageIdDefinido = 598026;
+        console.log(`[Regra Especial] Consultora Carolina Souza detectada. Roteando via Hash para CARTEIRA.`);
+        hashDefinido = "911c2966-27b7-4fc2-b9b2-21dc3deaa561";
       } else if (isCarteira) {
-        console.log(`[Regra Especial] Cliente de Carteira detectado. Roteando para etapa CARTEIRA (598026).`);
-        stageIdDefinido = 598026;
+        console.log(`[Regra Especial] Cliente de Carteira detectado. Roteando via Hash para CARTEIRA.`);
+        hashDefinido = "911c2966-27b7-4fc2-b9b2-21dc3deaa561";
       } else if (isPortabilidade) {
-        console.log(`[Regra Especial] Operação de Portabilidade detectada. Roteando para etapa PORTABILIDADE (659600).`);
-        stageIdDefinido = 659600; 
+        console.log(`[Regra Especial] Operação de Portabilidade detectada. Roteando via Hash para PORTABILIDADE.`);
+        hashDefinido = "856cb565-72d5-499f-aa40-d2bdb54825ac";
       } else {
-        console.log(`[Regra Especial] Fluxo Padrão. Roteando para etapa (578431).`);
+        console.log(`[Regra Especial] Fluxo Padrão. Roteando via Hash para RENOVAÇÃO.`);
       }
 
       const descricaoFormatada = `
@@ -160,21 +154,49 @@ export const API_PIPERUN = async ({
 - **Consultor Origem:** ${servico.consultor_email || "N/A"}
       `.trim();
 
-      const payloadDeal = {
-        title: titleCard,
-        company_id: companyId,
-        stage_id: stageIdDefinido, 
-        description: descricaoFormatada,
-        probability: 10
+      const payloadWebhook = {
+        rules: {
+          update: true,
+          filter_status_update: "open",
+          status: "open"
+        },
+        leads: [
+          {
+            title: titleCard,
+            company_id: companyId,
+            company: servico.razao,
+            cnpj: cnpjFormatado,
+            user: emailConsultor || undefined,
+            probability: 10,
+           custom_fields: {
+              "Inicio do Contrato": dataInicioFormatada,
+              "Final do Contrato": dataFimFormatada,
+              "Tempo de Contrato": String(mesesContrato),
+              "DDD": dddFinal,
+              "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
+              "Observacao": servico.observacao, 
+              "Indicacao": servico.indicacao   
+            },
+            notes: [
+              descricaoFormatada
+            ]
+          }
+        ]
       };
 
-      console.log(`[DEBUG] Rota /deals | Payload sendo enviado:\n`, JSON.stringify(payloadDeal, null, 2));
+      console.log(`[DEBUG] Rota /integradorJson | Hash: ${hashDefinido} | Payload sendo enviado:\n`, JSON.stringify(payloadWebhook, null, 2));
 
-      const responseDeal = await apiPipeRunRest.post('/deals', payloadDeal);
-      const dealIdCriado = responseDeal.data?.data?.id || responseDeal.data?.id;
+      const responseWebhook = await axios.post(
+        `https://app.pipe.run/webservice/integradorJson`,
+        payloadWebhook,
+        {
+          params: { hash: hashDefinido },
+          headers: { "Content-Type": "application/json" }
+        }
+      );
 
-      if (dealIdCriado) {
-        console.log(`✅ Oportunidade Criada com Sucesso! Deal ID: ${dealIdCriado} na Etapa ID: ${stageIdDefinido}`);
+      if (responseWebhook.status === 200 || responseWebhook.data?.success) {
+        console.log(`✅ Oportunidade Criada com Sucesso via Webhook! Status: ${responseWebhook.status} - Hash Utilizado: ${hashDefinido}`);
       }
 
       console.log(`[Passo 4] ⏸️ PULADO TEMPORARIAMENTE: Vínculo Pessoa x Oportunidade ignorado (Passo 1 inativo).`);
@@ -189,10 +211,6 @@ export const API_PIPERUN = async ({
       if (axios.isAxiosError(err)) {
         console.error(`Status HTTP: ${err.response?.status} na Rota: ${err.config?.url}`);
         console.error(`Detalhes da Recusa da API:`, JSON.stringify(err.response?.data, null, 2));
-        
-        if (err.response?.status === 403 && err.response?.data?.message?.includes("nesta etapa")) {
-          console.error(`\n💡 DICA DE OURO: O ID da etapa [${err.config?.data ? JSON.parse(err.config.data).stage_id : 'desconhecido'}] NÃO é uma etapa de entrada permitida no PipeRun. Verifique se este ID corresponde à PRIMEIRA COLUNA do funil no painel do PipeRun.`);
-        }
       } else {
         console.error(`Erro Interno no Node/Browser:`, err instanceof Error ? err.message : err);
       }
@@ -200,7 +218,7 @@ export const API_PIPERUN = async ({
   }
 
   console.log(`\n================================================================`);
-  console.log(`🏁 [Orquestração API REST Finalizada] ✅ Sucessos: ${sucessos} | ❌ Falhas: ${falhas} | 🚧 Pulados: ${pulados}`);
-  
-  return { sucessos, falhas, pulados } as any; 
+  console.log(`🏁 [Orquestração API REST/Webhook Finalizada] ✅ Sucessos: ${sucessos} | ❌ Falhas: ${falhas} | 🚧 Pulados: ${pulados}`);
+
+  return { sucessos, falhas, pulados } as any;
 };
