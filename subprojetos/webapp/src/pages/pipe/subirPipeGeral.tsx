@@ -31,7 +31,6 @@ import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
 import { CheckCircle2, XCircle, FileJson } from "lucide-react";
 import { Loader2, Database } from "lucide-react";
 
-// Importações dos utilitários para extrair DDD (mesmos usados nas sub-telas)
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 
@@ -50,20 +49,21 @@ type ViewState = "geral" | "renovacao" | "portabilidade";
 type TipoCarteiraFilter = "Todos" | "Carteira" | "Renov/Port";
 
 // ============================================================================
-// FUNÇÃO DE SANEAMENTO MESTRA: Aplica regras de Linhas e DDD logo na entrada
+// FUNÇÃO DE SANEAMENTO MESTRA
 // ============================================================================
 const filtrarPorRegraGeral = (dados: any[], indicacaoPadrao: string) => {
   return dados.filter((item) => {
-    // Regra 1: Obrigatoriamente ter 2 ou mais linhas (Bloqueia quem tem só 1 ou 0)
     const qtdLinhas = Number(item.qtd_servico_claro) || 0;
     if (qtdLinhas < 2) {
       return false;
     }
 
-    const resEmpresa = extrairTelefonesEmpresaDaObservacao(item.observacao || "");
+    const resEmpresa = extrairTelefonesEmpresaDaObservacao(
+      item.observacao || "",
+    );
     const resDecisor = extrairEFormatarTelefonesDecisor(
       item.decisor_numero || "",
-      item.decisor_num_obs || ""
+      item.decisor_num_obs || "",
     );
 
     const dddEmp = resEmpresa.dddPrincipal;
@@ -72,12 +72,10 @@ const filtrarPorRegraGeral = (dados: any[], indicacaoPadrao: string) => {
 
     const dddNum = parseInt(dddFinal, 10);
 
-    // Regra 2: Tem que ser do estado de São Paulo (11 a 19)
     if (isNaN(dddNum) || dddNum < 11 || dddNum > 19) {
       return false;
     }
 
-    // Regra 3: Se for Renovação, o DDD 11 está estritamente proibido
     const indicacao = item.indicacao || indicacaoPadrao;
     if (indicacao === "RENOVACAO" && dddFinal === "11") {
       return false;
@@ -105,9 +103,15 @@ export default function PipeSubirGeral() {
   const [filtroDataValor, setFiltroDataValor] = useState<number>(0);
   const [filtroTipoCarteira, setFiltroTipoCarteira] =
     useState<TipoCarteiraFilter>("Todos");
-  const [dataExtracao, setDataExtracao] = useState<string>(
+
+  // MODIFICAÇÃO AQUI: De uma data única para Data Inicial e Data Final
+  const [dataInicial, setDataInicial] = useState<string>(
     new Date().toISOString().split("T")[0],
   );
+  const [dataFinal, setDataFinal] = useState<string>(
+    new Date().toISOString().split("T")[0],
+  );
+
   const [syncing, setSyncing] = useState<boolean>(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const COR_RENOVACAO = "#eab308";
@@ -145,10 +149,15 @@ export default function PipeSubirGeral() {
         );
 
         if (cachedRenovacao && cachedPortabilidade) {
-          // Filtramos até mesmo o cache antigo caso exista sujeira nele
-          const parsedR = filtrarPorRegraGeral(JSON.parse(cachedRenovacao), "RENOVACAO");
-          const parsedP = filtrarPorRegraGeral(JSON.parse(cachedPortabilidade), "PORTABILIDADE");
-          
+          const parsedR = filtrarPorRegraGeral(
+            JSON.parse(cachedRenovacao),
+            "RENOVACAO",
+          );
+          const parsedP = filtrarPorRegraGeral(
+            JSON.parse(cachedPortabilidade),
+            "PORTABILIDADE",
+          );
+
           setRenovacoes(parsedR);
           setPortabilidades(parsedP);
           setFilteredRenovacoes(parsedR);
@@ -163,16 +172,20 @@ export default function PipeSubirGeral() {
         API.get<IApiResponse>("/api/servico-claro/piperun/portabilidade"),
       ]);
 
-      // Aplica a interceptação dos dados crus da API
-      const dadosR = filtrarPorRegraGeral(resRenovacao.data.dados || [], "RENOVACAO");
-      const dadosP = filtrarPorRegraGeral(resPortabilidade.data.dados || [], "PORTABILIDADE");
+      const dadosR = filtrarPorRegraGeral(
+        resRenovacao.data.dados || [],
+        "RENOVACAO",
+      );
+      const dadosP = filtrarPorRegraGeral(
+        resPortabilidade.data.dados || [],
+        "PORTABILIDADE",
+      );
 
       setRenovacoes(dadosR);
       setPortabilidades(dadosP);
       setFilteredRenovacoes(dadosR);
       setFilteredPortabilidades(dadosP);
 
-      // Salva em cache apenas os dados já saneados
       sessionStorage.setItem("cache_renovacoes", JSON.stringify(dadosR));
       sessionStorage.setItem("cache_portabilidades", JSON.stringify(dadosP));
 
@@ -269,13 +282,11 @@ export default function PipeSubirGeral() {
     if (filtroDataAtivo) {
       filtradosR = filtradosR.filter((s) => {
         if (!s.dt_ultima_leitura) return false;
-        const ts = new Date(s.dt_ultima_leitura).getTime();
-        return ts >= filtroDataValor;
+        return new Date(s.dt_ultima_leitura).getTime() >= filtroDataValor;
       });
       filtradosP = filtradosP.filter((s) => {
         if (!s.dt_ultima_leitura) return false;
-        const ts = new Date(s.dt_ultima_leitura).getTime();
-        return ts >= filtroDataValor;
+        return new Date(s.dt_ultima_leitura).getTime() >= filtroDataValor;
       });
     }
 
@@ -286,13 +297,9 @@ export default function PipeSubirGeral() {
   const totalR = filteredRenovacoes.length;
   const totalP = filteredPortabilidades.length;
   const totalGeral = totalR + totalP;
-  const totalR_carteira = filteredRenovacoes.filter((s) =>
-    hasCarteiraValid(s.carteira),
-  ).length;
-  const totalP_carteira = filteredPortabilidades.filter((s) =>
-    hasCarteiraValid(s.carteira),
-  ).length;
-  const totalCarteira = totalR_carteira + totalP_carteira;
+  const totalCarteira =
+    filteredRenovacoes.filter((s) => hasCarteiraValid(s.carteira)).length +
+    filteredPortabilidades.filter((s) => hasCarteiraValid(s.carteira)).length;
 
   const renderCenterText = (value: number, label: string) => {
     return (
@@ -306,7 +313,6 @@ export default function PipeSubirGeral() {
         >
           {value}
         </tspan>
-
         <tspan x="50%" dy="2.5em" fontSize="14" fill="#6b7280">
           {label}
         </tspan>
@@ -314,9 +320,10 @@ export default function PipeSubirGeral() {
     );
   };
 
+  // MODIFICAÇÃO AQUI: Enviando Data Inicial e Data Final para a API
   const sincronizarDados = async () => {
-    if (!dataExtracao) {
-      setNotification("Por favor, selecione uma data válida para extração.");
+    if (!dataInicial) {
+      setNotification("Por favor, selecione uma data inicial válida.");
       setTimeout(() => setNotification(null), 5000);
       return;
     }
@@ -328,12 +335,13 @@ export default function PipeSubirGeral() {
       percentual: 0,
       atual: 0,
       total: 0,
-      mensagem: `Iniciando extração do PipeRun para ${new Date(dataExtracao).toLocaleDateString()}...`,
+      mensagem: `Iniciando extração do PipeRun entre ${new Date(dataInicial).toLocaleDateString()} e ${new Date(dataFinal || dataInicial).toLocaleDateString()}...`,
     });
 
     try {
       const resultado = await sincronizarDadosPipeRun(
-        dataExtracao,
+        dataInicial,
+        dataFinal || dataInicial,
         (progresso) => {
           setProgressState({
             ativo: true,
@@ -367,7 +375,6 @@ export default function PipeSubirGeral() {
     }
   };
 
-  
   if (view === "renovacao")
     return (
       <PipeSubirRenovacao dados={renovacoes} onBack={() => setView("geral")} />
@@ -393,21 +400,19 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
+        {/* LOADING MODAL */}
         {progressState.ativo && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-md pointer-events-auto">
             <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 max-w-md w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
               <div className="bg-primary/10 p-4 rounded-full mb-6">
                 <Loader2 className="h-12 w-12 text-primary animate-spin" />
               </div>
-
               <h2 className="text-2xl font-bold text-foreground mb-2 text-center">
                 Sincronizando Dados
               </h2>
-
               <p className="text-muted-foreground text-center mb-8 h-10 flex items-center justify-center">
                 {progressState.mensagem}
               </p>
-
               {progressState.total > 0 && (
                 <div className="w-full space-y-2">
                   <div className="flex justify-between text-sm font-medium">
@@ -418,20 +423,17 @@ export default function PipeSubirGeral() {
                       {progressState.atual} / {progressState.total}
                     </span>
                   </div>
-
                   <div className="w-full h-3 bg-secondary rounded-full overflow-hidden">
                     <div
                       className="h-full bg-primary transition-all duration-300 ease-in-out"
                       style={{ width: `${progressState.percentual}%` }}
                     />
                   </div>
-
                   <p className="text-right text-xs font-bold text-muted-foreground mt-1">
                     {progressState.percentual}% Completo
                   </p>
                 </div>
               )}
-
               <p className="text-xs text-muted-foreground text-center mt-6 bg-muted p-2 rounded w-full">
                 ⚠️ Por favor, aguarde. Não feche ou atualize a página.
               </p>
@@ -439,6 +441,7 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
+        {/* MODAL DE SINCRONIZAÇÃO REFATORADO */}
         {isSyncModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -459,24 +462,43 @@ export default function PipeSubirGeral() {
 
               <div className="p-6 flex flex-col gap-6">
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Selecione no calendário abaixo a data base para extração e
-                  sincronização dos dados do sistema PipeRun com a nossa base de
-                  dados local.
+                  Selecione o período abaixo para extração. Se desejar apenas um
+                  dia, coloque a mesma data nos dois campos. O sistema extrairá
+                  dia a dia automaticamente.
                 </p>
 
-                <div className="flex flex-col gap-3">
-                  <label className="text-sm font-semibold text-foreground">
-                    Data da Extração
-                  </label>
-                  <div className="flex items-center border-2 border-input hover:border-primary/50 transition-colors bg-background rounded-lg h-14 px-4 shadow-sm w-full focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-                    <Calendar className="h-6 w-6 text-primary mr-3" />
-                    <input
-                      type="date"
-                      className="bg-transparent border-none outline-none text-base font-medium text-foreground w-full cursor-pointer"
-                      value={dataExtracao}
-                      onChange={(e) => setDataExtracao(e.target.value)}
-                      disabled={syncing}
-                    />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold text-foreground">
+                      Data Inicial
+                    </label>
+                    <div className="flex items-center border-2 border-input hover:border-primary/50 transition-colors bg-background rounded-lg h-14 px-4 shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                      <Calendar className="h-5 w-5 text-primary mr-2" />
+                      <input
+                        type="date"
+                        className="bg-transparent border-none outline-none text-sm font-medium text-foreground w-full cursor-pointer"
+                        value={dataInicial}
+                        onChange={(e) => setDataInicial(e.target.value)}
+                        disabled={syncing}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold text-foreground">
+                      Data Final
+                    </label>
+                    <div className="flex items-center border-2 border-input hover:border-primary/50 transition-colors bg-background rounded-lg h-14 px-4 shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                      <Calendar className="h-5 w-5 text-primary mr-2" />
+                      <input
+                        type="date"
+                        className="bg-transparent border-none outline-none text-sm font-medium text-foreground w-full cursor-pointer"
+                        value={dataFinal}
+                        min={dataInicial}
+                        onChange={(e) => setDataFinal(e.target.value)}
+                        disabled={syncing}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -495,21 +517,21 @@ export default function PipeSubirGeral() {
                   onClick={sincronizarDados}
                   disabled={syncing}
                 >
-                  <ArrowRightLeft className="mr-2 h-5 w-5" />
-                  Sincronizar Agora
+                  <ArrowRightLeft className="mr-2 h-5 w-5" /> Sincronizar Agora
                 </Button>
               </div>
             </div>
           </div>
         )}
 
+        {/* MODAL DE LOGS */}
         {isLogModalOpen && syncLogs && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
               <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                  <FileJson className="h-6 w-6 text-primary" />
-                  Relatório de Sincronização (Debug View)
+                  <FileJson className="h-6 w-6 text-primary" /> Relatório de
+                  Sincronização
                 </h3>
                 <Button
                   variant="ghost"
@@ -520,24 +542,22 @@ export default function PipeSubirGeral() {
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-
               <div className="flex border-b border-border bg-muted/10">
                 <button
                   className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${logTab === "sucessos" ? "bg-background border-b-2 border-green-500 text-green-600" : "text-muted-foreground hover:bg-muted/50"}`}
                   onClick={() => setLogTab("sucessos")}
                 >
-                  <CheckCircle2 className="h-5 w-5" />
-                  Sucessos ({syncLogs.sucessos.length})
+                  <CheckCircle2 className="h-5 w-5" /> Sucessos (
+                  {syncLogs.sucessos.length})
                 </button>
                 <button
                   className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${logTab === "falhas" ? "bg-background border-b-2 border-red-500 text-red-600" : "text-muted-foreground hover:bg-muted/50"}`}
                   onClick={() => setLogTab("falhas")}
                 >
-                  <XCircle className="h-5 w-5" />
-                  Falhas ({syncLogs.falhas.length})
+                  <XCircle className="h-5 w-5" /> Falhas (
+                  {syncLogs.falhas.length})
                 </button>
               </div>
-
               <div className="flex-1 overflow-y-auto p-6 bg-muted/5">
                 {logTab === "sucessos" && (
                   <div className="space-y-4">
@@ -573,24 +593,11 @@ export default function PipeSubirGeral() {
                               {item.payload.is_ganho ? "Ganho" : "Perda"}
                             </div>
                           </div>
-                          <details className="mt-2 text-xs bg-muted/30 p-2 rounded cursor-pointer">
-                            <summary className="font-semibold text-muted-foreground">
-                              Ver Payload Completo
-                            </summary>
-                            <pre className="mt-2 whitespace-pre-wrap break-all text-blue-600">
-                              {JSON.stringify(item.payload, null, 2)}
-                            </pre>
-                            <pre className="mt-2 whitespace-pre-wrap break-all text-green-600">
-                              Response:{" "}
-                              {JSON.stringify(item.respostaApi, null, 2)}
-                            </pre>
-                          </details>
                         </div>
                       ))
                     )}
                   </div>
                 )}
-
                 {logTab === "falhas" && (
                   <div className="space-y-4">
                     {syncLogs.falhas.length === 0 ? (
@@ -608,7 +615,7 @@ export default function PipeSubirGeral() {
                               CNPJ: {item.payload.cnpj}
                             </span>
                             <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                              Falha na API Interna
+                              Falha na API
                             </span>
                           </div>
                           <div className="text-sm mt-2 p-2 bg-red-50 text-red-800 rounded border border-red-100">
@@ -617,14 +624,6 @@ export default function PipeSubirGeral() {
                               ? JSON.stringify(item.erro)
                               : item.erro}
                           </div>
-                          <details className="mt-2 text-xs bg-muted/30 p-2 rounded cursor-pointer">
-                            <summary className="font-semibold text-muted-foreground">
-                              Ver Payload Enviado
-                            </summary>
-                            <pre className="mt-2 whitespace-pre-wrap break-all text-blue-600">
-                              {JSON.stringify(item.payload, null, 2)}
-                            </pre>
-                          </details>
                         </div>
                       ))
                     )}
@@ -641,29 +640,26 @@ export default function PipeSubirGeral() {
               <h1 className="text-3xl font-bold">
                 Visão Geral dos Serviços Disponíveis ao PipeRun
               </h1>
-              <div className="flex flex-col sm:flex-row gap-3 items-center w-full mt-2">
-                <Button
-                  size="lg"
-                  className="h-10 px-6 text-base w-full sm:w-auto cursor-pointer shadow-md transition-all"
-                  onClick={() => setIsSyncModalOpen(true)}
-                  disabled={syncing}
-                >
-                  {syncing ? (
-                    <>
-                      <RotateCw className="mr-2 h-4 w-4 animate-spin" />{" "}
-                      Sincronizando...
-                    </>
-                  ) : (
-                    <>
-                      <ArrowRightLeft className="mr-2 h-4 w-4" />
-                      Sincronizar dados Piperun com DB
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Button
+                size="lg"
+                className="h-10 px-6 text-base w-full sm:w-auto cursor-pointer shadow-md transition-all mt-2"
+                onClick={() => setIsSyncModalOpen(true)}
+                disabled={syncing}
+              >
+                {syncing ? (
+                  <>
+                    <RotateCw className="mr-2 h-4 w-4 animate-spin" />{" "}
+                    Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRightLeft className="mr-2 h-4 w-4" /> Sincronizar
+                    dados Piperun com DB
+                  </>
+                )}
+              </Button>
             </div>
           </div>
-
           <Button
             variant="outline"
             size="icon"

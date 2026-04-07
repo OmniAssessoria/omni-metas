@@ -78,7 +78,6 @@ const buscarCnpjPorCompanyId = async (companyId: number, tentativas = 3): Promis
 
 /**
  * Busca todas as páginas de um endpoint utilizando o parâmetro 'page' e 'show=200'
- * Conforme documentação: /deals?page=123 e /deals?show=123
  */
 const buscarTodasAsPaginas = async (urlBase: string, parametrosBasicos: any) => {
   let paginaAtual = 1;
@@ -114,6 +113,30 @@ const buscarTodasAsPaginas = async (urlBase: string, parametrosBasicos: any) => 
   return todosOsResultados;
 };
 
+/**
+ * GERA UMA LISTA DE DATAS ENTRE A DATA INICIAL E FINAL
+ * Se as datas forem iguais, retorna um array com apenas aquela data.
+ */
+const obterListaDeDatas = (dataInicial: string, dataFinal: string): string[] => {
+  const datas: string[] = [];
+  
+  // Usando T00:00:00 para evitar problemas de fuso horário que pulam/voltam um dia
+  let dataAtual = new Date(dataInicial + "T00:00:00");
+  const dataLimite = new Date(dataFinal + "T00:00:00");
+
+  // Garante que se a final for menor que a inicial por erro humano, inverta ou processe só a inicial
+  if (dataLimite < dataAtual) {
+      return [dataInicial];
+  }
+
+  while (dataAtual <= dataLimite) {
+    datas.push(dataAtual.toISOString().split("T")[0]);
+    dataAtual.setDate(dataAtual.getDate() + 1);
+  }
+  
+  return datas;
+};
+
 // ============================================================================
 // FUNÇÃO PRINCIPAL DE SINCRONIZAÇÃO
 // ============================================================================
@@ -127,12 +150,14 @@ export interface IProgressState {
 }
 
 /**
- * Função principal que será chamada pelo Frontend ao escolher a data
- * @param dataEscolhida Formato "YYYY-MM-DD"
+ * Função principal que será chamada pelo Frontend ao escolher o range de datas
+ * @param dataInicial Formato "YYYY-MM-DD"
+ * @param dataFinal Formato "YYYY-MM-DD"
  * @param onProgress Callback para atualizar a barra de progresso no frontend
  */
 export const sincronizarDadosPipeRun = async (
-  dataEscolhida: string,
+  dataInicial: string,
+  dataFinal: string,
   onProgress?: (progresso: IProgressState) => void
 ) => {
 
@@ -149,67 +174,68 @@ export const sincronizarDadosPipeRun = async (
     }
   };
 
-  const paramsComuns = {
-    closed_at_start: dataEscolhida,
-    closed_at_end: dataEscolhida,
-    with: "customFields,company,owner,lostReason"
-  };
-
   const dealsBrutos: any[] = [];
+  
+  // Aqui geramos todas as datas que precisam ser puxadas
+  const datasParaProcessar = obterListaDeDatas(dataInicial, dataFinal || dataInicial);
 
   try {
-    emitirProgresso("iniciando", `Iniciando busca estruturada para a data: ${dataEscolhida}`);
+    emitirProgresso("iniciando", `Iniciando busca estruturada. Período: ${datasParaProcessar.length} dia(s).`);
 
     // ========================================================================
-    // 1. BUSCA DE GANHOS (Usando IDs Absolutas de Pipeline e Stage)
+    // 1 e 2. BUSCA DE GANHOS E PERDAS ITERANDO POR CADA DATA
     // ========================================================================
-    emitirProgresso("buscando_piperun", `Extraindo Ganhos do Funil ${PIPELINE_GANHOS}...`);
-
-    // Aplicando a sua correção: buscando pelo pipeline_id, stage_id e status=1
-    const paramsGanhos = {
-      pipeline_id: PIPELINE_GANHOS,
-      stage_id: STAGE_GANHOS,
-      status: 1,
-      ...paramsComuns
-    };
-
-    const ganhosExtraidos = await buscarTodasAsPaginas("/deals", paramsGanhos);
-    dealsBrutos.push(...ganhosExtraidos);
-
-    // ========================================================================
-    // 2. BUSCA DE PERDAS (Iterando pelos Funis)
-    // ========================================================================
-    for (let i = 0; i < FUNIS_PERDAS.length; i++) {
-      const pipelineId = FUNIS_PERDAS[i];
-
+    for (let d = 0; d < datasParaProcessar.length; d++) {
+      const dataAtual = datasParaProcessar[d];
+      
       emitirProgresso(
-        "buscando_piperun",
-        `Consultando perdas no funil ${i + 1} de ${FUNIS_PERDAS.length} (ID: ${pipelineId})...`
+        "buscando_piperun", 
+        `[${d + 1}/${datasParaProcessar.length}] Buscando dados do dia: ${dataAtual}`
       );
 
-      const paramsPerdas = {
-        pipeline_id: pipelineId,
-        status: 3,
+      const paramsComuns = {
+        closed_at_start: dataAtual,
+        closed_at_end: dataAtual,
+        with: "customFields,company,owner,lostReason"
+      };
+
+      // --- BUSCA GANHOS DA DATA ATUAL ---
+      const paramsGanhos = {
+        pipeline_id: PIPELINE_GANHOS,
+        stage_id: STAGE_GANHOS,
+        status: 1,
         ...paramsComuns
       };
 
-      const perdasExtraidas = await buscarTodasAsPaginas("/deals", paramsPerdas);
-      dealsBrutos.push(...perdasExtraidas);
+      const ganhosExtraidos = await buscarTodasAsPaginas("/deals", paramsGanhos);
+      dealsBrutos.push(...ganhosExtraidos);
+
+      // --- BUSCA PERDAS DA DATA ATUAL ---
+      for (let i = 0; i < FUNIS_PERDAS.length; i++) {
+        const pipelineId = FUNIS_PERDAS[i];
+        const paramsPerdas = {
+          pipeline_id: pipelineId,
+          status: 3,
+          ...paramsComuns
+        };
+        const perdasExtraidas = await buscarTodasAsPaginas("/deals", paramsPerdas);
+        dealsBrutos.push(...perdasExtraidas);
+      }
     }
 
     if (dealsBrutos.length === 0) {
-      emitirProgresso("concluido", `Nenhum deal encontrado para a data informada.`);
+      emitirProgresso("concluido", `Nenhum deal encontrado no período informado.`);
       return {
         sucesso: true,
-        mensagem: "Nenhum dado para processar.",
+        mensagem: "Nenhum dado para processar neste período.",
         totalProcessado: 0,
       };
     }
 
     // ========================================================================
-    // 3. ESTRUTURAÇÃO E TRATAMENTO DOS DADOS
+    // 3. ESTRUTURAÇÃO E TRATAMENTO DOS DADOS (Permanece Intacto)
     // ========================================================================
-    emitirProgresso("processando", `Estruturando ${dealsBrutos.length} deals encontrados...`);
+    emitirProgresso("processando", `Estruturando ${dealsBrutos.length} deals encontrados no total...`);
     const dealsFormatados = [];
 
     for (let i = 0; i < dealsBrutos.length; i++) {
@@ -253,7 +279,7 @@ export const sincronizarDadosPipeRun = async (
     }
 
     // ========================================================================
-    // 4. ENVIO PARA O BACKEND INTERNO
+    // 4. ENVIO PARA O BACKEND INTERNO (Permanece Intacto)
     // ========================================================================
     const totalEnvios = dealsFormatados.length;
     emitirProgresso("enviando_backend", `Iniciando envio de ${totalEnvios} registros ao backend...`, 0, totalEnvios);
