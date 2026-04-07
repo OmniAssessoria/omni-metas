@@ -19,6 +19,7 @@ import {
   ScanSearch,
   Power,
   Tag,
+  RefreshCcw
 } from "lucide-react";
 import {
   PieChart,
@@ -98,8 +99,9 @@ const calcularDiasPassados = (dataString?: string | null): number | null => {
 
 export default function DashboardAnaliticoMultiView() {
   const [view, setView] = useState<ViewState>("geral");
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
 
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
     renovacao: [],
@@ -168,12 +170,15 @@ export default function DashboardAnaliticoMultiView() {
       };
 
       setDadosBrutos(payload);
-      setDadosFiltrados(payload);
+      setDadosFiltrados(payload); 
+      setUltimaAtualizacao(new Date()); 
 
-      setNotification("Todas as bases de indicação carregadas com sucesso!");
+      setNotification("Base de dados atualizada com sucesso!");
       setTimeout(() => setNotification(null), 4000);
     } catch (error) {
       console.error("[ERRO FETCH VIEWS]:", error);
+      setNotification("Erro ao atualizar base de dados.");
+      setTimeout(() => setNotification(null), 4000);
     } finally {
       setLoading(false);
     }
@@ -248,6 +253,7 @@ export default function DashboardAnaliticoMultiView() {
         if (filtroDDD !== "TODOS") {
           if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
             if (item.ddd_predominante === "11" && item.indicacao === "RENOVACAO") {
+               return false;
             }
           } else if (filtroDDD === "FORA_SP") {
              const dddNum = Number(item.ddd_predominante);
@@ -464,11 +470,11 @@ export default function DashboardAnaliticoMultiView() {
           </div>
         )}
 
-        {loading && totais.geral === 0 && (
+        {loading && (
           <div className="absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-sm bg-slate-50/80">
             <Loader2 className="w-12 h-12 mb-4 animate-spin text-primary" />
             <h2 className="text-xl font-bold text-slate-700">
-              Extraindo dados das Views...
+              Sincronizando Banco de Dados...
             </h2>
           </div>
         )}
@@ -479,9 +485,18 @@ export default function DashboardAnaliticoMultiView() {
               Análise Geral das Bases (Serviços Claro)
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Consumo direto do banco fatiado por Indicação do contrato.
+              Última atualização: {ultimaAtualizacao ? ultimaAtualizacao.toLocaleTimeString() : 'Aguardando sincronização'}
             </p>
           </div>
+          
+          <Button 
+            onClick={fetchTodasViews} 
+            disabled={loading}
+            className="flex items-center gap-2 px-6 py-2 font-semibold text-white transition-all shadow-md bg-blue-600 hover:bg-blue-700 rounded-xl"
+          >
+            <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Buscando Dados...' : 'Refresh Banco de Dados'}
+          </Button>
         </div>
 
         <div className="w-full space-y-6 max-w-7xl mx-auto">
@@ -489,24 +504,23 @@ export default function DashboardAnaliticoMultiView() {
             <CardContent className="p-5">
               <div className="flex flex-col justify-between gap-4 pb-4 mb-5 border-b md:flex-row md:items-center border-slate-100">
                 <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
-                  <Filter className="w-4 h-4 text-primary" /> Filtros Globais
-                  Simultâneos
+                  <Filter className="w-4 h-4 text-primary" /> Filtros em Memória (Sem usar DB)
                 </h2>
                 <div className="flex items-center gap-3">
                   <Button
                     onClick={limparFiltros}
                     variant="outline"
                     size="sm"
-                    className="transition-colors shadow-sm cursor-pointer text-white"
+                    className="transition-colors shadow-sm cursor-pointer text-slate-700"
                   >
                     <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
                   </Button>
                   <Button
                     onClick={aplicarFiltrosGlobais}
                     size="sm"
-                    className="px-6 shadow-md cursor-pointer hover:scale-105 transition-transform"
+                    className="px-6 transition-transform shadow-md cursor-pointer hover:scale-105 bg-slate-900 text-white"
                   >
-                    Aplicar aos 5 Gráficos
+                    Aplicar na Base Atual
                   </Button>
                 </div>
               </div>
