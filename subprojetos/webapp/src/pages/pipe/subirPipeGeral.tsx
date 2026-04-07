@@ -50,10 +50,16 @@ type ViewState = "geral" | "renovacao" | "portabilidade";
 type TipoCarteiraFilter = "Todos" | "Carteira" | "Renov/Port";
 
 // ============================================================================
-// FUNÇÃO DE SANEAMENTO: Aplica a regra de DDDs válidos (Apenas SP 11 a 19 e bloqueia 11 em Renovação)
+// FUNÇÃO DE SANEAMENTO MESTRA: Aplica regras de Linhas e DDD logo na entrada
 // ============================================================================
-const filtrarPorRegraDDD = (dados: any[], indicacaoPadrao: string) => {
+const filtrarPorRegraGeral = (dados: any[], indicacaoPadrao: string) => {
   return dados.filter((item) => {
+    // Regra 1: Obrigatoriamente ter 2 ou mais linhas (Bloqueia quem tem só 1 ou 0)
+    const qtdLinhas = Number(item.qtd_servico_claro) || 0;
+    if (qtdLinhas < 2) {
+      return false;
+    }
+
     const resEmpresa = extrairTelefonesEmpresaDaObservacao(item.observacao || "");
     const resDecisor = extrairEFormatarTelefonesDecisor(
       item.decisor_numero || "",
@@ -66,12 +72,12 @@ const filtrarPorRegraDDD = (dados: any[], indicacaoPadrao: string) => {
 
     const dddNum = parseInt(dddFinal, 10);
 
-    // Regra 1: Tem que ser do estado de São Paulo (11 a 19)
+    // Regra 2: Tem que ser do estado de São Paulo (11 a 19)
     if (isNaN(dddNum) || dddNum < 11 || dddNum > 19) {
       return false;
     }
 
-    // Regra 2: Se for Renovação, o DDD 11 está estritamente proibido
+    // Regra 3: Se for Renovação, o DDD 11 está estritamente proibido
     const indicacao = item.indicacao || indicacaoPadrao;
     if (indicacao === "RENOVACAO" && dddFinal === "11") {
       return false;
@@ -140,8 +146,8 @@ export default function PipeSubirGeral() {
 
         if (cachedRenovacao && cachedPortabilidade) {
           // Filtramos até mesmo o cache antigo caso exista sujeira nele
-          const parsedR = filtrarPorRegraDDD(JSON.parse(cachedRenovacao), "RENOVACAO");
-          const parsedP = filtrarPorRegraDDD(JSON.parse(cachedPortabilidade), "PORTABILIDADE");
+          const parsedR = filtrarPorRegraGeral(JSON.parse(cachedRenovacao), "RENOVACAO");
+          const parsedP = filtrarPorRegraGeral(JSON.parse(cachedPortabilidade), "PORTABILIDADE");
           
           setRenovacoes(parsedR);
           setPortabilidades(parsedP);
@@ -158,8 +164,8 @@ export default function PipeSubirGeral() {
       ]);
 
       // Aplica a interceptação dos dados crus da API
-      const dadosR = filtrarPorRegraDDD(resRenovacao.data.dados || [], "RENOVACAO");
-      const dadosP = filtrarPorRegraDDD(resPortabilidade.data.dados || [], "PORTABILIDADE");
+      const dadosR = filtrarPorRegraGeral(resRenovacao.data.dados || [], "RENOVACAO");
+      const dadosP = filtrarPorRegraGeral(resPortabilidade.data.dados || [], "PORTABILIDADE");
 
       setRenovacoes(dadosR);
       setPortabilidades(dadosP);
