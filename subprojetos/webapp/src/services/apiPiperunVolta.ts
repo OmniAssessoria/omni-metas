@@ -175,16 +175,12 @@ export const sincronizarDadosPipeRun = async (
   };
 
   const dealsBrutos: any[] = [];
-  
-  // Aqui geramos todas as datas que precisam ser puxadas
+
   const datasParaProcessar = obterListaDeDatas(dataInicial, dataFinal || dataInicial);
 
   try {
     emitirProgresso("iniciando", `Iniciando busca estruturada. Período: ${datasParaProcessar.length} dia(s).`);
 
-    // ========================================================================
-    // 1 e 2. BUSCA DE GANHOS E PERDAS ITERANDO POR CADA DATA
-    // ========================================================================
     for (let d = 0; d < datasParaProcessar.length; d++) {
       const dataAtual = datasParaProcessar[d];
       
@@ -199,7 +195,6 @@ export const sincronizarDadosPipeRun = async (
         with: "customFields,company,owner,lostReason"
       };
 
-      // --- BUSCA GANHOS DA DATA ATUAL ---
       const paramsGanhos = {
         pipeline_id: PIPELINE_GANHOS,
         stage_id: STAGE_GANHOS,
@@ -210,7 +205,6 @@ export const sincronizarDadosPipeRun = async (
       const ganhosExtraidos = await buscarTodasAsPaginas("/deals", paramsGanhos);
       dealsBrutos.push(...ganhosExtraidos);
 
-      // --- BUSCA PERDAS DA DATA ATUAL ---
       for (let i = 0; i < FUNIS_PERDAS.length; i++) {
         const pipelineId = FUNIS_PERDAS[i];
         const paramsPerdas = {
@@ -232,9 +226,6 @@ export const sincronizarDadosPipeRun = async (
       };
     }
 
-    // ========================================================================
-    // 3. ESTRUTURAÇÃO E TRATAMENTO DOS DADOS (Permanece Intacto)
-    // ========================================================================
     emitirProgresso("processando", `Estruturando ${dealsBrutos.length} deals encontrados no total...`);
     const dealsFormatados = [];
 
@@ -278,9 +269,6 @@ export const sincronizarDadosPipeRun = async (
       });
     }
 
-    // ========================================================================
-    // 4. ENVIO PARA O BACKEND INTERNO (Permanece Intacto)
-    // ========================================================================
     const totalEnvios = dealsFormatados.length;
     emitirProgresso("enviando_backend", `Iniciando envio de ${totalEnvios} registros ao backend...`, 0, totalEnvios);
 
