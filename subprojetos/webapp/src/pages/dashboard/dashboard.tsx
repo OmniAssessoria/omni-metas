@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import {
@@ -19,7 +19,16 @@ import {
   ScanSearch,
   Power,
   Tag,
-  RefreshCcw
+  RefreshCcw,
+  History,
+  BarChart2,
+  Clock,
+  Download,
+  Image as ImageIcon,
+  FileSpreadsheet,
+  FileText,
+  FileCode2,
+  X,
 } from "lucide-react";
 import {
   PieChart,
@@ -27,39 +36,26 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from "recharts";
 import API from "@/services/api";
 
-export interface IServicoViewAPI {
-  seq_claro: number;
-  seq_empresa: number;
-  seq_consultor: number | null;
-  empresa_razao: string;
-  empresa_cnpj: string;
-  ddd_predominante: string;
-  indicacao: string;
-  situacao: string;
-  classificacao_contrato: string | 'CA' | 'CC' | 'CE' | 'CG' | 'CB' | 'CD' | 'CF';
-  carteira: string | null;
-  observacao: string | null;
-  qtd_linhas_total: number;
-  qtd_linhas_ativas: number;
-  qtd_linhas_claro_operadora: number;
-  dt_fim_contrato: string | null;
-  dt_fechamento: string | null;
-  dt_ultima_leitura_servico: string | null;
-  dt_leitura_cpc_empresa: string | null;
-  flag_crm_servico: boolean;
-  flag_cpc_servico: boolean;
-  flag_edoc_servico: boolean;
-  servico_claro_ativo: boolean;
-  consultor_nome: string | null;
-}
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
+import { IServicoViewAPI } from "@/interfaces/servico_view_dashboard.interface";
+import { IHistoricoViewAPI } from "@/interfaces/historico_view_dashboard.interface";
 
 interface IApiResponseView {
   status: boolean;
   mensagem: string;
-  dados: IServicoViewAPI[];
+  dados: any[];
 }
 
 type ViewState = "geral" | "renovacao" | "portabilidade";
@@ -74,7 +70,16 @@ type TipoSituacaoFilter =
   | "BLACKLIST";
 type TipoPiperunFilter = "AMBOS" | "SIM" | "NAO";
 type TipoAtivoFilter = "TODOS" | "SIM" | "NAO";
-type TipoClassificacaoFilter = "TODOS" | "CA" | "CB" | "CC" | "CD" | "CE" | "CF" | "CG" | "SEM_CLASSIFICACAO";
+type TipoClassificacaoFilter =
+  | "TODOS"
+  | "CA"
+  | "CB"
+  | "CC"
+  | "CD"
+  | "CE"
+  | "CF"
+  | "CG"
+  | "SEM_CLASSIFICACAO";
 
 type DadosPorIndicacao = {
   renovacao: IServicoViewAPI[];
@@ -88,20 +93,22 @@ const calcularDiasPassados = (dataString?: string | null): number | null => {
   if (!dataString) return null;
   const dataBase = new Date(dataString);
   if (isNaN(dataBase.getTime())) return null;
-
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   dataBase.setHours(0, 0, 0, 0);
-
   const diffTime = hoje.getTime() - dataBase.getTime();
   return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
 };
 
 export default function DashboardAnaliticoMultiView() {
-  const [view, setView] = useState<ViewState>("geral");
   const [loading, setLoading] = useState<boolean>(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
+
+  const [modalExportacaoAberto, setModalExportacaoAberto] = useState<
+    "servicos" | "historico" | null
+  >(null);
+  const dashboardRef = useRef<HTMLDivElement>(null); 
 
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
     renovacao: [],
@@ -110,7 +117,6 @@ export default function DashboardAnaliticoMultiView() {
     prazo_limitado: [],
     prazo_excedido: [],
   });
-
   const [dadosFiltrados, setDadosFiltrados] = useState<DadosPorIndicacao>({
     renovacao: [],
     portabilidade: [],
@@ -119,20 +125,30 @@ export default function DashboardAnaliticoMultiView() {
     prazo_excedido: [],
   });
 
-  const [filtroSituacao, setFiltroSituacao] = useState<TipoSituacaoFilter>("TODOS");
-  const [filtroCarteira, setFiltroCarteira] = useState<TipoCarteiraFilter>("AMBOS");
-  const [filtroPiperun, setFiltroPiperun] = useState<TipoPiperunFilter>("AMBOS");
+  const [filtroSituacao, setFiltroSituacao] =
+    useState<TipoSituacaoFilter>("TODOS");
+  const [filtroCarteira, setFiltroCarteira] =
+    useState<TipoCarteiraFilter>("AMBOS");
+  const [filtroPiperun, setFiltroPiperun] =
+    useState<TipoPiperunFilter>("AMBOS");
   const [filtroAtivo, setFiltroAtivo] = useState<TipoAtivoFilter>("TODOS");
   const [filtroDataFim, setFiltroDataFim] = useState<string>("");
   const [filtroDDD, setFiltroDDD] = useState<string>("TODOS");
   const [filtroConsultor, setFiltroConsultor] = useState<string>("TODOS");
-  const [filtroClassificacao, setFiltroClassificacao] = useState<TipoClassificacaoFilter>("TODOS"); 
-
+  const [filtroClassificacao, setFiltroClassificacao] =
+    useState<TipoClassificacaoFilter>("TODOS");
   const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
   const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
-
   const [filtroCpcAtivo, setFiltroCpcAtivo] = useState(false);
   const [filtroCpcValor, setFiltroCpcValor] = useState(30);
+
+  const [historicoBruto, setHistoricoBruto] = useState<IHistoricoViewAPI[]>([]);
+  const [historicoFiltrado, setHistoricoFiltrado] = useState<
+    IHistoricoViewAPI[]
+  >([]);
+  const [filtroHistConsultor, setFiltroHistConsultor] =
+    useState<string>("TODOS");
+  const [filtroHistMotivo, setFiltroHistMotivo] = useState<string>("TODOS");
 
   const CORES = {
     renovacao: "#eab308",
@@ -141,27 +157,44 @@ export default function DashboardAnaliticoMultiView() {
     prazo_limitado: "#f97316",
     prazo_excedido: "#8b5cf6",
     vazio: "#e5e7eb",
+    grafico_barras_1: "#8b5cf6",
+    grafico_barras_2: "#10b981",
+    grafico_barras_3: "#f43f5e",
   };
 
   const fetchTodasViews = useCallback(async () => {
     setLoading(true);
     try {
-      const [resRenov, resPort, resFora, resLim, resExc] = await Promise.all([
-        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/renovacao"),
-        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/portabilidade"),
-        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/fora-do-prazo"),
-        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-limitado"),
-        API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-excedido"),
-      ]);
+      const [resRenov, resPort, resFora, resLim, resExc, resHist] =
+        await Promise.all([
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/renovacao",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/portabilidade",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/fora-do-prazo",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/prazo-limitado",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/prazo-excedido",
+          ),
+          API.get<IApiResponseView>("/api/servico-claro/dashboard/historico"), // <-- Nova Rota
+        ]);
 
-      const prepararDados = (lista: IServicoViewAPI[]) => {
+      const prepararDados = (lista: any[]) => {
         return lista.map((item) => ({
           ...item,
-          ddd_predominante: item.ddd_predominante ? String(item.ddd_predominante).trim() : "00",
+          ddd_predominante: item.ddd_predominante
+            ? String(item.ddd_predominante).trim()
+            : "00",
         }));
       };
 
-      const payload: DadosPorIndicacao = {
+      const payloadServicos: DadosPorIndicacao = {
         renovacao: prepararDados(resRenov.data.dados || []),
         portabilidade: prepararDados(resPort.data.dados || []),
         fora_prazo: prepararDados(resFora.data.dados || []),
@@ -169,11 +202,16 @@ export default function DashboardAnaliticoMultiView() {
         prazo_excedido: prepararDados(resExc.data.dados || []),
       };
 
-      setDadosBrutos(payload);
-      setDadosFiltrados(payload); 
-      setUltimaAtualizacao(new Date()); 
+      const payloadHistorico: IHistoricoViewAPI[] = resHist.data.dados || [];
 
-      setNotification("Base de dados atualizada com sucesso!");
+      setDadosBrutos(payloadServicos);
+      setDadosFiltrados(payloadServicos);
+
+      setHistoricoBruto(payloadHistorico);
+      setHistoricoFiltrado(payloadHistorico);
+
+      setUltimaAtualizacao(new Date());
+      setNotification("Bases de Serviço e Histórico atualizadas com sucesso!");
       setTimeout(() => setNotification(null), 4000);
     } catch (error) {
       console.error("[ERRO FETCH VIEWS]:", error);
@@ -196,18 +234,14 @@ export default function DashboardAnaliticoMultiView() {
       ...dadosBrutos.prazo_limitado,
       ...dadosBrutos.prazo_excedido,
     ];
-
     let maxLinhas = 0;
     let maxCpc = 0;
-
     todosServicos.forEach((item) => {
       const linhas = Number(item.qtd_linhas_total) || 0;
       if (linhas > maxLinhas) maxLinhas = linhas;
-
       const diasCpc = calcularDiasPassados(item.dt_leitura_cpc_empresa);
       if (diasCpc !== null && diasCpc > maxCpc) maxCpc = diasCpc;
     });
-
     return {
       maxLinhasGlobal: maxLinhas || 100,
       maxDiasCpcGlobal: maxCpc || 30,
@@ -223,13 +257,11 @@ export default function DashboardAnaliticoMultiView() {
       ...dadosBrutos.prazo_limitado,
       ...dadosBrutos.prazo_excedido,
     ];
-
     todosServicos.forEach((item) => {
       if (item.seq_consultor && item.consultor_nome) {
         mapaConsultores.set(item.seq_consultor, item.consultor_nome);
       }
     });
-
     return Array.from(mapaConsultores.entries())
       .map(([seq, nome]) => ({ seq, nome }))
       .sort((a, b) => a.nome.localeCompare(b.nome));
@@ -238,31 +270,33 @@ export default function DashboardAnaliticoMultiView() {
   const aplicarFiltrosGlobais = () => {
     const aplicarRegras = (array: IServicoViewAPI[]) => {
       return array.filter((item) => {
-        if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao) return false;
-
+        if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao)
+          return false;
         const isCarteiraVazia = !item.carteira || item.carteira.trim() === "";
         if (filtroCarteira === "COM_CARTEIRA" && isCarteiraVazia) return false;
         if (filtroCarteira === "SEM_CARTEIRA" && !isCarteiraVazia) return false;
-
-        if (filtroPiperun === "SIM" && item.flag_crm_servico !== true) return false;
-        if (filtroPiperun === "NAO" && item.flag_crm_servico === true) return false;
-
-        if (filtroAtivo === "SIM" && item.servico_claro_ativo !== true) return false;
-        if (filtroAtivo === "NAO" && item.servico_claro_ativo === true) return false;
-
+        if (filtroPiperun === "SIM" && item.flag_crm_servico !== true)
+          return false;
+        if (filtroPiperun === "NAO" && item.flag_crm_servico === true)
+          return false;
+        if (filtroAtivo === "SIM" && item.servico_claro_ativo !== true)
+          return false;
+        if (filtroAtivo === "NAO" && item.servico_claro_ativo === true)
+          return false;
         if (filtroDDD !== "TODOS") {
           if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
-            if (item.ddd_predominante === "11" && item.indicacao === "RENOVACAO") {
-               return false;
-            }
+            if (
+              item.ddd_predominante === "11" &&
+              item.indicacao === "RENOVACAO"
+            )
+              return false;
           } else if (filtroDDD === "FORA_SP") {
-             const dddNum = Number(item.ddd_predominante);
-             if (dddNum >= 11 && dddNum <= 19) return false;
+            const dddNum = Number(item.ddd_predominante);
+            if (dddNum >= 11 && dddNum <= 19) return false;
           } else {
-             if (item.ddd_predominante !== filtroDDD) return false;
+            if (item.ddd_predominante !== filtroDDD) return false;
           }
         }
-
         if (filtroConsultor !== "TODOS") {
           if (filtroConsultor === "NAO_ATRIBUIDO") {
             if (item.seq_consultor !== null) return false;
@@ -270,30 +304,32 @@ export default function DashboardAnaliticoMultiView() {
             if (String(item.seq_consultor) !== filtroConsultor) return false;
           }
         }
-
         if (filtroClassificacao !== "TODOS") {
           if (filtroClassificacao === "SEM_CLASSIFICACAO") {
-            if (item.classificacao_contrato !== null && item.classificacao_contrato.trim() !== "") return false;
+            if (
+              item.classificacao_contrato !== null &&
+              item.classificacao_contrato.trim() !== ""
+            )
+              return false;
           } else {
-            if (item.classificacao_contrato !== filtroClassificacao) return false;
+            if (item.classificacao_contrato !== filtroClassificacao)
+              return false;
           }
         }
-
         if (filtroDataFim !== "") {
           if (!item.dt_fim_contrato) return false;
           const dataFormatada = item.dt_fim_contrato.substring(0, 10);
           if (dataFormatada !== filtroDataFim) return false;
         }
-
-        if (filtroLinhasAtivo && Number(item.qtd_linhas_total || 0) !== filtroLinhasValor) {
+        if (
+          filtroLinhasAtivo &&
+          Number(item.qtd_linhas_total || 0) !== filtroLinhasValor
+        )
           return false;
-        }
-
         if (filtroCpcAtivo) {
           const diasCpc = calcularDiasPassados(item.dt_leitura_cpc_empresa);
           if (diasCpc === null || diasCpc > filtroCpcValor) return false;
         }
-
         return true;
       });
     };
@@ -316,12 +352,10 @@ export default function DashboardAnaliticoMultiView() {
     setFiltroConsultor("TODOS");
     setFiltroClassificacao("TODOS");
     setFiltroDataFim("");
-
     setFiltroLinhasAtivo(false);
     setFiltroLinhasValor(0);
     setFiltroCpcAtivo(false);
     setFiltroCpcValor(maxDiasCpcGlobal);
-
     setDadosFiltrados(dadosBrutos);
   };
 
@@ -340,6 +374,250 @@ export default function DashboardAnaliticoMultiView() {
       geral: tr + tp + tf + tl + te,
     };
   }, [dadosFiltrados]);
+
+  const todosServicosFiltrados = useMemo(() => {
+    return [
+      ...dadosFiltrados.renovacao,
+      ...dadosFiltrados.portabilidade,
+      ...dadosFiltrados.fora_prazo,
+      ...dadosFiltrados.prazo_limitado,
+      ...dadosFiltrados.prazo_excedido,
+    ];
+  }, [dadosFiltrados]);
+
+  const listaMotivosUnicos = useMemo(() => {
+    const motivos = new Set<string>();
+    historicoBruto.forEach((h) => {
+      if (h.motivo_declinio) motivos.add(h.motivo_declinio);
+    });
+    return Array.from(motivos).sort();
+  }, [historicoBruto]);
+
+  const listaConsultoresHistUnicos = useMemo(() => {
+    const map = new Map<number, string>();
+    historicoBruto.forEach((h) => {
+      if (h.seq_consultor && h.consultor_nome)
+        map.set(h.seq_consultor, h.consultor_nome);
+    });
+    return Array.from(map.entries())
+      .map(([seq, nome]) => ({ seq, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [historicoBruto]);
+
+  const aplicarFiltrosHistorico = () => {
+    const filtrado = historicoBruto.filter((h) => {
+      if (
+        filtroHistConsultor !== "TODOS" &&
+        String(h.seq_consultor) !== filtroHistConsultor
+      )
+        return false;
+      if (filtroHistMotivo !== "TODOS") {
+        if (filtroHistMotivo === "SEM_DECLINIO" && h.motivo_declinio !== null)
+          return false;
+        if (
+          filtroHistMotivo !== "SEM_DECLINIO" &&
+          h.motivo_declinio !== filtroHistMotivo
+        )
+          return false;
+      }
+      return true;
+    });
+    setHistoricoFiltrado(filtrado);
+  };
+
+  const limparFiltrosHistorico = () => {
+    setFiltroHistConsultor("TODOS");
+    setFiltroHistMotivo("TODOS");
+    setHistoricoFiltrado(historicoBruto);
+  };
+
+  const dadosGraficoMotivo = useMemo(() => {
+    const map = new Map<string, number>();
+    historicoFiltrado.forEach((h) => {
+      const motivo = h.motivo_declinio || "Sem Declínio (Ganho)";
+      map.set(motivo, (map.get(motivo) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+  }, [historicoFiltrado]);
+
+  const dadosGraficoConsultor = useMemo(() => {
+    const map = new Map<string, number>();
+    historicoFiltrado.forEach((h) => {
+      const nome = h.consultor_nome || "Não Atribuído";
+      map.set(nome, (map.get(nome) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+  }, [historicoFiltrado]);
+
+  const dadosGraficoTempo = useMemo(() => {
+    const map = new Map<string, { totalDias: number; count: number }>();
+    historicoFiltrado.forEach((h) => {
+      if (
+        h.data_inicio_atendimento &&
+        h.data_fim_atendimento &&
+        h.consultor_nome
+      ) {
+        const start = new Date(h.data_inicio_atendimento).getTime();
+        const end = new Date(h.data_fim_atendimento).getTime();
+        const dias = (end - start) / (1000 * 3600 * 24);
+
+        if (dias >= 0) {
+          if (!map.has(h.consultor_nome))
+            map.set(h.consultor_nome, { totalDias: 0, count: 0 });
+          const curr = map.get(h.consultor_nome)!;
+          curr.totalDias += dias;
+          curr.count += 1;
+        }
+      }
+    });
+    return Array.from(map.entries())
+      .map(([name, val]) => ({
+        name,
+        media: Number((val.totalDias / val.count).toFixed(1)),
+      }))
+      .sort((a, b) => b.media - a.media)
+      .slice(0, 10);
+  }, [historicoFiltrado]);
+
+  const exportToImage = async () => {
+    if (!dashboardRef.current) return;
+    try {
+      setLoading(true);
+      const canvas = await html2canvas(dashboardRef.current, {
+        scale: 2,
+        useCORS: true,
+      });
+      const image = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = image;
+      link.download = `Analise_Dashboard_${new Date().toISOString().slice(0, 10)}.png`;
+      link.click();
+      setNotification("Print da análise exportado com sucesso!");
+      setTimeout(() => setNotification(null), 3000);
+    } catch (err) {
+      console.error("Erro ao exportar imagem:", err);
+      setNotification("Erro ao gerar imagem da análise.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDataToExport = () => {
+    return modalExportacaoAberto === "servicos"
+      ? todosServicosFiltrados
+      : historicoFiltrado;
+  };
+
+  const getFileName = () => {
+    const prefix =
+      modalExportacaoAberto === "servicos" ? "Base_Servicos" : "Base_Historico";
+    return `${prefix}_${new Date().toISOString().slice(0, 10)}`;
+  };
+
+  const exportToCSV = () => {
+    const data = getDataToExport();
+    if (!data || data.length === 0) return alert("Nenhum dado para exportar.");
+
+    const keys = Object.keys(data[0]);
+    const csvContent = [
+      keys.join(";"),
+      ...data.map((row) =>
+        keys
+          .map((k) => `"${(row as any)[k] !== null ? (row as any)[k] : ""}"`)
+          .join(";"),
+      ),
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${getFileName()}.csv`;
+    link.click();
+    setModalExportacaoAberto(null);
+  };
+
+  const exportToXLSX = async () => {
+    const data = getDataToExport();
+    if (!data || data.length === 0) return alert("Nenhum dado para exportar.");
+
+    try {
+      setLoading(true);
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Dados Exportados");
+
+      const keys = Object.keys(data[0]);
+
+      worksheet.columns = keys.map((key) => ({
+        header: key.toUpperCase(),
+        key: key,
+        width: 25,
+      }));
+
+      data.forEach((item) => {
+        worksheet.addRow(item);
+      });
+
+      worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      worksheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1E293B" },
+      };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      saveAs(blob, `${getFileName()}.xlsx`);
+
+      setModalExportacaoAberto(null);
+      setNotification("Planilha XLSX gerada com sucesso!");
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error("Erro ao gerar Excel:", error);
+      alert("Houve um erro ao processar o arquivo XLSX.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportToPDF = () => {
+    const data = getDataToExport();
+    if (!data || data.length === 0) return alert("Nenhum dado para exportar.");
+
+    const doc = new jsPDF("landscape", "pt", "a4");
+    const keys = Object.keys(data[0]);
+    const displayKeys = keys.slice(0, 10);
+
+    const tableData = data.map((row) =>
+      displayKeys.map((k) => String((row as any)[k] || "")),
+    );
+
+    doc.text(
+      `Relatório de ${modalExportacaoAberto === "servicos" ? "Serviços" : "Histórico"}`,
+      40,
+      40,
+    );
+
+    autoTable(doc, {
+      head: [displayKeys],
+      body: tableData,
+      startY: 50,
+      styles: { fontSize: 6, cellPadding: 2 },
+      headStyles: { fillColor: [44, 62, 80] },
+    });
+
+    doc.save(`${getFileName()}.pdf`);
+    setModalExportacaoAberto(null);
+  };
 
   const renderCenterText = (value: number, label: string) => (
     <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
@@ -365,7 +643,6 @@ export default function DashboardAnaliticoMultiView() {
         fill: isVazio ? CORES.vazio : corGrafico,
       },
     ];
-
     return (
       <div className="flex flex-col items-center p-4 transition-shadow bg-white border shadow-sm rounded-xl border-slate-100 hover:shadow-md">
         <h3 className="flex items-center justify-center h-10 mb-2 text-sm font-bold tracking-wide text-center uppercase text-slate-700">
@@ -429,7 +706,6 @@ export default function DashboardAnaliticoMultiView() {
           )}
         </button>
       </div>
-
       <div
         className={`relative pt-3 pb-1 transition-opacity duration-300 ${ativo ? "opacity-100" : "opacity-40 pointer-events-none"}`}
       >
@@ -462,7 +738,58 @@ export default function DashboardAnaliticoMultiView() {
         <Sidebar />
       </div>
 
-      <main className="relative flex flex-col flex-1 h-full p-4 overflow-y-auto sm:p-8">
+      <main
+        ref={dashboardRef}
+        className="relative flex flex-col flex-1 h-full p-4 overflow-y-auto sm:p-8 space-y-12"
+      >
+        {modalExportacaoAberto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center mb-6 border-b pb-3">
+                <h3 className="font-bold text-lg flex items-center gap-2 text-slate-800">
+                  <Download className="w-5 h-5 text-primary" />
+                  Exportar{" "}
+                  {modalExportacaoAberto === "servicos"
+                    ? "Serviços"
+                    : "Histórico"}
+                </h3>
+                <button
+                  onClick={() => setModalExportacaoAberto(null)}
+                  className="text-slate-400 hover:text-red-500 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-slate-500 mb-4">
+                Escolha o formato do arquivo para baixar os dados filtrados
+                atualmente apresentados.
+              </p>
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={exportToXLSX}
+                  className="w-full justify-start gap-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold"
+                >
+                  <FileSpreadsheet className="w-5 h-5" /> Exportar para Planilha
+                  (.XLSX)
+                </Button>
+                <Button
+                  onClick={exportToCSV}
+                  className="w-full justify-start gap-3 bg-orange-400 hover:bg-orange-500 text-white font-semibold"
+                >
+                  <FileCode2 className="w-5 h-5" /> Exportar para Dados Brutos
+                  (.CSV)
+                </Button>
+                <Button
+                  onClick={exportToPDF}
+                  className="w-full justify-start gap-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                >
+                  <FileText className="w-5 h-5" /> Exportar Relatório (.PDF)
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {notification && (
           <div className="fixed z-50 flex items-center gap-3 px-6 py-4 text-white shadow-2xl top-6 right-6 bg-slate-800 rounded-xl animate-in slide-in-from-right-8 duration-300">
             <Bell className="w-5 h-5 text-emerald-400" />
@@ -473,128 +800,428 @@ export default function DashboardAnaliticoMultiView() {
         {loading && (
           <div className="absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-sm bg-slate-50/80">
             <Loader2 className="w-12 h-12 mb-4 animate-spin text-primary" />
-            <h2 className="text-xl font-bold text-slate-700">
-              Sincronizando Banco de Dados...
-            </h2>
+            <h2 className="text-xl font-bold text-slate-700">Processando...</h2>
           </div>
         )}
 
-        <div className="flex flex-col items-start justify-between w-full max-w-7xl gap-4 mb-6 mx-auto lg:flex-row lg:items-center">
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
-              Análise Geral das Bases (Serviços Claro)
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Última atualização: {ultimaAtualizacao ? ultimaAtualizacao.toLocaleTimeString() : 'Aguardando sincronização'}
-            </p>
-          </div>
-          
-          <Button 
-            onClick={fetchTodasViews} 
-            disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 font-semibold text-white transition-all shadow-md bg-blue-600 hover:bg-blue-700 rounded-xl"
-          >
-            <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Buscando Dados...' : 'Refresh Banco de Dados'}
-          </Button>
-        </div>
+        <section>
+          <div className="flex flex-col items-start justify-between w-full max-w-7xl gap-4 mb-6 mx-auto lg:flex-row lg:items-center">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
+                Análise Geral das Bases (Serviços Claro)
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Última atualização:{" "}
+                {ultimaAtualizacao
+                  ? ultimaAtualizacao.toLocaleTimeString()
+                  : "Aguardando sincronização"}
+              </p>
+            </div>
 
-        <div className="w-full space-y-6 max-w-7xl mx-auto">
-          <Card className="bg-white border-none shadow-md">
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={exportToImage}
+                className="flex items-center gap-2 px-5 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-slate-50 rounded-xl"
+              >
+                <ImageIcon className="w-4 h-4 text-purple-500" />
+                Exportar Análises (Imagem)
+              </Button>
+              <Button
+                onClick={fetchTodasViews}
+                disabled={loading}
+                className="flex items-center gap-2 px-6 py-2 font-semibold text-white transition-all shadow-md bg-blue-600 hover:bg-blue-700 rounded-xl"
+              >
+                <RefreshCcw
+                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                />
+                {loading ? "Buscando..." : "Refresh Dados"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="w-full space-y-6 max-w-7xl mx-auto">
+            <Card className="bg-white border-none shadow-md">
+              <CardContent className="p-5">
+                <div className="flex flex-col justify-between gap-4 pb-4 mb-5 border-b md:flex-row md:items-center border-slate-100">
+                  <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
+                    <Filter className="w-4 h-4 text-primary" /> Filtros em
+                    Memória (Sem usar DB)
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      onClick={limparFiltros}
+                      variant="outline"
+                      size="sm"
+                      className="transition-colors shadow-sm cursor-pointer text-white"
+                    >
+                      <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
+                    </Button>
+                    <Button
+                      onClick={aplicarFiltrosGlobais}
+                      size="sm"
+                      className="px-6 transition-transform shadow-md cursor-pointer hover:scale-105 bg-emerald-400 text-black font-semibold"
+                    >
+                      Aplicar na Base Atual
+                    </Button>
+                    <Button
+                      onClick={() => setModalExportacaoAberto("servicos")}
+                      size="sm"
+                      className="px-4 transition-colors shadow-md cursor-pointer bg-red-600 hover:bg-red-700 text-white font-bold"
+                    >
+                      <Download className="w-4 h-4 mr-2" /> Exportar Base
+                      Serviços
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Power className="w-3.5 h-3.5 text-orange-500" /> Serviço
+                      Ativo?
+                    </label>
+                    <select
+                      value={filtroAtivo}
+                      onChange={(e) =>
+                        setFiltroAtivo(e.target.value as TipoAtivoFilter)
+                      }
+                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="TODOS">Todos (Ativos e Inativos)</option>
+                      <option value="SIM">Sim (Apenas Ativos)</option>
+                      <option value="NAO">Não (Apenas Inativos)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <span className="font-extrabold text-blue-500">📞</span>{" "}
+                      Região (DDD Maioral)
+                    </label>
+                    <select
+                      value={filtroDDD}
+                      onChange={(e) => setFiltroDDD(e.target.value)}
+                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="TODOS">Todos os DDDs</option>
+                      <optgroup label="Filtros Inteligentes">
+                        <option value="EXCLUSO_11_RENOVACAO">
+                          Todos (Excluso 11 Renovação)
+                        </option>
+                        <option value="FORA_SP">DDDs Fora de São Paulo</option>
+                      </optgroup>
+                      <optgroup label="São Paulo">
+                        <option value="11">11 - São Paulo/Metropol.</option>
+                        <option value="12">12 - Vale do Paraíba/Lit.</option>
+                        <option value="13">13 - Baixada Santista</option>
+                        <option value="14">14 - Bauru/Marília</option>
+                        <option value="15">15 - Sorocaba/Itapetininga</option>
+                        <option value="16">16 - Ribeirão Preto/Franca</option>
+                        <option value="17">17 - S. José do Rio Preto</option>
+                        <option value="18">18 - Pres. Prud./Araçatuba</option>
+                        <option value="19">19 - Campinas/Piracicaba</option>
+                      </optgroup>
+                      <optgroup label="Outros">
+                        <option value="00">Indefinido/Sem Linhas</option>
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Users className="w-3.5 h-3.5 text-purple-500" />{" "}
+                      Consultor Atribuído
+                    </label>
+                    <select
+                      value={filtroConsultor}
+                      onChange={(e) => setFiltroConsultor(e.target.value)}
+                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="TODOS">Todos os Consultores</option>
+                      <option value="NAO_ATRIBUIDO">❌ Não Atribuídos</option>
+                      <optgroup label="Consultores Disponíveis">
+                        {listaConsultoresUnicos.map((consultor) => (
+                          <option
+                            key={consultor.seq}
+                            value={String(consultor.seq)}
+                          >
+                            {consultor.nome}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <AlertCircle className="w-3.5 h-3.5 text-sky-500" />{" "}
+                      Situação do Atend.
+                    </label>
+                    <select
+                      value={filtroSituacao}
+                      onChange={(e) =>
+                        setFiltroSituacao(e.target.value as TipoSituacaoFilter)
+                      }
+                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="TODOS">Todas as Situações</option>
+                      <option value="ABERTO">Aberto (Em Negociação)</option>
+                      <option value="TEMPORARIO">
+                        Temporário (Aguard. 15d)
+                      </option>
+                      <option value="PAUSADO">Pausado (Aguard. 30d)</option>
+                      <option value="INVIAVEL">Inviável (Perdido)</option>
+                      <option value="GANHO">Ganho (Fechado)</option>
+                      <option value="BLACKLIST">Blacklist</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Wallet className="w-3.5 h-3.5 text-emerald-500" /> Atrib.
+                      de Carteira
+                    </label>
+                    <select
+                      value={filtroCarteira}
+                      onChange={(e) =>
+                        setFiltroCarteira(e.target.value as TipoCarteiraFilter)
+                      }
+                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="AMBOS">Ambos (Com e Sem)</option>
+                      <option value="COM_CARTEIRA">Com Carteira</option>
+                      <option value="SEM_CARTEIRA">Sem Carteira</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <CloudCog className="w-3.5 h-3.5 text-indigo-500" />{" "}
+                      PipeRun (CRM)
+                    </label>
+                    <select
+                      value={filtroPiperun}
+                      onChange={(e) =>
+                        setFiltroPiperun(e.target.value as TipoPiperunFilter)
+                      }
+                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="AMBOS">Ambos (Dentro e Fora)</option>
+                      <option value="SIM">Sim (No CRM)</option>
+                      <option value="NAO">Não (Fora do CRM)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Calendar className="w-3.5 h-3.5 text-red-500" />{" "}
+                      Vencimento Contr.
+                    </label>
+                    <input
+                      type="date"
+                      value={filtroDataFim}
+                      onChange={(e) => setFiltroDataFim(e.target.value)}
+                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none cursor-pointer border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Tag className="w-3.5 h-3.5 text-pink-500" />{" "}
+                      Classificação
+                    </label>
+                    <select
+                      value={filtroClassificacao}
+                      onChange={(e) =>
+                        setFiltroClassificacao(
+                          e.target.value as TipoClassificacaoFilter,
+                        )
+                      }
+                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="TODOS">Todas as Classificações</option>
+                      <option value="CA">CA</option>
+                      <option value="CB">CB</option>
+                      <option value="CC">CC</option>
+                      <option value="CD">CD</option>
+                      <option value="CE">CE</option>
+                      <option value="CF">CF</option>
+                      <option value="CG">CG</option>
+                      <option value="SEM_CLASSIFICACAO">
+                        Sem Classificação
+                      </option>
+                    </select>
+                  </div>
+
+                  {renderRangeSlider(
+                    "Total de Linhas",
+                    <Briefcase className="w-3.5 h-3.5 text-amber-500" />,
+                    filtroLinhasAtivo,
+                    setFiltroLinhasAtivo,
+                    filtroLinhasValor,
+                    setFiltroLinhasValor,
+                    maxLinhasGlobal,
+                    "",
+                    "0",
+                    `${maxLinhasGlobal} Máx`,
+                  )}
+                  {renderRangeSlider(
+                    "Leitura CPC",
+                    <ScanSearch className="w-3.5 h-3.5 text-teal-500" />,
+                    filtroCpcAtivo,
+                    setFiltroCpcAtivo,
+                    filtroCpcValor,
+                    setFiltroCpcValor,
+                    maxDiasCpcGlobal,
+                    "d",
+                    "Hoje (0d)",
+                    `Até ${maxDiasCpcGlobal}d`,
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="mt-4">
+              <div>
+                <h2 className="flex items-center gap-2 mb-4 text-lg font-bold text-slate-800">
+                  <PieChart className="w-5 h-5 text-primary" /> Visualização
+                  Comparativa por Indicação
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                {renderMiniGrafico(
+                  "Fora do Prazo",
+                  totais.fora_prazo,
+                  CORES.fora_prazo,
+                )}
+                {renderMiniGrafico(
+                  "Renovação",
+                  totais.renovacao,
+                  CORES.renovacao,
+                )}
+                {renderMiniGrafico(
+                  "Portabilidade",
+                  totais.portabilidade,
+                  CORES.portabilidade,
+                )}
+                {renderMiniGrafico(
+                  "Prazo Excedido",
+                  totais.prazo_excedido,
+                  CORES.prazo_excedido,
+                )}
+                {renderMiniGrafico(
+                  "Prazo Limitado",
+                  totais.prazo_limitado,
+                  CORES.prazo_limitado,
+                )}
+              </div>
+            </div>
+
+            <Card className="mt-6 text-white border-none shadow-xl bg-slate-800">
+              <CardContent className="flex flex-col items-center justify-between p-5 md:flex-row">
+                <div className="flex items-center gap-4 mb-4 md:mb-0">
+                  <div className="p-3 rounded-full bg-white/10">
+                    <Database className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium tracking-wider uppercase text-slate-400">
+                      Volume Total Filtrado
+                    </p>
+                    <h3 className="font-black text-3xl">{totais.geral}</h3>
+                  </div>
+                </div>
+                <div className="flex gap-6 text-sm">
+                  <div className="text-right">
+                    <p className="mb-0.5 text-slate-400">Volume Atual</p>
+                    <p className="flex items-center gap-2 font-bold text-amber-400">
+                      Renovação{" "}
+                      <span className="px-2 py-0.5 text-white rounded bg-white/20">
+                        {totais.renovacao}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="mb-0.5 text-slate-400">Volume Atual</p>
+                    <p className="flex items-center gap-2 font-bold text-blue-400">
+                      Portabilidade{" "}
+                      <span className="px-2 py-0.5 text-white rounded bg-white/20">
+                        {totais.portabilidade}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        <hr className="w-full max-w-7xl mx-auto border-t-2 border-slate-200" />
+
+        <section className="w-full max-w-7xl mx-auto mb-10">
+          <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
+                <History className="w-6 h-6 text-primary" /> Análise de
+                Histórico / Declínios
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Visualização do histórico de atendimento dos consultores. Total
+                Registros: {historicoFiltrado.length}
+              </p>
+            </div>
+          </div>
+
+          <Card className="bg-white border-none shadow-md mb-6">
             <CardContent className="p-5">
               <div className="flex flex-col justify-between gap-4 pb-4 mb-5 border-b md:flex-row md:items-center border-slate-100">
                 <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
-                  <Filter className="w-4 h-4 text-primary" /> Filtros em Memória (Sem usar DB)
+                  <Filter className="w-4 h-4 text-primary" /> Filtros
+                  Específicos do Histórico
                 </h2>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <Button
-                    onClick={limparFiltros}
+                    onClick={limparFiltrosHistorico}
                     variant="outline"
                     size="sm"
-                    className="transition-colors shadow-sm cursor-pointer text-slate-700"
+                    className="transition-colors shadow-sm cursor-pointer text-white"
                   >
                     <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
+                    Histórico
                   </Button>
                   <Button
-                    onClick={aplicarFiltrosGlobais}
+                    onClick={aplicarFiltrosHistorico}
                     size="sm"
-                    className="px-6 transition-transform shadow-md cursor-pointer hover:scale-105 bg-slate-900 text-white"
+                    className="px-6 transition-transform shadow-md cursor-pointer hover:scale-105 bg-emerald-400 text-black font-semibold"
                   >
-                    Aplicar na Base Atual
+                    Aplicar no Histórico
+                  </Button>
+                  <Button
+                    onClick={() => setModalExportacaoAberto("historico")}
+                    size="sm"
+                    className="px-4 transition-colors shadow-md cursor-pointer bg-red-600 hover:bg-red-700 text-white font-bold"
+                  >
+                    <Download className="w-4 h-4 mr-2" /> Exportar Dados do
+                    Histórico
                   </Button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <Power className="w-3.5 h-3.5 text-orange-500" /> 
-                    Serviço Ativo?
-                  </label>
-                  <select
-                    value={filtroAtivo}
-                    onChange={(e) =>
-                      setFiltroAtivo(e.target.value as TipoAtivoFilter)
-                    }
-                    className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="TODOS">Todos (Ativos e Inativos)</option>
-                    <option value="SIM">Sim (Apenas Ativos)</option>
-                    <option value="NAO">Não (Apenas Inativos)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <span className="font-extrabold text-blue-500">📞</span>{" "}
-                    Região (DDD Maioral)
-                  </label>
-                  <select
-                    value={filtroDDD}
-                    onChange={(e) => setFiltroDDD(e.target.value)}
-                    className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="TODOS">Todos os DDDs</option>
-                    <optgroup label="Filtros Inteligentes">
-                      <option value="EXCLUSO_11_RENOVACAO">Todos (Excluso 11 Renovação)</option>
-                      <option value="FORA_SP">DDDs Fora de São Paulo</option>
-                    </optgroup>
-                    <optgroup label="São Paulo">
-                      <option value="11">11 - São Paulo/Metropol.</option>
-                      <option value="12">12 - Vale do Paraíba/Lit.</option>
-                      <option value="13">13 - Baixada Santista</option>
-                      <option value="14">14 - Bauru/Marília</option>
-                      <option value="15">15 - Sorocaba/Itapetininga</option>
-                      <option value="16">16 - Ribeirão Preto/Franca</option>
-                      <option value="17">17 - S. José do Rio Preto</option>
-                      <option value="18">18 - Pres. Prud./Araçatuba</option>
-                      <option value="19">19 - Campinas/Piracicaba</option>
-                    </optgroup>
-                    <optgroup label="Outros">
-                      <option value="00">Indefinido/Sem Linhas</option>
-                    </optgroup>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-white">
                     <Users className="w-3.5 h-3.5 text-purple-500" /> Consultor
-                    Atribuído
+                    do Histórico
                   </label>
                   <select
-                    value={filtroConsultor}
-                    onChange={(e) => setFiltroConsultor(e.target.value)}
+                    value={filtroHistConsultor}
+                    onChange={(e) => setFiltroHistConsultor(e.target.value)}
                     className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                   >
                     <option value="TODOS">Todos os Consultores</option>
-                    <option value="NAO_ATRIBUIDO">❌ Não Atribuídos</option>
-                    <optgroup label="Consultores Disponíveis">
-                      {listaConsultoresUnicos.map((consultor) => (
-                        <option
-                          key={consultor.seq}
-                          value={String(consultor.seq)}
-                        >
-                          {consultor.nome}
+                    <optgroup label="Consultores do Histórico">
+                      {listaConsultoresHistUnicos.map((c) => (
+                        <option key={`hist_c_${c.seq}`} value={String(c.seq)}>
+                          {c.nome}
                         </option>
                       ))}
                     </optgroup>
@@ -603,201 +1230,177 @@ export default function DashboardAnaliticoMultiView() {
 
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <AlertCircle className="w-3.5 h-3.5 text-sky-500" />{" "}
-                    Situação do Atend.
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500" /> Motivo
+                    de Declínio
                   </label>
                   <select
-                    value={filtroSituacao}
-                    onChange={(e) =>
-                      setFiltroSituacao(e.target.value as TipoSituacaoFilter)
-                    }
+                    value={filtroHistMotivo}
+                    onChange={(e) => setFiltroHistMotivo(e.target.value)}
                     className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                   >
-                    <option value="TODOS">Todas as Situações</option>
-                    <option value="ABERTO">Aberto (Em Negociação)</option>
-                    <option value="TEMPORARIO">Temporário (Aguard. 15d)</option>
-                    <option value="PAUSADO">Pausado (Aguard. 30d)</option>
-                    <option value="INVIAVEL">Inviável (Perdido)</option>
-                    <option value="GANHO">Ganho (Fechado)</option>
-                    <option value="BLACKLIST">Blacklist</option>
+                    <option value="TODOS">Todos os Motivos</option>
+                    <option value="SEM_DECLINIO">
+                      🏆 Sem Declínio (Fechado/Ganho)
+                    </option>
+                    <optgroup label="Motivos Existentes">
+                      {listaMotivosUnicos.map((motivo, i) => (
+                        <option key={`hist_m_${i}`} value={motivo}>
+                          {motivo}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <Wallet className="w-3.5 h-3.5 text-emerald-500" /> Atrib.
-                    de Carteira
-                  </label>
-                  <select
-                    value={filtroCarteira}
-                    onChange={(e) =>
-                      setFiltroCarteira(e.target.value as TipoCarteiraFilter)
-                    }
-                    className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="AMBOS">Ambos (Com e Sem)</option>
-                    <option value="COM_CARTEIRA">Com Carteira</option>
-                    <option value="SEM_CARTEIRA">Sem Carteira</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <CloudCog className="w-3.5 h-3.5 text-indigo-500" /> PipeRun
-                    (CRM)
-                  </label>
-                  <select
-                    value={filtroPiperun}
-                    onChange={(e) =>
-                      setFiltroPiperun(e.target.value as TipoPiperunFilter)
-                    }
-                    className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="AMBOS">Ambos (Dentro e Fora)</option>
-                    <option value="SIM">Sim (No CRM)</option>
-                    <option value="NAO">Não (Fora do CRM)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <Calendar className="w-3.5 h-3.5 text-red-500" /> Vencimento
-                    Contr.
-                  </label>
-                  <input
-                    type="date"
-                    value={filtroDataFim}
-                    onChange={(e) => setFiltroDataFim(e.target.value)}
-                    className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none cursor-pointer border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <Tag className="w-3.5 h-3.5 text-pink-500" /> Classificação
-                  </label>
-                  <select
-                    value={filtroClassificacao}
-                    onChange={(e) =>
-                      setFiltroClassificacao(e.target.value as TipoClassificacaoFilter)
-                    }
-                    className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="TODOS">Todas as Classificações</option>
-                    <option value="CA">CA</option>
-                    <option value="CB">CB</option>
-                    <option value="CC">CC</option>
-                    <option value="CD">CD</option>
-                    <option value="CE">CE</option>
-                    <option value="CF">CF</option>
-                    <option value="CG">CG</option>
-                    <option value="SEM_CLASSIFICACAO">Sem Classificação</option>
-                  </select>
-                </div>
-
-                {renderRangeSlider(
-                  "Total de Linhas",
-                  <Briefcase className="w-3.5 h-3.5 text-amber-500" />,
-                  filtroLinhasAtivo,
-                  setFiltroLinhasAtivo,
-                  filtroLinhasValor,
-                  setFiltroLinhasValor,
-                  maxLinhasGlobal,
-                  "",
-                  "0",
-                  `${maxLinhasGlobal} Máx`,
-                )}
-
-                {renderRangeSlider(
-                  "Leitura CPC",
-                  <ScanSearch className="w-3.5 h-3.5 text-teal-500" />,
-                  filtroCpcAtivo,
-                  setFiltroCpcAtivo,
-                  filtroCpcValor,
-                  setFiltroCpcValor,
-                  maxDiasCpcGlobal,
-                  "d",
-                  "Hoje (0d)",
-                  `Até ${maxDiasCpcGlobal}d`,
-                )}
               </div>
             </CardContent>
           </Card>
 
-          <div className="mt-4">
-            <div>
-              <h2 className="flex items-center gap-2 mb-4 text-lg font-bold text-slate-800">
-                <PieChart className="w-5 h-5 text-primary" /> Visualização
-                Comparativa por Indicação
-              </h2>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="bg-white border-none shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
+                  <BarChart2 className="w-4 h-4 text-purple-500" />
+                  Top 10 - Volume por Motivo de Declínio
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={dadosGraficoMotivo}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      horizontal={true}
+                      vertical={false}
+                      stroke="#e2e8f0"
+                    />
+                    <XAxis
+                      type="number"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={150}
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <RechartsTooltip
+                      cursor={{ fill: "#f1f5f9" }}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      }}
+                    />
+                    <Bar
+                      dataKey="value"
+                      fill={CORES.grafico_barras_1}
+                      radius={[0, 4, 4, 0]}
+                      barSize={20}
+                      name="Total de Históricos"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              {renderMiniGrafico(
-                "Fora do Prazo",
-                totais.fora_prazo,
-                CORES.fora_prazo,
-              )}
-              {renderMiniGrafico(
-                "Renovação",
-                totais.renovacao,
-                CORES.renovacao,
-              )}
-              {renderMiniGrafico(
-                "Portabilidade",
-                totais.portabilidade,
-                CORES.portabilidade,
-              )}
-              {renderMiniGrafico(
-                "Prazo Excedido",
-                totais.prazo_excedido,
-                CORES.prazo_excedido,
-              )}
-              {renderMiniGrafico(
-                "Prazo Limitado",
-                totais.prazo_limitado,
-                CORES.prazo_limitado,
-              )}
-            </div>
+            <Card className="bg-white border-none shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
+                  <Users className="w-4 h-4 text-emerald-500" />
+                  Top 10 - Volume de Histórico por Consultor
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={dadosGraficoConsultor}
+                    margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#e2e8f0"
+                    />
+                    <XAxis
+                      dataKey="name"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                    <RechartsTooltip
+                      cursor={{ fill: "#f1f5f9" }}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      }}
+                    />
+                    <Bar
+                      dataKey="value"
+                      fill={CORES.grafico_barras_2}
+                      radius={[4, 4, 0, 0]}
+                      barSize={40}
+                      name="Volume de Atendimentos"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white border-none shadow-md lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
+                  <Clock className="w-4 h-4 text-rose-500" />
+                  Top 10 - Tempo Médio de Atendimento por Consultor (Dias)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={dadosGraficoTempo}
+                    margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#e2e8f0"
+                    />
+                    <XAxis
+                      dataKey="name"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                    <RechartsTooltip
+                      cursor={{ fill: "#f1f5f9" }}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      }}
+                    />
+                    <Bar
+                      dataKey="media"
+                      fill={CORES.grafico_barras_3}
+                      radius={[4, 4, 0, 0]}
+                      barSize={40}
+                      name="Média em Dias"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           </div>
-
-          <Card className="mt-6 text-white border-none shadow-xl bg-slate-800">
-            <CardContent className="flex flex-col items-center justify-between p-5 md:flex-row">
-              <div className="flex items-center gap-4 mb-4 md:mb-0">
-                <div className="p-3 rounded-full bg-white/10">
-                  <Database className="w-6 h-6 text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium tracking-wider uppercase text-slate-400">
-                    Volume Total Filtrado
-                  </p>
-                  <h3 className="font-black text-3xl">{totais.geral}</h3>
-                </div>
-              </div>
-
-              <div className="flex gap-6 text-sm">
-                <div className="text-right">
-                  <p className="mb-0.5 text-slate-400">Volume Atual</p>
-                  <p className="flex items-center gap-2 font-bold text-amber-400">
-                    Renovação{" "}
-                    <span className="px-2 py-0.5 text-white rounded bg-white/20">
-                      {totais.renovacao}
-                    </span>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="mb-0.5 text-slate-400">Volume Atual</p>
-                  <p className="flex items-center gap-2 font-bold text-blue-400">
-                    Portabilidade{" "}
-                    <span className="px-2 py-0.5 text-white rounded bg-white/20">
-                      {totais.portabilidade}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        </section>
       </main>
     </div>
   );
