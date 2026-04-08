@@ -104,7 +104,6 @@ export default function PipeSubirGeral() {
   const [filtroTipoCarteira, setFiltroTipoCarteira] =
     useState<TipoCarteiraFilter>("Todos");
 
-  // MODIFICAÇÃO AQUI: De uma data única para Data Inicial e Data Final
   const [dataInicial, setDataInicial] = useState<string>(
     new Date().toISOString().split("T")[0],
   );
@@ -320,7 +319,6 @@ export default function PipeSubirGeral() {
     );
   };
 
-  // MODIFICAÇÃO AQUI: Enviando Data Inicial e Data Final para a API
   const sincronizarDados = async () => {
     if (!dataInicial) {
       setNotification("Por favor, selecione uma data inicial válida.");
