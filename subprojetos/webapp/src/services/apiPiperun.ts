@@ -138,22 +138,6 @@ export const API_PIPERUN = async ({
         console.log(`[Regra Especial] Fluxo Padrão. Roteando via Hash para RENOVAÇÃO.`);
       }
 
-      const descricaoFormatada = `
-**INFORMAÇÕES DO SERVIÇO (Enviado via API):**
-- **Início do Contrato:** ${dataInicioFormatada}
-- **Final do Contrato:** ${dataFimFormatada}
-- **Tempo de Contrato:** ${mesesContrato} meses
-- **Quantidade de linhas móveis:** ${servico.qtd_servico_claro || 0}
-- **Obs de fechamento:** ${servico.observacao_fechamento || "N/A"}
-- **Observação:** ${servico.observacao || "N/A"}
-- **Carteira:** ${servico.carteira || "N/A"}
-- **Indicação:** ${servico.indicacao || "N/A"}
-- **Classificação:** ${servico.classificacao_contrato || "N/A"}
-- **Tipo de Servico:** CLARO
-- **DOC DRIVE:** ${servico.servico_docdrive || "N/A"}
-- **Consultor Origem:** ${servico.consultor_email || "N/A"}
-      `.trim();
-
       const payloadWebhook = {
         rules: {
           update: true,
@@ -177,10 +161,7 @@ export const API_PIPERUN = async ({
               "DOCDRIVE":  servico.servico_docdrive,
               "Observacao": servico.observacao, 
               "Indicacao": servico.indicacao   
-            },
-            notes: [
-              descricaoFormatada
-            ]
+            }
           }
         ]
       };
