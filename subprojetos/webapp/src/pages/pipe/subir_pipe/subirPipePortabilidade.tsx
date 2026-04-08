@@ -58,7 +58,7 @@ import {
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
-import { useIntegracaoPipeRun } from "@/services/hookApiRun";
+import { useIntegracaoPipeRun } from "@/services/hookApiRunSubir";
 
 import DialogHistoricoPortabilidade, {
   IHistoricoEmpresa,

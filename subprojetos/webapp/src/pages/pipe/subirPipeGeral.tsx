@@ -12,6 +12,7 @@ import {
   ToggleRight,
   X,
   Wallet,
+  Users,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import API from "@/services/api";
@@ -25,14 +26,20 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  ZAxis,
 } from "recharts";
 import { Calendar } from "lucide-react";
 import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
 import { CheckCircle2, XCircle, FileJson } from "lucide-react";
 import { Loader2, Database } from "lucide-react";
-
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
+import ConsultorBD from "@/interfaces/consutorDb.interface";
+import { compilarOportunidadesDinamico } from "@/services/hookApiRunTotalServicoConsultor";
 
 export interface ITelaDetalhesProps {
   dados: IServicoPipeRun[];
@@ -48,9 +55,6 @@ export interface IApiResponse {
 type ViewState = "geral" | "renovacao" | "portabilidade";
 type TipoCarteiraFilter = "Todos" | "Carteira" | "Renov/Port";
 
-// ============================================================================
-// FUNÇÃO DE SANEAMENTO MESTRA
-// ============================================================================
 const filtrarPorRegraGeral = (dados: any[], indicacaoPadrao: string) => {
   return dados.filter((item) => {
     const qtdLinhas = Number(item.qtd_servico_claro) || 0;
@@ -137,6 +141,9 @@ export default function PipeSubirGeral() {
     total: 0,
     mensagem: "",
   });
+  const [consultoresDB, setConsultoresDB] = useState<ConsultorBD[]>([]);
+  const [dadosPipelineBolhas, setDadosPipelineBolhas] = useState<any[]>([]);
+  const [loadingBolhas, setLoadingBolhas] = useState<boolean>(false);
 
   const fetchServicos = useCallback(async (isManualRefresh = false) => {
     setLoading(true);
@@ -240,6 +247,81 @@ export default function PipeSubirGeral() {
       setFiltroDataValor(minDateTs);
     }
   }, [minDateTs, filtroDataValor]);
+
+  // ============================================================================
+  // NOVOS HOOKS DE CONSULTOR E PIPELINE - MOVIDOS PARA CIMA DOS RETURNS
+  // ============================================================================
+  useEffect(() => {
+    async function loadConsultores() {
+      try {
+        const response = await API.get("/api/consultores");
+        const listaConsultores = response.data?.dados ?? [];
+        if (Array.isArray(listaConsultores)) {
+          setConsultoresDB(listaConsultores);
+        }
+      } catch (error) {
+        console.error("Falha ao buscar consultores do DB:", error);
+      }
+    }
+    loadConsultores();
+  }, []);
+
+  const fetchDadosBolhas = useCallback(
+    async (isManualRefresh = false) => {
+      if (consultoresDB.length === 0 && !isManualRefresh) return;
+
+      setLoadingBolhas(true);
+      try {
+        if (!isManualRefresh) {
+          const cacheBolhas = sessionStorage.getItem("cache_bolhas_piperun");
+          if (cacheBolhas) {
+            setDadosPipelineBolhas(JSON.parse(cacheBolhas));
+            setLoadingBolhas(false);
+            return;
+          }
+        }
+
+        const payloadConsultoresFormatado: any[] = consultoresDB.map((c) => ({
+          nome: c.nome,
+          owner_id: c.codigo_crm,
+          perfil: String(c.perfil_indicacao)
+            .trim()
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, ""),
+        }));
+
+        const dadosMapeados = await compilarOportunidadesDinamico(
+          payloadConsultoresFormatado,
+        );
+
+        setDadosPipelineBolhas(dadosMapeados);
+        sessionStorage.setItem(
+          "cache_bolhas_piperun",
+          JSON.stringify(dadosMapeados),
+        );
+
+        if (isManualRefresh) {
+          setNotification("Gráfico de pipeline atualizado com sucesso!");
+          setTimeout(() => setNotification(null), 5000);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar dados das bolhas:", error);
+        setNotification("Falha ao atualizar o gráfico de consultores.");
+        setTimeout(() => setNotification(null), 5000);
+      } finally {
+        setLoadingBolhas(false);
+      }
+    },
+    [consultoresDB],
+  );
+
+  useEffect(() => {
+    if (consultoresDB.length > 0) {
+      fetchDadosBolhas();
+    }
+  }, [consultoresDB, fetchDadosBolhas]);
+  // ============================================================================
 
   const calcularDiasAtras = (timestamp: number) => {
     const hoje = new Date().getTime();
@@ -373,6 +455,10 @@ export default function PipeSubirGeral() {
     }
   };
 
+  // ============================================================================
+  // RETORNOS ANTECIPADOS (EARLY RETURNS)
+  // Agora posicionados corretamente APÓS todas as declarações de Hooks
+  // ============================================================================
   if (view === "renovacao")
     return (
       <PipeSubirRenovacao dados={renovacoes} onBack={() => setView("geral")} />
@@ -398,7 +484,6 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
-        {/* LOADING MODAL */}
         {progressState.ativo && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-md pointer-events-auto">
             <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 max-w-md w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
@@ -439,7 +524,6 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
-        {/* MODAL DE SINCRONIZAÇÃO REFATORADO */}
         {isSyncModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -522,7 +606,6 @@ export default function PipeSubirGeral() {
           </div>
         )}
 
-        {/* MODAL DE LOGS */}
         {isLogModalOpen && syncLogs && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -1016,6 +1099,98 @@ export default function PipeSubirGeral() {
                   </ResponsiveContainer>
                 </div>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-6 w-full px-4 pt-4">
+              <div className="flex flex-col">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" /> Volume no Pipeline
+                  por Consultor
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Representação de oportunidades abertas. O tamanho da bolha
+                  reflete a quantidade.
+                </p>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => fetchDadosBolhas(true)}
+                disabled={loadingBolhas}
+                className="gap-2 shadow-sm"
+              >
+                <RotateCw
+                  className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-primary" : ""}`}
+                />
+                Atualizar Pipeline
+              </Button>
+            </div>
+
+            <div className="w-full bg-muted/10 rounded-lg border border-border p-6 max-h-[550px] overflow-y-auto">
+              {loadingBolhas && dadosPipelineBolhas.length === 0 ? (
+                <div className="w-full h-[300px] flex flex-col items-center justify-center text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin mb-2 text-primary" />
+                  Calculando oportunidades no PipeRun...
+                </div>
+              ) : dadosPipelineBolhas.length === 0 ? (
+                <div className="w-full h-[300px] flex items-center justify-center text-muted-foreground">
+                  Nenhum dado encontrado para os consultores atuais.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {dadosPipelineBolhas.map((entry, index) => {
+                    let cor = "#8884d8"; // Default
+                    if (entry.perfil === "RENOVACAO") cor = COR_RENOVACAO;
+                    if (entry.perfil === "PORTABILIDADE")
+                      cor = COR_PORTABILIDADE;
+                    if (entry.perfil === "CARTEIRA") cor = COR_CARTEIRA;
+                    if (entry.perfil === "AMBOS") cor = "#a855f7"; 
+
+                    return (
+                      <div
+                        key={`bolha-${index}`}
+                        className="flex flex-col items-center bg-card border border-border rounded-xl p-4 shadow-sm hover:border-primary/50 transition-colors"
+                      >
+                        <h3 className="text-base font-bold text-center mb-2 line-clamp-2 h-12 flex items-center">
+                          {entry.nome}
+                        </h3>
+                        <div className="w-48 h-48">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: "Total", value: entry.total },
+                                  {
+                                    name: "Vazio",
+                                    value: entry.total === 0 ? 1 : 0,
+                                  },
+                                ]}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                dataKey="value"
+                                stroke="none"
+                              >
+                                <Cell fill={cor} />
+                                <Cell fill={COR_FUNDO} />
+                              </Pie>
+                              {renderCenterText(entry.total, "Total")}
+                              <RechartsTooltip
+                                formatter={(val: any) =>
+                                  val === 0 && entry.total === 0
+                                    ? [0, "Oportunidades"]
+                                    : [val, "Oportunidades"]
+                                }
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

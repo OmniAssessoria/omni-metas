@@ -59,7 +59,7 @@ import {
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
-import { useIntegracaoPipeRun } from "@/services/hookApiRun";
+import { useIntegracaoPipeRun } from "@/services/hookApiRunSubir";
 import DialogHistoricoRenovacao, {
   IHistoricoEmpresa,
 } from "@/components/historico_empresa_consultor/historico_renovacao";
