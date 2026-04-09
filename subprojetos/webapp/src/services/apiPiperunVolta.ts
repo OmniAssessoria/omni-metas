@@ -8,7 +8,7 @@ const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
 const PIPELINE_GANHOS = 95219;
 const STAGE_GANHOS = 607025;
 
-const FUNIS_PERDAS = [93990, 91356, 103176, 91369, 77127, 90697, 102509];
+const FUNIS_PERDAS = [95219, 93990, 91356, 103176, 91369, 77127, 90697, 102509];
 
 const apiPipeRun = axios.create({
   baseURL: "https://api.pipe.run/v1",
