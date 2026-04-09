@@ -29,6 +29,11 @@ import {
   FileText,
   FileCode2,
   X,
+  ArrowRightLeft,
+  RotateCw,
+  CheckCircle2,
+  XCircle,
+  FileJson,
 } from "lucide-react";
 import {
   PieChart,
@@ -43,7 +48,6 @@ import {
   CartesianGrid,
 } from "recharts";
 import API from "@/services/api";
-
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
@@ -51,36 +55,23 @@ import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
 import { IServicoViewAPI } from "@/interfaces/servico_view_dashboard.interface";
 import { IHistoricoViewAPI } from "@/interfaces/historico_view_dashboard.interface";
+import ConsultorBD from "@/interfaces/consutorDb.interface";
+import { compilarOportunidadesDinamico } from "@/services/hookApiRunTotalServicoConsultor";
+import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
+import {
+  TipoAtivoFilter,
+  TipoCarteiraFilter,
+  TipoClassificacaoFilter,
+  TipoFiltroLinha,
+  TipoPiperunFilter,
+  TipoSituacaoFilter,
+} from "../../interfaces/dashboard.type";
 
 interface IApiResponseView {
   status: boolean;
   mensagem: string;
   dados: any[];
 }
-
-type ViewState = "geral" | "renovacao" | "portabilidade";
-type TipoCarteiraFilter = "AMBOS" | "COM_CARTEIRA" | "SEM_CARTEIRA";
-type TipoSituacaoFilter =
-  | "TODOS"
-  | "ABERTO"
-  | "INVIAVEL"
-  | "TEMPORARIO"
-  | "PAUSADO"
-  | "GANHO"
-  | "BLACKLIST";
-type TipoPiperunFilter = "AMBOS" | "SIM" | "NAO";
-type TipoAtivoFilter = "TODOS" | "SIM" | "NAO";
-type TipoClassificacaoFilter =
-  | "TODOS"
-  | "CA"
-  | "CB"
-  | "CC"
-  | "CD"
-  | "CE"
-  | "CF"
-  | "CG"
-  | "SEM_CLASSIFICACAO";
-type TipoFiltroLinha = "NONE" | "RANGE" | "EXACT";
 
 type DadosPorIndicacao = {
   renovacao: IServicoViewAPI[];
@@ -105,12 +96,10 @@ export default function DashboardAnaliticoMultiView() {
   const [loading, setLoading] = useState<boolean>(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
-
   const [modalExportacaoAberto, setModalExportacaoAberto] = useState<
     "servicos" | "historico" | null
   >(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
-
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
     renovacao: [],
     portabilidade: [],
@@ -125,7 +114,6 @@ export default function DashboardAnaliticoMultiView() {
     prazo_limitado: [],
     prazo_excedido: [],
   });
-
   const [filtroSituacao, setFiltroSituacao] =
     useState<TipoSituacaoFilter>("TODOS");
   const [filtroCarteira, setFiltroCarteira] =
@@ -138,18 +126,14 @@ export default function DashboardAnaliticoMultiView() {
   const [filtroConsultor, setFiltroConsultor] = useState<string>("TODOS");
   const [filtroClassificacao, setFiltroClassificacao] =
     useState<TipoClassificacaoFilter>("TODOS");
-
-  // Filtros Avançados de Linhas (Range vs Exact)
-  const [tipoFiltroLinha, setTipoFiltroLinha] = useState<TipoFiltroLinha>("NONE");
+  const [tipoFiltroLinha, setTipoFiltroLinha] =
+    useState<TipoFiltroLinha>("NONE");
   const [filtroLinhasRangeMin, setFiltroLinhasRangeMin] = useState(0);
   const [filtroLinhasRangeMax, setFiltroLinhasRangeMax] = useState(100);
   const [filtroLinhasExact, setFiltroLinhasExact] = useState(0);
   const [isLinhasMaxInitialized, setIsLinhasMaxInitialized] = useState(false);
-
-  // Filtros de CPC
   const [filtroCpcAtivo, setFiltroCpcAtivo] = useState(false);
   const [filtroCpcValor, setFiltroCpcValor] = useState(30);
-
   const [historicoBruto, setHistoricoBruto] = useState<IHistoricoViewAPI[]>([]);
   const [historicoFiltrado, setHistoricoFiltrado] = useState<
     IHistoricoViewAPI[]
@@ -157,6 +141,30 @@ export default function DashboardAnaliticoMultiView() {
   const [filtroHistConsultor, setFiltroHistConsultor] =
     useState<string>("TODOS");
   const [filtroHistMotivo, setFiltroHistMotivo] = useState<string>("TODOS");
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
+  const [syncing, setSyncing] = useState<boolean>(false);
+  const [dataInicial, setDataInicial] = useState<string>(
+    new Date().toISOString().split("T")[0],
+  );
+  const [dataFinal, setDataFinal] = useState<string>(
+    new Date().toISOString().split("T")[0],
+  );
+  const [progressState, setProgressState] = useState({
+    ativo: false,
+    percentual: 0,
+    atual: 0,
+    total: 0,
+    mensagem: "",
+  });
+  const [syncLogs, setSyncLogs] = useState<{
+    sucessos: any[];
+    falhas: any[];
+  } | null>(null);
+  const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
+  const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
+  const [consultoresDB, setConsultoresDB] = useState<ConsultorBD[]>([]);
+  const [dadosPipelineBolhas, setDadosPipelineBolhas] = useState<any[]>([]);
+  const [loadingBolhas, setLoadingBolhas] = useState<boolean>(false);
 
   const CORES = {
     renovacao: "#eab308",
@@ -168,6 +176,7 @@ export default function DashboardAnaliticoMultiView() {
     grafico_barras_1: "#8b5cf6",
     grafico_barras_2: "#10b981",
     grafico_barras_3: "#f43f5e",
+    carteira_pipe: "#10b981",
   };
 
   const fetchTodasViews = useCallback(async () => {
@@ -338,16 +347,15 @@ export default function DashboardAnaliticoMultiView() {
           if (dataFormatada !== filtroDataFim) return false;
         }
 
-        // --- Nova Lógica de Filtro de Linhas ---
         if (tipoFiltroLinha === "RANGE") {
           const linhas = Number(item.qtd_linhas_total || 0);
-          if (linhas < filtroLinhasRangeMin || linhas > filtroLinhasRangeMax) return false;
+          if (linhas < filtroLinhasRangeMin || linhas > filtroLinhasRangeMax)
+            return false;
         } else if (tipoFiltroLinha === "EXACT") {
           const linhas = Number(item.qtd_linhas_total || 0);
           if (linhas !== filtroLinhasExact) return false;
         }
 
-        // Filtro CPC
         if (filtroCpcAtivo) {
           const diasCpc = calcularDiasPassados(item.dt_leitura_cpc_empresa);
           if (diasCpc === null || diasCpc > filtroCpcValor) return false;
@@ -758,6 +766,79 @@ export default function DashboardAnaliticoMultiView() {
     </div>
   );
 
+  // 1. Busca os consultores no BD para ter o owner_id
+  useEffect(() => {
+    async function loadConsultores() {
+      try {
+        const response = await API.get("/api/consultores");
+        const listaConsultores = response.data?.dados ?? [];
+        if (Array.isArray(listaConsultores)) {
+          setConsultoresDB(listaConsultores);
+        }
+      } catch (error) {
+        console.error("Falha ao buscar consultores do DB:", error);
+      }
+    }
+    loadConsultores();
+  }, []);
+
+  // 2. Chama sua função dinâmica passando os consultores formatados
+  const fetchDadosBolhas = useCallback(
+    async (isManualRefresh = false) => {
+      if (consultoresDB.length === 0 && !isManualRefresh) return;
+
+      setLoadingBolhas(true);
+      try {
+        if (!isManualRefresh) {
+          const cacheBolhas = sessionStorage.getItem("cache_bolhas_piperun");
+          if (cacheBolhas) {
+            setDadosPipelineBolhas(JSON.parse(cacheBolhas));
+            setLoadingBolhas(false);
+            return;
+          }
+        }
+
+        const payloadConsultoresFormatado: any[] = consultoresDB.map((c) => ({
+          nome: c.nome,
+          owner_id: c.codigo_crm,
+          perfil: String(c.perfil_indicacao)
+            .trim()
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, ""),
+        }));
+
+        const dadosMapeados = await compilarOportunidadesDinamico(
+          payloadConsultoresFormatado,
+        );
+
+        setDadosPipelineBolhas(dadosMapeados);
+        sessionStorage.setItem(
+          "cache_bolhas_piperun",
+          JSON.stringify(dadosMapeados),
+        );
+
+        if (isManualRefresh) {
+          setNotification("Gráfico de pipeline atualizado com sucesso!");
+          setTimeout(() => setNotification(null), 5000);
+        }
+      } catch (error) {
+        console.error("Erro ao compilar as bolhas do PipeRun:", error);
+        setNotification("Falha ao atualizar o gráfico do Pipeline.");
+        setTimeout(() => setNotification(null), 5000);
+      } finally {
+        setLoadingBolhas(false);
+      }
+    },
+    [consultoresDB],
+  );
+
+  useEffect(() => {
+    if (consultoresDB.length > 0) {
+      fetchDadosBolhas();
+    }
+  }, [consultoresDB, fetchDadosBolhas]);
+
   return (
     <div className="flex h-screen overflow-hidden w-screen bg-slate-50 text-slate-900">
       <div className="w-[280px] h-full flex-shrink-0">
@@ -1079,88 +1160,110 @@ export default function DashboardAnaliticoMultiView() {
                     </select>
                   </div>
 
-                  {/* --- INÍCIO: NOVOS FILTROS DE LINHAS EXCLUDENTES (DUAL SLIDER E ESPECÍFICO) --- */}
                   <div className="col-span-1 md:col-span-2 xl:col-span-3 border border-slate-200 bg-white rounded-lg p-3 space-y-3">
                     <label className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                      <Briefcase className="w-4 h-4 text-amber-500" /> Controle de Volume de Linhas Totais
+                      <Briefcase className="w-4 h-4 text-amber-500" /> Controle
+                      de Volume de Linhas Totais
                     </label>
-                    
+
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {/* CARD DO FILTRO RANGE (DUAL SLIDER) */}
-                      <div className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === 'RANGE' ? 'border-primary bg-slate-50 shadow-sm' : 'border-slate-100 opacity-60'}`}>
+                      <div
+                        className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "RANGE" ? "border-primary bg-slate-50 shadow-sm" : "border-slate-100 opacity-60"}`}
+                      >
                         <div className="flex items-center justify-between mb-6">
                           <div>
-                            <p className="font-semibold text-slate-700 text-sm">Intervalo (Range)</p>
-                            <p className="text-[10px] text-slate-500">Ex: De 2 até 7 linhas</p>
+                            <p className="font-semibold text-slate-700 text-sm">
+                              Intervalo (Range)
+                            </p>
+                            <p className="text-[10px] text-slate-500">
+                              Ex: De 2 até 7 linhas
+                            </p>
                           </div>
                           <button
-                            onClick={() => setTipoFiltroLinha(tipoFiltroLinha === 'RANGE' ? 'NONE' : 'RANGE')}
+                            onClick={() =>
+                              setTipoFiltroLinha(
+                                tipoFiltroLinha === "RANGE" ? "NONE" : "RANGE",
+                              )
+                            }
                             className="transition-opacity cursor-pointer text-primary hover:opacity-80"
                           >
-                            {tipoFiltroLinha === 'RANGE' ? (
+                            {tipoFiltroLinha === "RANGE" ? (
                               <ToggleRight className="w-7 h-7 text-emerald-500" />
                             ) : (
                               <ToggleLeft className="w-7 h-7 text-slate-400" />
                             )}
                           </button>
                         </div>
-                        
+
                         <div className="relative pt-6 pb-2">
-                          {/* Bolinha Label Esquerda (Mínimo - Amarela) */}
                           <div
-                            className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-slate-900 transition-all shadow-md top-0 bg-yellow-400 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== 'RANGE' ? 'grayscale opacity-50' : ''}`}
-                            style={{ left: `calc(${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}% - 12px)` }}
+                            className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-slate-900 transition-all shadow-md top-0 bg-yellow-400 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
+                            style={{
+                              left: `calc(${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}% - 12px)`,
+                            }}
                           >
                             {filtroLinhasRangeMin}
                           </div>
-                          
-                          {/* Bolinha Label Direita (Máximo - Verde) */}
+
                           <div
-                            className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-white transition-all shadow-md top-0 bg-green-500 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== 'RANGE' ? 'grayscale opacity-50' : ''}`}
-                            style={{ left: `calc(${(filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}% - 12px)` }}
+                            className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-white transition-all shadow-md top-0 bg-green-500 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
+                            style={{
+                              left: `calc(${(filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}% - 12px)`,
+                            }}
                           >
                             {filtroLinhasRangeMax}
                           </div>
 
                           <div className="relative h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                             {/* Track do Range Ativo */}
                             <div
-                              className={`absolute h-full transition-all ${tipoFiltroLinha === 'RANGE' ? 'bg-slate-400' : 'bg-slate-300'}`}
+                              className={`absolute h-full transition-all ${tipoFiltroLinha === "RANGE" ? "bg-slate-400" : "bg-slate-300"}`}
                               style={{
                                 left: `${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}%`,
-                                right: `${100 - (filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}%`
+                                right: `${100 - (filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}%`,
                               }}
                             />
                           </div>
-                          
-                          {/* Input Invisível Mínimo */}
+
                           <input
                             type="range"
                             min="0"
                             max={maxLinhasGlobal}
                             value={filtroLinhasRangeMin}
-                            onChange={(e) => setFiltroLinhasRangeMin(Math.min(Number(e.target.value), filtroLinhasRangeMax - 1))}
-                            disabled={tipoFiltroLinha !== 'RANGE'}
+                            onChange={(e) =>
+                              setFiltroLinhasRangeMin(
+                                Math.min(
+                                  Number(e.target.value),
+                                  filtroLinhasRangeMax - 1,
+                                ),
+                              )
+                            }
+                            disabled={tipoFiltroLinha !== "RANGE"}
                             className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
                             [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-yellow-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
                             [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-yellow-400 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none
                             z-20"
                           />
 
-                          {/* Input Invisível Máximo */}
                           <input
                             type="range"
                             min="0"
                             max={maxLinhasGlobal}
                             value={filtroLinhasRangeMax}
-                            onChange={(e) => setFiltroLinhasRangeMax(Math.max(Number(e.target.value), filtroLinhasRangeMin + 1))}
-                            disabled={tipoFiltroLinha !== 'RANGE'}
+                            onChange={(e) =>
+                              setFiltroLinhasRangeMax(
+                                Math.max(
+                                  Number(e.target.value),
+                                  filtroLinhasRangeMin + 1,
+                                ),
+                              )
+                            }
+                            disabled={tipoFiltroLinha !== "RANGE"}
                             className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
                             [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-green-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
                             [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-green-500 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none
                             z-30"
                           />
-                          
+
                           <div className="flex justify-between mt-3 text-[10px] text-slate-400 font-medium">
                             <span>0 Lins</span>
                             <span>{maxLinhasGlobal} Máx</span>
@@ -1168,18 +1271,27 @@ export default function DashboardAnaliticoMultiView() {
                         </div>
                       </div>
 
-                      {/* CARD DO FILTRO ESPECÍFICO (INPUT NÚMERO) */}
-                      <div className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === 'EXACT' ? 'border-primary bg-slate-50 shadow-sm' : 'border-slate-100 opacity-60'}`}>
+                      <div
+                        className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "EXACT" ? "border-primary bg-slate-50 shadow-sm" : "border-slate-100 opacity-60"}`}
+                      >
                         <div className="flex items-center justify-between mb-4">
                           <div>
-                            <p className="font-semibold text-slate-700 text-sm">Valor Específico</p>
-                            <p className="text-[10px] text-slate-500">Ex: Exatamente 5 linhas</p>
+                            <p className="font-semibold text-slate-700 text-sm">
+                              Valor Específico
+                            </p>
+                            <p className="text-[10px] text-slate-500">
+                              Ex: Exatamente 5 linhas
+                            </p>
                           </div>
                           <button
-                            onClick={() => setTipoFiltroLinha(tipoFiltroLinha === 'EXACT' ? 'NONE' : 'EXACT')}
+                            onClick={() =>
+                              setTipoFiltroLinha(
+                                tipoFiltroLinha === "EXACT" ? "NONE" : "EXACT",
+                              )
+                            }
                             className="transition-opacity cursor-pointer text-primary hover:opacity-80"
                           >
-                            {tipoFiltroLinha === 'EXACT' ? (
+                            {tipoFiltroLinha === "EXACT" ? (
                               <ToggleRight className="w-7 h-7 text-emerald-500" />
                             ) : (
                               <ToggleLeft className="w-7 h-7 text-slate-400" />
@@ -1192,8 +1304,10 @@ export default function DashboardAnaliticoMultiView() {
                             min="0"
                             max={maxLinhasGlobal}
                             value={filtroLinhasExact}
-                            onChange={(e) => setFiltroLinhasExact(Number(e.target.value))}
-                            disabled={tipoFiltroLinha !== 'EXACT'}
+                            onChange={(e) =>
+                              setFiltroLinhasExact(Number(e.target.value))
+                            }
+                            disabled={tipoFiltroLinha !== "EXACT"}
                             className="w-full h-10 px-4 text-sm font-bold transition-all border shadow-inner outline-none border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                             placeholder="Insira a quantia exata..."
                           />
@@ -1201,9 +1315,7 @@ export default function DashboardAnaliticoMultiView() {
                       </div>
                     </div>
                   </div>
-                  {/* --- FIM: NOVOS FILTROS DE LINHAS EXCLUDENTES --- */}
 
-                  {/* Filtro de Leitura CPC Continua Igual */}
                   {renderRangeSlider(
                     "Leitura CPC",
                     <ScanSearch className="w-3.5 h-3.5 text-teal-500" />,
@@ -1539,6 +1651,110 @@ export default function DashboardAnaliticoMultiView() {
               </CardContent>
             </Card>
           </div>
+        </section>
+
+        <hr className="w-full max-w-7xl mx-auto border-t-2 border-slate-200 my-5" />
+
+        <section className="w-full max-w-7xl mx-auto mb-10 pb-10">
+          <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
+                <CloudCog className="w-6 h-6 text-blue-600" /> Bases no PipeRun
+                (CRM)
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Visualização do volume de Oportunidades no Pipeline (Funil) por
+                Consultor.
+              </p>
+            </div>
+          </div>
+
+          <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                <Users className="h-5 w-5 text-blue-500" /> Oportunidades
+                Compiladas
+              </h2>
+              <Button
+                variant="outline"
+                onClick={() => fetchDadosBolhas(true)}
+                disabled={loadingBolhas}
+                className="gap-2 shadow-sm flex items-center border-slate-200 text-white hover:bg-slate-50 cursor-pointer"
+              >
+                <RotateCw
+                  className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-blue-500" : ""}`}
+                />
+                Atualizar Gráfico Pipe
+              </Button>
+            </div>
+
+            <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 max-h-[600px] overflow-y-auto">
+              {loadingBolhas && dadosPipelineBolhas.length === 0 ? (
+                <div className="w-full h-[300px] flex flex-col items-center justify-center text-slate-500">
+                  <Loader2 className="h-8 w-8 animate-spin mb-2 text-blue-500" />
+                  Calculando oportunidades no PipeRun...
+                </div>
+              ) : dadosPipelineBolhas.length === 0 ? (
+                <div className="w-full h-[300px] flex items-center justify-center text-slate-500 font-medium">
+                  Nenhum dado encontrado para os consultores atuais no Pipeline.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {dadosPipelineBolhas.map((entry, index) => {
+                    let cor = "#8884d8";
+                    if (entry.perfil === "RENOVACAO") cor = CORES.renovacao;
+                    if (entry.perfil === "PORTABILIDADE")
+                      cor = CORES.portabilidade;
+                    if (entry.perfil === "CARTEIRA") cor = CORES.carteira_pipe;
+                    if (entry.perfil === "AMBOS") cor = "#a855f7";
+
+                    return (
+                      <div
+                        key={`bolha-${index}`}
+                        className="flex flex-col items-center bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-blue-200 transition-colors"
+                      >
+                        <h3 className="text-sm font-bold text-center mb-2 line-clamp-2 h-10 flex items-center text-slate-700">
+                          {entry.nome}
+                        </h3>
+                        <div className="w-40 h-40">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: "Total", value: entry.total },
+                                  {
+                                    name: "Vazio",
+                                    value: entry.total === 0 ? 1 : 0,
+                                  },
+                                ]}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={50}
+                                outerRadius={70}
+                                dataKey="value"
+                                stroke="none"
+                              >
+                                <Cell fill={cor} />
+                                <Cell fill={CORES.vazio} />
+                              </Pie>
+                              {renderCenterText(entry.total, "Total")}
+                              <RechartsTooltip
+                                formatter={(val: any) =>
+                                  val === 0 && entry.total === 0
+                                    ? [0, "Oportunidades"]
+                                    : [val, "Oportunidades"]
+                                }
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </Card>
         </section>
       </main>
     </div>
