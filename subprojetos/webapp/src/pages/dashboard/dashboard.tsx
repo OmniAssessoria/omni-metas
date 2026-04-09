@@ -80,6 +80,7 @@ type TipoClassificacaoFilter =
   | "CF"
   | "CG"
   | "SEM_CLASSIFICACAO";
+type TipoFiltroLinha = "NONE" | "RANGE" | "EXACT";
 
 type DadosPorIndicacao = {
   renovacao: IServicoViewAPI[];
@@ -108,7 +109,7 @@ export default function DashboardAnaliticoMultiView() {
   const [modalExportacaoAberto, setModalExportacaoAberto] = useState<
     "servicos" | "historico" | null
   >(null);
-  const dashboardRef = useRef<HTMLDivElement>(null); 
+  const dashboardRef = useRef<HTMLDivElement>(null);
 
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
     renovacao: [],
@@ -137,8 +138,15 @@ export default function DashboardAnaliticoMultiView() {
   const [filtroConsultor, setFiltroConsultor] = useState<string>("TODOS");
   const [filtroClassificacao, setFiltroClassificacao] =
     useState<TipoClassificacaoFilter>("TODOS");
-  const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
-  const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
+
+  // Filtros Avançados de Linhas (Range vs Exact)
+  const [tipoFiltroLinha, setTipoFiltroLinha] = useState<TipoFiltroLinha>("NONE");
+  const [filtroLinhasRangeMin, setFiltroLinhasRangeMin] = useState(0);
+  const [filtroLinhasRangeMax, setFiltroLinhasRangeMax] = useState(100);
+  const [filtroLinhasExact, setFiltroLinhasExact] = useState(0);
+  const [isLinhasMaxInitialized, setIsLinhasMaxInitialized] = useState(false);
+
+  // Filtros de CPC
   const [filtroCpcAtivo, setFiltroCpcAtivo] = useState(false);
   const [filtroCpcValor, setFiltroCpcValor] = useState(30);
 
@@ -182,7 +190,7 @@ export default function DashboardAnaliticoMultiView() {
           API.get<IApiResponseView>(
             "/api/servico-claro/dashboard/indicacao/prazo-excedido",
           ),
-          API.get<IApiResponseView>("/api/servico-claro/dashboard/historico"), // <-- Nova Rota
+          API.get<IApiResponseView>("/api/servico-claro/dashboard/historico"),
         ]);
 
       const prepararDados = (lista: any[]) => {
@@ -247,6 +255,14 @@ export default function DashboardAnaliticoMultiView() {
       maxDiasCpcGlobal: maxCpc || 30,
     };
   }, [dadosBrutos]);
+
+  // Inicializa dinamicamente o range máximo baseado nos dados recebidos
+  useEffect(() => {
+    if (maxLinhasGlobal > 0 && !isLinhasMaxInitialized) {
+      setFiltroLinhasRangeMax(maxLinhasGlobal);
+      setIsLinhasMaxInitialized(true);
+    }
+  }, [maxLinhasGlobal, isLinhasMaxInitialized]);
 
   const listaConsultoresUnicos = useMemo(() => {
     const mapaConsultores = new Map<number, string>();
@@ -321,11 +337,17 @@ export default function DashboardAnaliticoMultiView() {
           const dataFormatada = item.dt_fim_contrato.substring(0, 10);
           if (dataFormatada !== filtroDataFim) return false;
         }
-        if (
-          filtroLinhasAtivo &&
-          Number(item.qtd_linhas_total || 0) !== filtroLinhasValor
-        )
-          return false;
+
+        // --- Nova Lógica de Filtro de Linhas ---
+        if (tipoFiltroLinha === "RANGE") {
+          const linhas = Number(item.qtd_linhas_total || 0);
+          if (linhas < filtroLinhasRangeMin || linhas > filtroLinhasRangeMax) return false;
+        } else if (tipoFiltroLinha === "EXACT") {
+          const linhas = Number(item.qtd_linhas_total || 0);
+          if (linhas !== filtroLinhasExact) return false;
+        }
+
+        // Filtro CPC
         if (filtroCpcAtivo) {
           const diasCpc = calcularDiasPassados(item.dt_leitura_cpc_empresa);
           if (diasCpc === null || diasCpc > filtroCpcValor) return false;
@@ -352,8 +374,12 @@ export default function DashboardAnaliticoMultiView() {
     setFiltroConsultor("TODOS");
     setFiltroClassificacao("TODOS");
     setFiltroDataFim("");
-    setFiltroLinhasAtivo(false);
-    setFiltroLinhasValor(0);
+
+    setTipoFiltroLinha("NONE");
+    setFiltroLinhasRangeMin(0);
+    setFiltroLinhasRangeMax(maxLinhasGlobal);
+    setFiltroLinhasExact(0);
+
     setFiltroCpcAtivo(false);
     setFiltroCpcValor(maxDiasCpcGlobal);
     setDadosFiltrados(dadosBrutos);
@@ -1053,18 +1079,131 @@ export default function DashboardAnaliticoMultiView() {
                     </select>
                   </div>
 
-                  {renderRangeSlider(
-                    "Total de Linhas",
-                    <Briefcase className="w-3.5 h-3.5 text-amber-500" />,
-                    filtroLinhasAtivo,
-                    setFiltroLinhasAtivo,
-                    filtroLinhasValor,
-                    setFiltroLinhasValor,
-                    maxLinhasGlobal,
-                    "",
-                    "0",
-                    `${maxLinhasGlobal} Máx`,
-                  )}
+                  {/* --- INÍCIO: NOVOS FILTROS DE LINHAS EXCLUDENTES (DUAL SLIDER E ESPECÍFICO) --- */}
+                  <div className="col-span-1 md:col-span-2 xl:col-span-3 border border-slate-200 bg-white rounded-lg p-3 space-y-3">
+                    <label className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
+                      <Briefcase className="w-4 h-4 text-amber-500" /> Controle de Volume de Linhas Totais
+                    </label>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* CARD DO FILTRO RANGE (DUAL SLIDER) */}
+                      <div className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === 'RANGE' ? 'border-primary bg-slate-50 shadow-sm' : 'border-slate-100 opacity-60'}`}>
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <p className="font-semibold text-slate-700 text-sm">Intervalo (Range)</p>
+                            <p className="text-[10px] text-slate-500">Ex: De 2 até 7 linhas</p>
+                          </div>
+                          <button
+                            onClick={() => setTipoFiltroLinha(tipoFiltroLinha === 'RANGE' ? 'NONE' : 'RANGE')}
+                            className="transition-opacity cursor-pointer text-primary hover:opacity-80"
+                          >
+                            {tipoFiltroLinha === 'RANGE' ? (
+                              <ToggleRight className="w-7 h-7 text-emerald-500" />
+                            ) : (
+                              <ToggleLeft className="w-7 h-7 text-slate-400" />
+                            )}
+                          </button>
+                        </div>
+                        
+                        <div className="relative pt-6 pb-2">
+                          {/* Bolinha Label Esquerda (Mínimo - Amarela) */}
+                          <div
+                            className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-slate-900 transition-all shadow-md top-0 bg-yellow-400 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== 'RANGE' ? 'grayscale opacity-50' : ''}`}
+                            style={{ left: `calc(${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}% - 12px)` }}
+                          >
+                            {filtroLinhasRangeMin}
+                          </div>
+                          
+                          {/* Bolinha Label Direita (Máximo - Verde) */}
+                          <div
+                            className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-white transition-all shadow-md top-0 bg-green-500 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== 'RANGE' ? 'grayscale opacity-50' : ''}`}
+                            style={{ left: `calc(${(filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}% - 12px)` }}
+                          >
+                            {filtroLinhasRangeMax}
+                          </div>
+
+                          <div className="relative h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                             {/* Track do Range Ativo */}
+                            <div
+                              className={`absolute h-full transition-all ${tipoFiltroLinha === 'RANGE' ? 'bg-slate-400' : 'bg-slate-300'}`}
+                              style={{
+                                left: `${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}%`,
+                                right: `${100 - (filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}%`
+                              }}
+                            />
+                          </div>
+                          
+                          {/* Input Invisível Mínimo */}
+                          <input
+                            type="range"
+                            min="0"
+                            max={maxLinhasGlobal}
+                            value={filtroLinhasRangeMin}
+                            onChange={(e) => setFiltroLinhasRangeMin(Math.min(Number(e.target.value), filtroLinhasRangeMax - 1))}
+                            disabled={tipoFiltroLinha !== 'RANGE'}
+                            className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
+                            [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-yellow-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
+                            [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-yellow-400 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none
+                            z-20"
+                          />
+
+                          {/* Input Invisível Máximo */}
+                          <input
+                            type="range"
+                            min="0"
+                            max={maxLinhasGlobal}
+                            value={filtroLinhasRangeMax}
+                            onChange={(e) => setFiltroLinhasRangeMax(Math.max(Number(e.target.value), filtroLinhasRangeMin + 1))}
+                            disabled={tipoFiltroLinha !== 'RANGE'}
+                            className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
+                            [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-green-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
+                            [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-green-500 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none
+                            z-30"
+                          />
+                          
+                          <div className="flex justify-between mt-3 text-[10px] text-slate-400 font-medium">
+                            <span>0 Lins</span>
+                            <span>{maxLinhasGlobal} Máx</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* CARD DO FILTRO ESPECÍFICO (INPUT NÚMERO) */}
+                      <div className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === 'EXACT' ? 'border-primary bg-slate-50 shadow-sm' : 'border-slate-100 opacity-60'}`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <p className="font-semibold text-slate-700 text-sm">Valor Específico</p>
+                            <p className="text-[10px] text-slate-500">Ex: Exatamente 5 linhas</p>
+                          </div>
+                          <button
+                            onClick={() => setTipoFiltroLinha(tipoFiltroLinha === 'EXACT' ? 'NONE' : 'EXACT')}
+                            className="transition-opacity cursor-pointer text-primary hover:opacity-80"
+                          >
+                            {tipoFiltroLinha === 'EXACT' ? (
+                              <ToggleRight className="w-7 h-7 text-emerald-500" />
+                            ) : (
+                              <ToggleLeft className="w-7 h-7 text-slate-400" />
+                            )}
+                          </button>
+                        </div>
+                        <div>
+                          <input
+                            type="number"
+                            min="0"
+                            max={maxLinhasGlobal}
+                            value={filtroLinhasExact}
+                            onChange={(e) => setFiltroLinhasExact(Number(e.target.value))}
+                            disabled={tipoFiltroLinha !== 'EXACT'}
+                            className="w-full h-10 px-4 text-sm font-bold transition-all border shadow-inner outline-none border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                            placeholder="Insira a quantia exata..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* --- FIM: NOVOS FILTROS DE LINHAS EXCLUDENTES --- */}
+
+                  {/* Filtro de Leitura CPC Continua Igual */}
                   {renderRangeSlider(
                     "Leitura CPC",
                     <ScanSearch className="w-3.5 h-3.5 text-teal-500" />,
