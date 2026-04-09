@@ -11,7 +11,7 @@ import {
 } from "@/utils/funtionFormataDados.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
-// import { extrairEmailsDecisor } from "@/utils/functionEmailsDecisor.util"; // Comentado pois o Passo 1 está pulado
+
 
 const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
 
@@ -138,6 +138,58 @@ export const API_PIPERUN = async ({
         console.log(`[Regra Especial] Fluxo Padrão. Roteando via Hash para RENOVAÇÃO.`);
       }
 
+      const processarEFormatarLista = (
+        principal: string | null,
+        observacao: string | null,
+        tipo: "telefone" | "email"
+      ): string => {
+        const lista: string[] = [];
+        
+        if (principal) lista.push(...principal.split(',').map(s => s.trim()).filter(Boolean));
+        if (observacao) lista.push(...observacao.split(',').map(s => s.trim()).filter(Boolean));
+        
+        if (lista.length === 0) return "";
+  
+        const listaFormatada = lista.map(item => {
+          if (tipo === "email") {
+            return item.toLowerCase();
+          } else if (tipo === "telefone") {
+            const numLimpo = item.replace(/\D/g, "");
+            if (numLimpo.length === 11) return `(${numLimpo.slice(0, 2)}) ${numLimpo.slice(2, 7)}-${numLimpo.slice(7)}`;
+            if (numLimpo.length === 10) return `(${numLimpo.slice(0, 2)}) ${numLimpo.slice(2, 6)}-${numLimpo.slice(6)}`;
+            return item;
+          }
+          return item;
+        });
+        
+        return listaFormatada.join(" <=> ");
+      };
+
+      const decisorNome = servico.decisor_nome ? servico.decisor_nome.trim().toUpperCase() : "";
+      const decisorCpf = servico.decisor_cpf ? formatarCPF(servico.decisor_cpf.trim()) : "";
+      const telefonesStr = processarEFormatarLista(servico.decisor_numero, servico.decisor_num_obs, "telefone");
+      const emailsStr = processarEFormatarLista(servico.decisor_email, servico.decisor_email_observacao, "email");
+
+      let infoDecisorStr = "";
+      if (decisorNome || decisorCpf || telefonesStr || emailsStr) {
+        infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > CPF: ${decisorCpf || "NÃO INFORMADO"} < ||||| > TELEFONES: ${telefonesStr || "NÃO INFORMADO"} ||||| EMAILS: ${emailsStr || "NÃO INFORMADO"}`;
+      }
+      
+      const custom_fields_payload: Record<string, string | null | undefined> = {
+        "Inicio do Contrato": dataInicioFormatada,
+        "Final do Contrato": dataFimFormatada,
+        "Tempo de Contrato": String(mesesContrato),
+        "DDD": dddFinal,
+        "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
+        "DOCDRIVE":  servico.servico_docdrive,
+        "Observacao": servico.observacao, 
+        "Indicacao": servico.indicacao   
+      };
+
+      if (infoDecisorStr) {
+        custom_fields_payload["Informações DECISOR (Possível decisor)"] = infoDecisorStr;
+      }
+
       const payloadWebhook = {
         rules: {
           update: true,
@@ -152,16 +204,7 @@ export const API_PIPERUN = async ({
             cnpj: cnpjFormatado,
             user: emailConsultor || undefined,
             probability: 10,
-           custom_fields: {
-              "Inicio do Contrato": dataInicioFormatada,
-              "Final do Contrato": dataFimFormatada,
-              "Tempo de Contrato": String(mesesContrato),
-              "DDD": dddFinal,
-              "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
-              "DOCDRIVE":  servico.servico_docdrive,
-              "Observacao": servico.observacao, 
-              "Indicacao": servico.indicacao   
-            }
+            custom_fields: custom_fields_payload
           }
         ]
       };
