@@ -11,7 +11,7 @@ import {
 } from "@/utils/funtionFormataDados.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
-
+// FORMATACAO DAS linhaslinha // plano /// valor  <==> linha // plano // valor
 
 const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
 

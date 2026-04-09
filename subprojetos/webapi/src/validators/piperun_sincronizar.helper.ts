@@ -8,8 +8,8 @@ import {
   buscarCnpjPorCompanyId,
   buscarTodasAsPaginas,
   obterCustomField,
-  formatarCNPJ, 
-  delay,        
+  formatarCNPJ,
+  delay,
 } from "../helpers/piperun_auxiliares.helper";
 import ServicoClaroService from "../services/servico_claro.service";
 
@@ -84,7 +84,7 @@ export default class Piperun {
             "Operadora do Pedido"
           );
           let tipoServico = "CLARO";
-          
+
           if (Array.isArray(operadoraOriginal) && operadoraOriginal[0]) {
             tipoServico = String(operadoraOriginal[0]).toUpperCase();
           } else if (typeof operadoraOriginal === "string") {
@@ -111,12 +111,12 @@ export default class Piperun {
         for (const dado of dealsFormatados) {
           try {
             await this.servicoClaroService.atualizarServicosPiperun(dado);
-            await delay(50); 
+            await delay(50);
           } catch (error: any) {
             console.error(`Erro ao sincronizar CNPJ ${dado.cnpj}:`, error.message);
           }
         }
-        
+
         console.log(`[CRON 19:00] Dados sincronizados com sucesso. Processados: ${dealsFormatados.length}`);
       } else {
         console.log(`[CRON 19:00] Nenhum deal movimentado hoje.`);
