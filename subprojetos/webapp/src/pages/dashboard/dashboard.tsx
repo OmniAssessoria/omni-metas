@@ -29,11 +29,7 @@ import {
   FileText,
   FileCode2,
   X,
-  ArrowRightLeft,
   RotateCw,
-  CheckCircle2,
-  XCircle,
-  FileJson,
 } from "lucide-react";
 import {
   PieChart,
@@ -53,12 +49,15 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
-import { IServicoViewAPI } from "@/interfaces/servico_view_dashboard.interface";
+import {
+  IApiResponseView,
+  IServicoViewAPI,
+} from "@/interfaces/servico_view_dashboard.interface";
 import { IHistoricoViewAPI } from "@/interfaces/historico_view_dashboard.interface";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import { compilarOportunidadesDinamico } from "@/services/hookApiRunTotalServicoConsultor";
-import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
 import {
+  DadosPorIndicacao,
   TipoAtivoFilter,
   TipoCarteiraFilter,
   TipoClassificacaoFilter,
@@ -66,20 +65,6 @@ import {
   TipoPiperunFilter,
   TipoSituacaoFilter,
 } from "../../interfaces/dashboard.type";
-
-interface IApiResponseView {
-  status: boolean;
-  mensagem: string;
-  dados: any[];
-}
-
-type DadosPorIndicacao = {
-  renovacao: IServicoViewAPI[];
-  portabilidade: IServicoViewAPI[];
-  fora_prazo: IServicoViewAPI[];
-  prazo_limitado: IServicoViewAPI[];
-  prazo_excedido: IServicoViewAPI[];
-};
 
 const calcularDiasPassados = (dataString?: string | null): number | null => {
   if (!dataString) return null;
@@ -141,27 +126,6 @@ export default function DashboardAnaliticoMultiView() {
   const [filtroHistConsultor, setFiltroHistConsultor] =
     useState<string>("TODOS");
   const [filtroHistMotivo, setFiltroHistMotivo] = useState<string>("TODOS");
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
-  const [syncing, setSyncing] = useState<boolean>(false);
-  const [dataInicial, setDataInicial] = useState<string>(
-    new Date().toISOString().split("T")[0],
-  );
-  const [dataFinal, setDataFinal] = useState<string>(
-    new Date().toISOString().split("T")[0],
-  );
-  const [progressState, setProgressState] = useState({
-    ativo: false,
-    percentual: 0,
-    atual: 0,
-    total: 0,
-    mensagem: "",
-  });
-  const [syncLogs, setSyncLogs] = useState<{
-    sucessos: any[];
-    falhas: any[];
-  } | null>(null);
-  const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
-  const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
   const [consultoresDB, setConsultoresDB] = useState<ConsultorBD[]>([]);
   const [dadosPipelineBolhas, setDadosPipelineBolhas] = useState<any[]>([]);
   const [loadingBolhas, setLoadingBolhas] = useState<boolean>(false);
@@ -265,7 +229,6 @@ export default function DashboardAnaliticoMultiView() {
     };
   }, [dadosBrutos]);
 
-  // Inicializa dinamicamente o range máximo baseado nos dados recebidos
   useEffect(() => {
     if (maxLinhasGlobal > 0 && !isLinhasMaxInitialized) {
       setFiltroLinhasRangeMax(maxLinhasGlobal);
@@ -1406,9 +1369,113 @@ export default function DashboardAnaliticoMultiView() {
           </div>
         </section>
 
-        <hr className="w-full max-w-7xl mx-auto border-t-2 border-slate-200" />
+        <hr className="w-full max-w-7xl mx-auto border-slate-200" />
 
-        <section className="w-full max-w-7xl mx-auto mb-10">
+        <section className="w-full max-w-7xl mx-auto">
+          <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
+                <CloudCog className="w-6 h-6 text-blue-600" /> Bases no PipeRun
+                (CRM)
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Visualização do volume de Oportunidades no Pipeline (Funil) por
+                Consultor.
+              </p>
+            </div>
+          </div>
+
+          <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                <Users className="h-5 w-5 text-blue-500" /> Oportunidades
+                Compiladas
+              </h2>
+              <Button
+                variant="outline"
+                onClick={() => fetchDadosBolhas(true)}
+                disabled={loadingBolhas}
+                className="gap-2 shadow-sm flex items-center border-slate-200 text-white hover:bg-slate-50 cursor-pointer"
+              >
+                <RotateCw
+                  className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-blue-500" : ""}`}
+                />
+                Atualizar Gráfico Pipe
+              </Button>
+            </div>
+
+            <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 max-h-[600px] overflow-y-auto">
+              {loadingBolhas && dadosPipelineBolhas.length === 0 ? (
+                <div className="w-full h-[300px] flex flex-col items-center justify-center text-slate-500">
+                  <Loader2 className="h-8 w-8 animate-spin mb-2 text-blue-500" />
+                  Calculando oportunidades no PipeRun...
+                </div>
+              ) : dadosPipelineBolhas.length === 0 ? (
+                <div className="w-full h-[300px] flex items-center justify-center text-slate-500 font-medium">
+                  Nenhum dado encontrado para os consultores atuais no Pipeline.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {dadosPipelineBolhas.map((entry, index) => {
+                    let cor = "#8884d8";
+                    if (entry.perfil === "RENOVACAO") cor = CORES.renovacao;
+                    if (entry.perfil === "PORTABILIDADE")
+                      cor = CORES.portabilidade;
+                    if (entry.perfil === "CARTEIRA") cor = CORES.carteira_pipe;
+                    if (entry.perfil === "AMBOS") cor = "#a855f7";
+
+                    return (
+                      <div
+                        key={`bolha-${index}`}
+                        className="flex flex-col items-center bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-blue-200 transition-colors"
+                      >
+                        <h3 className="text-sm font-bold text-center mb-2 line-clamp-2 h-10 flex items-center text-slate-700">
+                          {entry.nome}
+                        </h3>
+                        <div className="w-40 h-40">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  { name: "Total", value: entry.total },
+                                  {
+                                    name: "Vazio",
+                                    value: entry.total === 0 ? 1 : 0,
+                                  },
+                                ]}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={50}
+                                outerRadius={70}
+                                dataKey="value"
+                                stroke="none"
+                              >
+                                <Cell fill={cor} />
+                                <Cell fill={CORES.vazio} />
+                              </Pie>
+                              {renderCenterText(entry.total, "Total")}
+                              <RechartsTooltip
+                                formatter={(val: any) =>
+                                  val === 0 && entry.total === 0
+                                    ? [0, "Oportunidades"]
+                                    : [val, "Oportunidades"]
+                                }
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </Card>
+        </section>
+
+        <hr className="w-full max-w-7xl mx-auto border-slate-200" />
+
+        <section className="w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
             <div>
               <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
@@ -1605,156 +1672,7 @@ export default function DashboardAnaliticoMultiView() {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-
-            <Card className="bg-white border-none shadow-md lg:col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
-                  <Clock className="w-4 h-4 text-rose-500" />
-                  Top 10 - Tempo Médio de Atendimento por Consultor (Dias)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dadosGraficoTempo}
-                    margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      stroke="#e2e8f0"
-                    />
-                    <XAxis
-                      dataKey="name"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                    <RechartsTooltip
-                      cursor={{ fill: "#f1f5f9" }}
-                      contentStyle={{
-                        borderRadius: "8px",
-                        border: "none",
-                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                      }}
-                    />
-                    <Bar
-                      dataKey="media"
-                      fill={CORES.grafico_barras_3}
-                      radius={[4, 4, 0, 0]}
-                      barSize={40}
-                      name="Média em Dias"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
           </div>
-        </section>
-
-        <hr className="w-full max-w-7xl mx-auto border-t-2 border-slate-200 my-5" />
-
-        <section className="w-full max-w-7xl mx-auto mb-10 pb-10">
-          <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
-            <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-                <CloudCog className="w-6 h-6 text-blue-600" /> Bases no PipeRun
-                (CRM)
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Visualização do volume de Oportunidades no Pipeline (Funil) por
-                Consultor.
-              </p>
-            </div>
-          </div>
-
-          <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                <Users className="h-5 w-5 text-blue-500" /> Oportunidades
-                Compiladas
-              </h2>
-              <Button
-                variant="outline"
-                onClick={() => fetchDadosBolhas(true)}
-                disabled={loadingBolhas}
-                className="gap-2 shadow-sm flex items-center border-slate-200 text-white hover:bg-slate-50 cursor-pointer"
-              >
-                <RotateCw
-                  className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-blue-500" : ""}`}
-                />
-                Atualizar Gráfico Pipe
-              </Button>
-            </div>
-
-            <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 max-h-[600px] overflow-y-auto">
-              {loadingBolhas && dadosPipelineBolhas.length === 0 ? (
-                <div className="w-full h-[300px] flex flex-col items-center justify-center text-slate-500">
-                  <Loader2 className="h-8 w-8 animate-spin mb-2 text-blue-500" />
-                  Calculando oportunidades no PipeRun...
-                </div>
-              ) : dadosPipelineBolhas.length === 0 ? (
-                <div className="w-full h-[300px] flex items-center justify-center text-slate-500 font-medium">
-                  Nenhum dado encontrado para os consultores atuais no Pipeline.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {dadosPipelineBolhas.map((entry, index) => {
-                    let cor = "#8884d8";
-                    if (entry.perfil === "RENOVACAO") cor = CORES.renovacao;
-                    if (entry.perfil === "PORTABILIDADE")
-                      cor = CORES.portabilidade;
-                    if (entry.perfil === "CARTEIRA") cor = CORES.carteira_pipe;
-                    if (entry.perfil === "AMBOS") cor = "#a855f7";
-
-                    return (
-                      <div
-                        key={`bolha-${index}`}
-                        className="flex flex-col items-center bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-blue-200 transition-colors"
-                      >
-                        <h3 className="text-sm font-bold text-center mb-2 line-clamp-2 h-10 flex items-center text-slate-700">
-                          {entry.nome}
-                        </h3>
-                        <div className="w-40 h-40">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={[
-                                  { name: "Total", value: entry.total },
-                                  {
-                                    name: "Vazio",
-                                    value: entry.total === 0 ? 1 : 0,
-                                  },
-                                ]}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={50}
-                                outerRadius={70}
-                                dataKey="value"
-                                stroke="none"
-                              >
-                                <Cell fill={cor} />
-                                <Cell fill={CORES.vazio} />
-                              </Pie>
-                              {renderCenterText(entry.total, "Total")}
-                              <RechartsTooltip
-                                formatter={(val: any) =>
-                                  val === 0 && entry.total === 0
-                                    ? [0, "Oportunidades"]
-                                    : [val, "Oportunidades"]
-                                }
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </Card>
         </section>
       </main>
     </div>

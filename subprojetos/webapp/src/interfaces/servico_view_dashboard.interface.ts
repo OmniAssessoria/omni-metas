@@ -31,3 +31,9 @@ export interface IServicoViewAPI {
   servico_claro_ativo: boolean;
   consultor_nome: string | null;
 }
+
+export interface IApiResponseView {
+  status: boolean;
+  mensagem: string;
+  dados: any[];
+}

@@ -1,3 +1,5 @@
+import { IServicoViewAPI } from "./servico_view_dashboard.interface";
+
 export type ViewState = "geral" | "renovacao" | "portabilidade";
 export type TipoCarteiraFilter = "AMBOS" | "COM_CARTEIRA" | "SEM_CARTEIRA";
 export type TipoSituacaoFilter =
@@ -21,3 +23,11 @@ export type TipoClassificacaoFilter =
   | "CG"
   | "SEM_CLASSIFICACAO";
 export type TipoFiltroLinha = "NONE" | "RANGE" | "EXACT";
+
+export type DadosPorIndicacao = {
+  renovacao: IServicoViewAPI[];
+  portabilidade: IServicoViewAPI[];
+  fora_prazo: IServicoViewAPI[];
+  prazo_limitado: IServicoViewAPI[];
+  prazo_excedido: IServicoViewAPI[];
+};
