@@ -30,6 +30,7 @@ import {
   FileCode2,
   X,
   RotateCw,
+  Target, // Importado para o ícone de Exclusivo
 } from "lucide-react";
 import {
   PieChart,
@@ -106,6 +107,12 @@ export default function DashboardAnaliticoMultiView() {
   const [filtroPiperun, setFiltroPiperun] =
     useState<TipoPiperunFilter>("AMBOS");
   const [filtroAtivo, setFiltroAtivo] = useState<TipoAtivoFilter>("TODOS");
+
+  // NOVO ESTADO: Filtro Exclusivo
+  const [filtroExclusivo, setFiltroExclusivo] = useState<
+    "TODOS" | "SIM" | "NAO"
+  >("TODOS");
+
   const [filtroDataFim, setFiltroDataFim] = useState<string>("");
   const [filtroDDD, setFiltroDDD] = useState<string>("TODOS");
   const [filtroConsultor, setFiltroConsultor] = useState<string>("TODOS");
@@ -271,6 +278,11 @@ export default function DashboardAnaliticoMultiView() {
           return false;
         if (filtroAtivo === "NAO" && item.servico_claro_ativo === true)
           return false;
+
+        // REGRA NOVA: Filtro de Exclusivos
+        if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
+        if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
+
         if (filtroDDD !== "TODOS") {
           if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
             if (
@@ -341,6 +353,7 @@ export default function DashboardAnaliticoMultiView() {
     setFiltroCarteira("AMBOS");
     setFiltroPiperun("AMBOS");
     setFiltroAtivo("TODOS");
+    setFiltroExclusivo("TODOS"); // Limpa o filtro de exclusivo
     setFiltroDDD("TODOS");
     setFiltroConsultor("TODOS");
     setFiltroClassificacao("TODOS");
@@ -963,6 +976,27 @@ export default function DashboardAnaliticoMultiView() {
                     </select>
                   </div>
 
+                  {/* NOVO FILTRO: SERVIÇO EXCLUSIVO */}
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Target className="w-3.5 h-3.5 text-yellow-500" /> Serviço
+                      Exclusivo
+                    </label>
+                    <select
+                      value={filtroExclusivo}
+                      onChange={(e) =>
+                        setFiltroExclusivo(
+                          e.target.value as "TODOS" | "SIM" | "NAO",
+                        )
+                      }
+                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="TODOS">Ambos (Sim e Não)</option>
+                      <option value="SIM">Sim (Apenas Exclusivos)</option>
+                      <option value="NAO">Não (Apenas Normais)</option>
+                    </select>
+                  </div>
+
                   <div className="space-y-1.5">
                     <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                       <span className="font-extrabold text-blue-500">📞</span>{" "}
@@ -1094,7 +1128,20 @@ export default function DashboardAnaliticoMultiView() {
                       className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none cursor-pointer border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                     />
                   </div>
-
+                  <div className=" border border-slate-200 bg-white rounded-lg p-3 space-y-3">
+                    {renderRangeSlider(
+                      "Leitura CPC",
+                      <ScanSearch className="w-3.5 h-3.5 text-teal-500" />,
+                      filtroCpcAtivo,
+                      setFiltroCpcAtivo,
+                      filtroCpcValor,
+                      setFiltroCpcValor,
+                      maxDiasCpcGlobal,
+                      "d",
+                      "Hoje (0d)",
+                      `Até ${maxDiasCpcGlobal}d`,
+                    )}
+                  </div>
                   <div className="space-y-1.5">
                     <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                       <Tag className="w-3.5 h-3.5 text-pink-500" />{" "}
@@ -1122,7 +1169,6 @@ export default function DashboardAnaliticoMultiView() {
                       </option>
                     </select>
                   </div>
-
                   <div className="col-span-1 md:col-span-2 xl:col-span-3 border border-slate-200 bg-white rounded-lg p-3 space-y-3">
                     <label className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
                       <Briefcase className="w-4 h-4 text-amber-500" /> Controle
@@ -1278,19 +1324,6 @@ export default function DashboardAnaliticoMultiView() {
                       </div>
                     </div>
                   </div>
-
-                  {renderRangeSlider(
-                    "Leitura CPC",
-                    <ScanSearch className="w-3.5 h-3.5 text-teal-500" />,
-                    filtroCpcAtivo,
-                    setFiltroCpcAtivo,
-                    filtroCpcValor,
-                    setFiltroCpcValor,
-                    maxDiasCpcGlobal,
-                    "d",
-                    "Hoje (0d)",
-                    `Até ${maxDiasCpcGlobal}d`,
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1388,7 +1421,7 @@ export default function DashboardAnaliticoMultiView() {
           <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                <Users className="h-5 w-5 text-blue-500" /> Oportunidades
+                <Users className="w-5 h-5 text-blue-500" /> Oportunidades
                 Compiladas
               </h2>
               <Button

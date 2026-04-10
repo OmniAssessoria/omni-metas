@@ -17,6 +17,7 @@ export interface IServicoViewAPI {
     | "CD"
     | "CF";
   carteira: string | null;
+  exclusivo: boolean;
   observacao: string | null;
   qtd_linhas_total: number;
   qtd_linhas_ativas: number;
