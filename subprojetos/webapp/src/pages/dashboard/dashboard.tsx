@@ -31,6 +31,9 @@ import {
   X,
   RotateCw,
   Target,
+  Search,
+  LayoutGrid,
+  List as ListIcon
 } from "lucide-react";
 import {
   PieChart,
@@ -56,7 +59,6 @@ import {
 } from "@/interfaces/servico_view_dashboard.interface";
 import { IHistoricoViewAPI } from "@/interfaces/historico_view_dashboard.interface";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
-import { compilarOportunidadesDinamico } from "@/services/hookApiRunTotalServicoConsultor";
 import {
   DadosPorIndicacao,
   TipoAtivoFilter,
@@ -66,6 +68,11 @@ import {
   TipoPiperunFilter,
   TipoSituacaoFilter,
 } from "../../interfaces/dashboard.type";
+import {
+  compilarRelatorioPerdas,
+  compilarOportunidadesDinamico,
+} from "@/services/hookApiRunTotalServicoConsultor";
+import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
 
 const calcularDiasPassados = (dataString?: string | null): number | null => {
   if (!dataString) return null;
@@ -108,7 +115,6 @@ export default function DashboardAnaliticoMultiView() {
     useState<TipoPiperunFilter>("AMBOS");
   const [filtroAtivo, setFiltroAtivo] = useState<TipoAtivoFilter>("TODOS");
 
-  // NOVO ESTADO: Filtro Exclusivo
   const [filtroExclusivo, setFiltroExclusivo] = useState<
     "TODOS" | "SIM" | "NAO"
   >("TODOS");
@@ -136,6 +142,13 @@ export default function DashboardAnaliticoMultiView() {
   const [consultoresDB, setConsultoresDB] = useState<ConsultorBD[]>([]);
   const [dadosPipelineBolhas, setDadosPipelineBolhas] = useState<any[]>([]);
   const [loadingBolhas, setLoadingBolhas] = useState<boolean>(false);
+  const [dataInicioPipe, setDataInicioPipe] = useState<string>("");
+  const [dataFimPipe, setDataFimPipe] = useState<string>("");
+  const [dadosPerdas, setDadosPerdas] = useState<any[]>([]);
+  const [loadingPerdas, setLoadingPerdas] = useState<boolean>(false);
+
+  // NOVO ESTADO: Controle de visualização da aba de perdas (Tabela ou Gráfico)
+  const [viewModePerdas, setViewModePerdas] = useState<"grafico" | "tabela">("grafico");
 
   const CORES = {
     renovacao: "#eab308",
@@ -148,6 +161,8 @@ export default function DashboardAnaliticoMultiView() {
     grafico_barras_2: "#10b981",
     grafico_barras_3: "#f43f5e",
     carteira_pipe: "#10b981",
+    declinio: "#ef4444", // Cor para a perda
+    sucesso: "#10b981"   // Cor para o que restou na base
   };
 
   const fetchTodasViews = useCallback(async () => {
@@ -359,7 +374,7 @@ export default function DashboardAnaliticoMultiView() {
     setFiltroCarteira("AMBOS");
     setFiltroPiperun("AMBOS");
     setFiltroAtivo("TODOS");
-    setFiltroExclusivo("TODOS"); // Limpa o filtro de exclusivo
+    setFiltroExclusivo("TODOS");
     setFiltroDDD("TODOS");
     setFiltroConsultor("TODOS");
     setFiltroClassificacao("TODOS");
@@ -468,36 +483,6 @@ export default function DashboardAnaliticoMultiView() {
     return Array.from(map.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
-  }, [historicoFiltrado]);
-
-  const dadosGraficoTempo = useMemo(() => {
-    const map = new Map<string, { totalDias: number; count: number }>();
-    historicoFiltrado.forEach((h) => {
-      if (
-        h.data_inicio_atendimento &&
-        h.data_fim_atendimento &&
-        h.consultor_nome
-      ) {
-        const start = new Date(h.data_inicio_atendimento).getTime();
-        const end = new Date(h.data_fim_atendimento).getTime();
-        const dias = (end - start) / (1000 * 3600 * 24);
-
-        if (dias >= 0) {
-          if (!map.has(h.consultor_nome))
-            map.set(h.consultor_nome, { totalDias: 0, count: 0 });
-          const curr = map.get(h.consultor_nome)!;
-          curr.totalDias += dias;
-          curr.count += 1;
-        }
-      }
-    });
-    return Array.from(map.entries())
-      .map(([name, val]) => ({
-        name,
-        media: Number((val.totalDias / val.count).toFixed(1)),
-      }))
-      .sort((a, b) => b.media - a.media)
       .slice(0, 10);
   }, [historicoFiltrado]);
 
@@ -764,7 +749,7 @@ export default function DashboardAnaliticoMultiView() {
     loadConsultores();
   }, []);
 
-  // 2. Chama sua função dinâmica passando os consultores formatados
+  // 2. Chama sua função dinâmica passando os consultores formatados para AS ABERTAS
   const fetchDadosBolhas = useCallback(
     async (isManualRefresh = false) => {
       if (consultoresDB.length === 0 && !isManualRefresh) return;
@@ -780,7 +765,7 @@ export default function DashboardAnaliticoMultiView() {
           }
         }
 
-        const payloadConsultoresFormatado: any[] = consultoresDB.map((c) => ({
+        const payloadConsultoresFormatado: IConsultor[] = consultoresDB.map((c) => ({
           nome: c.nome,
           owner_id: c.codigo_crm,
           perfil: String(c.perfil_indicacao)
@@ -788,7 +773,9 @@ export default function DashboardAnaliticoMultiView() {
             .toUpperCase()
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, ""),
-        }));
+          seq: c.codigo_crm || 0,
+          email: "",
+        } as IConsultor));
 
         const dadosMapeados = await compilarOportunidadesDinamico(
           payloadConsultoresFormatado,
@@ -820,6 +807,57 @@ export default function DashboardAnaliticoMultiView() {
       fetchDadosBolhas();
     }
   }, [consultoresDB, fetchDadosBolhas]);
+
+
+  // 3. Função do RELATÓRIO DE PERDAS
+  const buscarRelatorioPerdasPeriodo = async () => {
+    if (!dataInicioPipe || !dataFimPipe) {
+      setNotification("Por favor, selecione a Data de Início e Fim.");
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    if (consultoresDB.length === 0) {
+      setNotification("Aguarde o carregamento dos consultores.");
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    setLoadingPerdas(true);
+    try {
+      const payloadConsultoresFormatado: IConsultor[] = consultoresDB.map(
+        (c) =>
+          ({
+            nome: c.nome,
+            owner_id: c.codigo_crm,
+            perfil: String(c.perfil_indicacao)
+              .trim()
+              .toUpperCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, ""),
+            seq: c.codigo_crm || 0, 
+            email: "", 
+          }) as IConsultor,
+      );
+
+      const relatorio = await compilarRelatorioPerdas(
+        payloadConsultoresFormatado,
+        dataInicioPipe,
+        dataFimPipe,
+      );
+
+      setDadosPerdas(relatorio);
+      setNotification("Relatório de Perdas atualizado com sucesso!");
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error("Erro ao buscar perdas:", error);
+      setNotification("Falha ao gerar o relatório de perdas.");
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setLoadingPerdas(false);
+    }
+  };
+
 
   return (
     <div className="flex h-screen overflow-hidden w-screen bg-slate-50 text-slate-900">
@@ -1410,16 +1448,15 @@ export default function DashboardAnaliticoMultiView() {
 
         <hr className="w-full max-w-7xl mx-auto border-slate-200" />
 
+        {/* SECÃO ORIGINAL: BASES NO PIPERUN (ABERTAS) */}
         <section className="w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
             <div>
               <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-                <CloudCog className="w-6 h-6 text-blue-600" /> Bases no PipeRun
-                (CRM)
+                <CloudCog className="w-6 h-6 text-blue-600" /> Bases Abertas no PipeRun (Hoje)
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                Visualização do volume de Oportunidades no Pipeline (Funil) por
-                Consultor.
+                Visualização do volume de Oportunidades no Pipeline (Funil) por Consultor.
               </p>
             </div>
           </div>
@@ -1427,18 +1464,15 @@ export default function DashboardAnaliticoMultiView() {
           <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                <Users className="w-5 h-5 text-blue-500" /> Oportunidades
-                Compiladas
+                <Users className="w-5 h-5 text-blue-500" /> Oportunidades Compiladas
               </h2>
               <Button
                 variant="outline"
                 onClick={() => fetchDadosBolhas(true)}
                 disabled={loadingBolhas}
-                className="gap-2 shadow-sm flex items-center border-slate-200 text-white hover:bg-slate-50 cursor-pointer"
+                className="gap-2 shadow-sm flex items-center border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
-                <RotateCw
-                  className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-blue-500" : ""}`}
-                />
+                <RotateCw className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-blue-500" : ""}`} />
                 Atualizar Gráfico Pipe
               </Button>
             </div>
@@ -1458,8 +1492,7 @@ export default function DashboardAnaliticoMultiView() {
                   {dadosPipelineBolhas.map((entry, index) => {
                     let cor = "#8884d8";
                     if (entry.perfil === "RENOVACAO") cor = CORES.renovacao;
-                    if (entry.perfil === "PORTABILIDADE")
-                      cor = CORES.portabilidade;
+                    if (entry.perfil === "PORTABILIDADE") cor = CORES.portabilidade;
                     if (entry.perfil === "CARTEIRA") cor = CORES.carteira_pipe;
                     if (entry.perfil === "AMBOS") cor = "#a855f7";
 
@@ -1477,10 +1510,7 @@ export default function DashboardAnaliticoMultiView() {
                               <Pie
                                 data={[
                                   { name: "Total", value: entry.total },
-                                  {
-                                    name: "Vazio",
-                                    value: entry.total === 0 ? 1 : 0,
-                                  },
+                                  { name: "Vazio", value: entry.total === 0 ? 1 : 0 },
                                 ]}
                                 cx="50%"
                                 cy="50%"
@@ -1512,8 +1542,221 @@ export default function DashboardAnaliticoMultiView() {
           </Card>
         </section>
 
+        <hr className="w-full max-w-7xl mx-auto border-slate-200 mt-8 mb-8" />
+
+        {/* NOVA SEÇÃO: ANÁLISE DE PERDAS COM GRÁFICOS OU TABELA */}
+        <section className="w-full max-w-7xl mx-auto">
+          <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
+                <BarChart2 className="w-6 h-6 text-red-600" /> Análise de Perdas por Período (CRM)
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Filtre por data para visualizar o Total Base enviado ao consultor e a proporção declinada (em Bolhas ou Tabela).
+              </p>
+            </div>
+            
+            {/* Toggle Gráfico vs Tabela */}
+            {dadosPerdas.length > 0 && (
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setViewModePerdas("grafico")}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
+                    viewModePerdas === "grafico" ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" /> Gráficos
+                </button>
+                <button
+                  onClick={() => setViewModePerdas("tabela")}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
+                    viewModePerdas === "tabela" ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  <ListIcon className="w-4 h-4" /> Tabela
+                </button>
+              </div>
+            )}
+          </div>
+
+          <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
+            {/* Controles de Data */}
+            <div className="flex flex-col md:flex-row items-end gap-4 mb-6 pb-6 border-b border-slate-100">
+              <div className="space-y-1.5 w-full md:w-auto">
+                <label className="text-xs font-bold text-slate-700">Data Criação (Início)</label>
+                <input
+                  type="date"
+                  value={dataInicioPipe}
+                  onChange={(e) => setDataInicioPipe(e.target.value)}
+                  className="w-full h-10 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="space-y-1.5 w-full md:w-auto">
+                <label className="text-xs font-bold text-slate-700">Data Criação (Fim)</label>
+                <input
+                  type="date"
+                  value={dataFimPipe}
+                  onChange={(e) => setDataFimPipe(e.target.value)}
+                  className="w-full h-10 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <Button
+                onClick={buscarRelatorioPerdasPeriodo}
+                disabled={loadingPerdas}
+                className="h-10 px-6 bg-red-600 hover:bg-red-700 text-white font-bold w-full md:w-auto"
+              >
+                {loadingPerdas ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4 mr-2" />
+                )}
+                Buscar Perdas
+              </Button>
+            </div>
+
+            {/* MODO GRÁFICO DE BOLHAS */}
+            {viewModePerdas === "grafico" && (
+               <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 min-h-[300px] max-h-[600px] overflow-y-auto">
+                {loadingPerdas ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-500">
+                    <Loader2 className="h-8 w-8 animate-spin mb-2 text-red-500" />
+                    Calculando perdas e bases no PipeRun...
+                  </div>
+                ) : dadosPerdas.length === 0 ? (
+                  <div className="w-full h-[200px] flex items-center justify-center text-slate-500 font-medium">
+                    Nenhum dado filtrado. Selecione um período e clique em buscar.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {dadosPerdas.map((row, index) => {
+                      const restouBase = row.totalBase - row.totalDeclinados;
+                      
+                      const dadosPie = [
+                        { name: "Restante (Base)", value: restouBase < 0 ? 0 : restouBase, fill: CORES.sucesso },
+                        { name: "Declinados", value: row.totalDeclinados, fill: CORES.declinio }
+                      ];
+
+                      // Formatação de Moeda local
+                      const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+                      return (
+                        <div
+                          key={`perda-${index}`}
+                          className="flex flex-col items-center bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-red-200 transition-colors"
+                        >
+                          <h3 className="text-sm font-bold text-center mb-1 line-clamp-2 h-10 flex items-center text-slate-800">
+                            {row.nome}
+                          </h3>
+                          <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded mb-3 font-semibold uppercase tracking-wider">
+                            {row.perfil}
+                          </span>
+                          
+                          {/* BOLHA / PIE CHART */}
+                          <div className="w-40 h-40">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={dadosPie}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={45}
+                                  outerRadius={70}
+                                  dataKey="value"
+                                  stroke="none"
+                                >
+                                  {dadosPie.map((entry, idx) => (
+                                    <Cell key={`cell-${idx}`} fill={entry.fill} />
+                                  ))}
+                                </Pie>
+                                <RechartsTooltip
+                                  formatter={(val: any, name: string) => [val, name]}
+                                  contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* RESUMO DOS DADOS ABAIXO DA BOLHA */}
+                          <div className="w-full mt-4 space-y-2 text-xs">
+                            <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded">
+                              <span className="font-semibold text-slate-600">Base Total:</span>
+                              <span className="font-bold">{row.totalBase} <span className="text-[9px] text-slate-400 font-normal">({fmt(row.valorBase)})</span></span>
+                            </div>
+                            <div className="flex justify-between items-center bg-red-50 p-1.5 rounded">
+                              <span className="font-semibold text-red-600">Declinados:</span>
+                              <span className="font-bold text-red-600">{row.totalDeclinados} <span className="text-[9px] text-red-400 font-normal">({fmt(row.valorDeclinados)})</span></span>
+                            </div>
+                            <div className="text-center pt-1 border-t border-slate-100 mt-1">
+                               <span className={`font-bold ${Number(row.taxaPerda) > 50 ? "text-red-600" : "text-amber-500"}`}>
+                                 {row.taxaPerda}% de Perda
+                               </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* MODO TABELA */}
+            {viewModePerdas === "tabela" && (
+              <div className="w-full overflow-x-auto rounded-lg border border-slate-200 mt-4">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-xs">
+                    <tr>
+                      <th className="px-6 py-4">Consultor</th>
+                      <th className="px-6 py-4 text-center">Perfil</th>
+                      <th className="px-6 py-4 text-center border-l border-slate-200">Total Base (Qtd)</th>
+                      <th className="px-6 py-4 text-right">Valor Base (R$)</th>
+                      <th className="px-6 py-4 text-center text-red-600 border-l border-slate-200">Declinados (Qtd)</th>
+                      <th className="px-6 py-4 text-right text-red-600">Valor Declinado (R$)</th>
+                      <th className="px-6 py-4 text-center bg-slate-100">% Perda</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {dadosPerdas.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                          {loadingPerdas ? "Buscando relatórios..." : "Nenhum dado filtrado. Selecione um período e clique em buscar."}
+                        </td>
+                      </tr>
+                    ) : (
+                      dadosPerdas.map((row, index) => (
+                        <tr key={index} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-3 font-semibold text-slate-800">{row.nome}</td>
+                          <td className="px-6 py-3 text-center text-xs">
+                            <span className="bg-slate-100 px-2 py-1 rounded">{row.perfil}</span>
+                          </td>
+                          <td className="px-6 py-3 text-center border-l border-slate-200 font-bold">{row.totalBase}</td>
+                          <td className="px-6 py-3 text-right">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valorBase)}
+                          </td>
+                          <td className="px-6 py-3 text-center text-red-600 font-bold border-l border-slate-200">
+                            {row.totalDeclinados}
+                          </td>
+                          <td className="px-6 py-3 text-right text-red-600 font-medium">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valorDeclinados)}
+                          </td>
+                          <td className="px-6 py-3 text-center font-bold bg-slate-50">
+                            <span className={Number(row.taxaPerda) > 50 ? "text-red-600" : "text-amber-500"}>
+                              {row.taxaPerda}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </section>
+
         <hr className="w-full max-w-7xl mx-auto border-slate-200" />
 
+        {/* RESTANTE DO CÓDIGO DE ANÁLISE DE HISTÓRICO... */}
         <section className="w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
             <div>
@@ -1565,7 +1808,7 @@ export default function DashboardAnaliticoMultiView() {
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-white">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                     <Users className="w-3.5 h-3.5 text-purple-500" /> Consultor
                     do Histórico
                   </label>
