@@ -30,7 +30,7 @@ import {
   FileCode2,
   X,
   RotateCw,
-  Target, // Importado para o ícone de Exclusivo
+  Target,
 } from "lucide-react";
 import {
   PieChart,
@@ -174,12 +174,21 @@ export default function DashboardAnaliticoMultiView() {
         ]);
 
       const prepararDados = (lista: any[]) => {
-        return lista.map((item) => ({
-          ...item,
-          ddd_predominante: item.ddd_predominante
-            ? String(item.ddd_predominante).trim()
-            : "00",
-        }));
+        return lista.map((item) => {
+          const isExclusivoReal =
+            item.exclusivo === true ||
+            item.exclusivo === "true" ||
+            item.exclusivo === "t" ||
+            item.exclusivo === 1;
+
+          return {
+            ...item,
+            ddd_predominante: item.ddd_predominante
+              ? String(item.ddd_predominante).trim()
+              : "00",
+            exclusivo: isExclusivoReal,
+          };
+        });
       };
 
       const payloadServicos: DadosPorIndicacao = {
@@ -278,11 +287,8 @@ export default function DashboardAnaliticoMultiView() {
           return false;
         if (filtroAtivo === "NAO" && item.servico_claro_ativo === true)
           return false;
-
-        // REGRA NOVA: Filtro de Exclusivos
         if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
         if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
-
         if (filtroDDD !== "TODOS") {
           if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
             if (
