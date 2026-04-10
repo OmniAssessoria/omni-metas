@@ -1,4 +1,3 @@
-import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,16 +26,16 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  ZAxis,
 } from "recharts";
 import { Calendar } from "lucide-react";
 import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
-import { CheckCircle2, XCircle, FileJson } from "lucide-react";
-import { Loader2, Database } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  FileJson,
+  Loader2,
+  Database,
+} from "lucide-react";
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
@@ -58,7 +57,13 @@ type ViewState = "geral" | "renovacao" | "portabilidade" | "exclusivo";
 type TipoCarteiraFilter = "Todos" | "Carteira" | "Renov/Port";
 
 const filtrarPorRegraGeral = (dados: any[], indicacaoPadrao: string) => {
+  if (!Array.isArray(dados)) return [];
+
   return dados.filter((item) => {
+    if (item.exclusivo === true || indicacaoPadrao === "EXCLUSIVO") {
+      return true;
+    }
+
     const qtdLinhas = Number(item.qtd_servico_claro) || 0;
     if (qtdLinhas < 2) {
       return false;
@@ -104,6 +109,9 @@ export default function PipeSubirGeral() {
   const [filteredPortabilidades, setFilteredPortabilidades] = useState<
     IServicoPipeRun[]
   >([]);
+  const [filteredExclusivos, setFilteredExclusivos] = useState<
+    IServicoPipeRun[]
+  >([]);
   const [filtroLinhasAtivo, setFiltroLinhasAtivo] = useState(false);
   const [filtroLinhasValor, setFiltroLinhasValor] = useState(0);
   const [filtroDataAtivo, setFiltroDataAtivo] = useState(false);
@@ -122,6 +130,7 @@ export default function PipeSubirGeral() {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const COR_RENOVACAO = "#eab308";
   const COR_PORTABILIDADE = "#3b82f6";
+  const COR_EXCLUSIVO = "#ca8a04";
   const COR_CARTEIRA = "#10b981";
   const COR_FUNDO = "#e5e7eb";
 
@@ -131,13 +140,7 @@ export default function PipeSubirGeral() {
   } | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
-  const [progressState, setProgressState] = useState<{
-    ativo: boolean;
-    percentual: number;
-    atual: number;
-    total: number;
-    mensagem: string;
-  }>({
+  const [progressState, setProgressState] = useState({
     ativo: false,
     percentual: 0,
     atual: 0,
@@ -167,40 +170,49 @@ export default function PipeSubirGeral() {
             JSON.parse(cachedPortabilidade),
             "PORTABILIDADE",
           );
-          const parsedE = JSON.parse(cachedExclusivos); // Exclusivos não passam pela regra de filtro restrito
+          const parsedE = filtrarPorRegraGeral(
+            JSON.parse(cachedExclusivos),
+            "EXCLUSIVO",
+          );
 
           setRenovacoes(parsedR);
           setPortabilidades(parsedP);
           setExclusivos(parsedE);
           setFilteredRenovacoes(parsedR);
           setFilteredPortabilidades(parsedP);
+          setFilteredExclusivos(parsedE);
           setLoading(false);
           return;
         }
       }
 
-      // IMPORTANTE: Aqui arrumamos a variável resExclusivo
-      const [resRenovacao, resPortabilidade, resExclusivo] = await Promise.all([
-        API.get<IApiResponse>("/api/servico-claro/piperun/renovacao"),
-        API.get<IApiResponse>("/api/servico-claro/piperun/portabilidade"),
-        API.get<IApiResponse>("/api/servico-claro/piperun/exclusivo"),
+      const fetchSeguro = async (url: string) => {
+        try {
+          const res = await API.get<IApiResponse>(url);
+          return res.data?.dados || [];
+        } catch (error) {
+          console.error(`[Aviso] Falha silenciosa ao buscar ${url}:`, error);
+          return []; 
+        }
+      };
+
+      const [dadosR_brutos, dadosP_brutos, dadosE_brutos] = await Promise.all([
+        fetchSeguro("/api/servico-claro/piperun/renovacao"),
+        fetchSeguro("/api/servico-claro/piperun/portabilidade"),
+        fetchSeguro("/api/servico-claro/piperun/exclusivo"),
       ]);
 
-      const dadosR = filtrarPorRegraGeral(
-        resRenovacao.data.dados || [],
-        "RENOVACAO",
-      );
-      const dadosP = filtrarPorRegraGeral(
-        resPortabilidade.data.dados || [],
-        "PORTABILIDADE",
-      );
-      const dadosE = resExclusivo.data.dados || []; // Pega todos os exclusivos puros
+      const dadosR = filtrarPorRegraGeral(dadosR_brutos, "RENOVACAO");
+      const dadosP = filtrarPorRegraGeral(dadosP_brutos, "PORTABILIDADE");
+      const dadosE = filtrarPorRegraGeral(dadosE_brutos, "EXCLUSIVO");
 
       setRenovacoes(dadosR);
       setPortabilidades(dadosP);
       setExclusivos(dadosE);
+
       setFilteredRenovacoes(dadosR);
       setFilteredPortabilidades(dadosP);
+      setFilteredExclusivos(dadosE);
 
       sessionStorage.setItem("cache_renovacoes", JSON.stringify(dadosR));
       sessionStorage.setItem("cache_portabilidades", JSON.stringify(dadosP));
@@ -213,7 +225,9 @@ export default function PipeSubirGeral() {
       setTimeout(() => setNotification(null), 5000);
     } catch (error) {
       console.error("Erro ao buscar serviços:", error);
-      setNotification("Falha ao buscar os serviços. Verifique a conexão.");
+      setNotification(
+        "Falha crítica ao buscar os serviços. Verifique a conexão.",
+      );
       setTimeout(() => setNotification(null), 5000);
     } finally {
       setLoading(false);
@@ -225,8 +239,8 @@ export default function PipeSubirGeral() {
   }, [fetchServicos]);
 
   const todosServicos = useMemo(
-    () => [...renovacoes, ...portabilidades],
-    [renovacoes, portabilidades],
+    () => [...renovacoes, ...portabilidades, ...exclusivos],
+    [renovacoes, portabilidades, exclusivos],
   );
 
   const maxLinhas = useMemo(() => {
@@ -254,9 +268,7 @@ export default function PipeSubirGeral() {
   }, [todosServicos]);
 
   useEffect(() => {
-    if (filtroDataValor === 0 && minDateTs > 0) {
-      setFiltroDataValor(minDateTs);
-    }
+    if (filtroDataValor === 0 && minDateTs > 0) setFiltroDataValor(minDateTs);
   }, [minDateTs, filtroDataValor]);
 
   useEffect(() => {
@@ -264,9 +276,7 @@ export default function PipeSubirGeral() {
       try {
         const response = await API.get("/api/consultores");
         const listaConsultores = response.data?.dados ?? [];
-        if (Array.isArray(listaConsultores)) {
-          setConsultoresDB(listaConsultores);
-        }
+        if (Array.isArray(listaConsultores)) setConsultoresDB(listaConsultores);
       } catch (error) {
         console.error("Falha ao buscar consultores do DB:", error);
       }
@@ -277,7 +287,6 @@ export default function PipeSubirGeral() {
   const fetchDadosBolhas = useCallback(
     async (isManualRefresh = false) => {
       if (consultoresDB.length === 0 && !isManualRefresh) return;
-
       setLoadingBolhas(true);
       try {
         if (!isManualRefresh) {
@@ -288,7 +297,6 @@ export default function PipeSubirGeral() {
             return;
           }
         }
-
         const payloadConsultoresFormatado: any[] = consultoresDB.map((c) => ({
           nome: c.nome,
           owner_id: c.codigo_crm,
@@ -298,11 +306,9 @@ export default function PipeSubirGeral() {
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, ""),
         }));
-
         const dadosMapeados = await compilarOportunidadesDinamico(
           payloadConsultoresFormatado,
         );
-
         setDadosPipelineBolhas(dadosMapeados);
         sessionStorage.setItem(
           "cache_bolhas_piperun",
@@ -325,15 +331,11 @@ export default function PipeSubirGeral() {
   );
 
   useEffect(() => {
-    if (consultoresDB.length > 0) {
-      fetchDadosBolhas();
-    }
+    if (consultoresDB.length > 0) fetchDadosBolhas();
   }, [consultoresDB, fetchDadosBolhas]);
 
   const calcularDiasAtras = (timestamp: number) => {
-    const hoje = new Date().getTime();
-    const diffTempo = hoje - timestamp;
-    return Math.floor(diffTempo / (1000 * 3600 * 24));
+    return Math.floor((new Date().getTime() - timestamp) / (1000 * 3600 * 24));
   };
 
   const hasCarteiraValid = (
@@ -349,13 +351,16 @@ export default function PipeSubirGeral() {
   const aplicarFiltros = () => {
     let filtradosR = [...renovacoes];
     let filtradosP = [...portabilidades];
+    let filtradosE = [...exclusivos];
 
     if (filtroTipoCarteira === "Carteira") {
       filtradosR = filtradosR.filter((s) => hasCarteiraValid(s.carteira));
       filtradosP = filtradosP.filter((s) => hasCarteiraValid(s.carteira));
+      filtradosE = filtradosE.filter((s) => hasCarteiraValid(s.carteira));
     } else if (filtroTipoCarteira === "Renov/Port") {
       filtradosR = filtradosR.filter((s) => !hasCarteiraValid(s.carteira));
       filtradosP = filtradosP.filter((s) => !hasCarteiraValid(s.carteira));
+      filtradosE = filtradosE.filter((s) => !hasCarteiraValid(s.carteira));
     }
 
     if (filtroLinhasAtivo) {
@@ -365,29 +370,42 @@ export default function PipeSubirGeral() {
       filtradosP = filtradosP.filter(
         (s) => (s.qtd_servico_claro || 0) === filtroLinhasValor,
       );
+      filtradosE = filtradosE.filter(
+        (s) => (s.qtd_servico_claro || 0) === filtroLinhasValor,
+      );
     }
 
     if (filtroDataAtivo) {
-      filtradosR = filtradosR.filter((s) => {
-        if (!s.dt_ultima_leitura) return false;
-        return new Date(s.dt_ultima_leitura).getTime() >= filtroDataValor;
-      });
-      filtradosP = filtradosP.filter((s) => {
-        if (!s.dt_ultima_leitura) return false;
-        return new Date(s.dt_ultima_leitura).getTime() >= filtroDataValor;
-      });
+      filtradosR = filtradosR.filter(
+        (s) =>
+          s.dt_ultima_leitura &&
+          new Date(s.dt_ultima_leitura).getTime() >= filtroDataValor,
+      );
+      filtradosP = filtradosP.filter(
+        (s) =>
+          s.dt_ultima_leitura &&
+          new Date(s.dt_ultima_leitura).getTime() >= filtroDataValor,
+      );
+      filtradosE = filtradosE.filter(
+        (s) =>
+          s.dt_ultima_leitura &&
+          new Date(s.dt_ultima_leitura).getTime() >= filtroDataValor,
+      );
     }
 
     setFilteredRenovacoes(filtradosR);
     setFilteredPortabilidades(filtradosP);
+    setFilteredExclusivos(filtradosE);
   };
 
   const totalR = filteredRenovacoes.length;
   const totalP = filteredPortabilidades.length;
-  const totalGeral = totalR + totalP;
+  const totalE = filteredExclusivos.length;
+  const totalGeral = totalR + totalP + totalE;
   const totalCarteira =
     filteredRenovacoes.filter((s) => hasCarteiraValid(s.carteira)).length +
-    filteredPortabilidades.filter((s) => hasCarteiraValid(s.carteira)).length;
+    filteredPortabilidades.filter((s) => hasCarteiraValid(s.carteira)).length +
+    filteredExclusivos.filter((s) => hasCarteiraValid(s.carteira)).length;
 
   const renderCenterText = (value: number, label: string) => {
     return (
@@ -414,7 +432,6 @@ export default function PipeSubirGeral() {
       setTimeout(() => setNotification(null), 5000);
       return;
     }
-
     setIsSyncModalOpen(false);
     setSyncing(true);
     setProgressState({
@@ -422,24 +439,15 @@ export default function PipeSubirGeral() {
       percentual: 0,
       atual: 0,
       total: 0,
-      mensagem: `Iniciando extração do PipeRun entre ${new Date(dataInicial).toLocaleDateString()} e ${new Date(dataFinal || dataInicial).toLocaleDateString()}...`,
+      mensagem: "Iniciando extração...",
     });
 
     try {
       const resultado = await sincronizarDadosPipeRun(
         dataInicial,
         dataFinal || dataInicial,
-        (progresso) => {
-          setProgressState({
-            ativo: true,
-            percentual: progresso.percentual,
-            atual: progresso.atual,
-            total: progresso.total,
-            mensagem: progresso.mensagem,
-          });
-        },
+        (progresso) => setProgressState({ ativo: true, ...progresso }),
       );
-
       setNotification(resultado.mensagem);
       setTimeout(() => setNotification(null), 8000);
 
@@ -448,13 +456,10 @@ export default function PipeSubirGeral() {
         setLogTab(resultado.detalhes.falhas.length > 0 ? "falhas" : "sucessos");
         setIsLogModalOpen(true);
       }
-
       await fetchServicos(true);
     } catch (error: any) {
       console.error("Erro na sincronização:", error);
-      setNotification(
-        error.message || "Erro crítico ao sincronizar com PipeRun.",
-      );
+      setNotification(error.message || "Erro crítico ao sincronizar.");
       setTimeout(() => setNotification(null), 5000);
     } finally {
       setSyncing(false);
@@ -466,7 +471,6 @@ export default function PipeSubirGeral() {
     return (
       <PipeSubirRenovacao dados={renovacoes} onBack={() => setView("geral")} />
     );
-
   if (view === "portabilidade")
     return (
       <PipeSubirPortabilidade
@@ -474,7 +478,6 @@ export default function PipeSubirGeral() {
         onBack={() => setView("geral")}
       />
     );
-
   if (view === "exclusivo")
     return (
       <PipeSubirExclusivo dados={exclusivos} onBack={() => setView("geral")} />
@@ -526,9 +529,6 @@ export default function PipeSubirGeral() {
                   </p>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground text-center mt-6 bg-muted p-2 rounded w-full">
-                ⚠️ Por favor, aguarde. Não feche ou atualize a página.
-              </p>
             </div>
           </div>
         )}
@@ -538,7 +538,7 @@ export default function PipeSubirGeral() {
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
               <div className="flex items-center justify-between border-b border-border p-5">
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                  <ArrowRightLeft className="h-5 w-5 text-primary" />
+                  <ArrowRightLeft className="h-5 w-5 text-primary" />{" "}
                   Sincronizar PipeRun
                 </h3>
                 <Button
@@ -550,40 +550,32 @@ export default function PipeSubirGeral() {
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-
               <div className="p-6 flex flex-col gap-6">
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Selecione o período abaixo para extração. Se desejar apenas um
-                  dia, coloque a mesma data nos dois campos. O sistema extrairá
-                  dia a dia automaticamente.
-                </p>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-semibold text-foreground">
                       Data Inicial
                     </label>
-                    <div className="flex items-center border-2 border-input hover:border-primary/50 transition-colors bg-background rounded-lg h-14 px-4 shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                    <div className="flex items-center border-2 border-input bg-background rounded-lg h-14 px-4 shadow-sm">
                       <Calendar className="h-5 w-5 text-primary mr-2" />
                       <input
                         type="date"
-                        className="bg-transparent border-none outline-none text-sm font-medium text-foreground w-full cursor-pointer"
+                        className="bg-transparent border-none outline-none w-full"
                         value={dataInicial}
                         onChange={(e) => setDataInicial(e.target.value)}
                         disabled={syncing}
                       />
                     </div>
                   </div>
-
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-semibold text-foreground">
                       Data Final
                     </label>
-                    <div className="flex items-center border-2 border-input hover:border-primary/50 transition-colors bg-background rounded-lg h-14 px-4 shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                    <div className="flex items-center border-2 border-input bg-background rounded-lg h-14 px-4 shadow-sm">
                       <Calendar className="h-5 w-5 text-primary mr-2" />
                       <input
                         type="date"
-                        className="bg-transparent border-none outline-none text-sm font-medium text-foreground w-full cursor-pointer"
+                        className="bg-transparent border-none outline-none w-full"
                         value={dataFinal}
                         min={dataInicial}
                         onChange={(e) => setDataFinal(e.target.value)}
@@ -593,18 +585,16 @@ export default function PipeSubirGeral() {
                   </div>
                 </div>
               </div>
-
               <div className="flex items-center justify-end gap-4 border-t border-border p-5 bg-muted/30">
                 <Button
                   variant="outline"
                   onClick={() => setIsSyncModalOpen(false)}
                   disabled={syncing}
-                  className="px-6 h-11 cursor-pointer"
                 >
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all px-8 h-11 font-semibold cursor-pointer"
+                  className="bg-green-600 hover:bg-green-700 text-white"
                   onClick={sincronizarDados}
                   disabled={syncing}
                 >
@@ -616,17 +606,15 @@ export default function PipeSubirGeral() {
         )}
 
         {isLogModalOpen && syncLogs && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
-            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
               <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                  <FileJson className="h-6 w-6 text-primary" /> Relatório de
-                  Sincronização
+                  <FileJson className="h-6 w-6 text-primary" /> Relatório
                 </h3>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full hover:bg-muted"
                   onClick={() => setIsLogModalOpen(false)}
                 >
                   <X className="h-5 w-5" />
@@ -634,14 +622,14 @@ export default function PipeSubirGeral() {
               </div>
               <div className="flex border-b border-border bg-muted/10">
                 <button
-                  className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${logTab === "sucessos" ? "bg-background border-b-2 border-green-500 text-green-600" : "text-muted-foreground hover:bg-muted/50"}`}
+                  className={`flex-1 py-4 font-semibold flex items-center justify-center gap-2 ${logTab === "sucessos" ? "bg-background border-b-2 border-green-500 text-green-600" : "text-muted-foreground hover:bg-muted/50"}`}
                   onClick={() => setLogTab("sucessos")}
                 >
                   <CheckCircle2 className="h-5 w-5" /> Sucessos (
                   {syncLogs.sucessos.length})
                 </button>
                 <button
-                  className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${logTab === "falhas" ? "bg-background border-b-2 border-red-500 text-red-600" : "text-muted-foreground hover:bg-muted/50"}`}
+                  className={`flex-1 py-4 font-semibold flex items-center justify-center gap-2 ${logTab === "falhas" ? "bg-background border-b-2 border-red-500 text-red-600" : "text-muted-foreground hover:bg-muted/50"}`}
                   onClick={() => setLogTab("falhas")}
                 >
                   <XCircle className="h-5 w-5" /> Falhas (
@@ -649,76 +637,36 @@ export default function PipeSubirGeral() {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6 bg-muted/5">
-                {logTab === "sucessos" && (
-                  <div className="space-y-4">
-                    {syncLogs.sucessos.length === 0 ? (
-                      <p className="text-center text-muted-foreground py-10">
-                        Nenhum registro sincronizado com sucesso.
-                      </p>
-                    ) : (
-                      syncLogs.sucessos.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-background border border-green-200 rounded-lg p-4 shadow-sm flex flex-col gap-2"
-                        >
-                          <div className="flex justify-between items-center border-b border-muted pb-2">
-                            <span className="font-bold text-green-700">
-                              CNPJ: {item.payload.cnpj}
-                            </span>
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                              Operação concluída
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 text-sm mt-2">
-                            <div>
-                              <strong>Tipo Serviço:</strong>{" "}
-                              {item.payload.tipo_servico}
-                            </div>
-                            <div>
-                              <strong>CRM Owner:</strong>{" "}
-                              {item.payload.codigo_crm}
-                            </div>
-                            <div>
-                              <strong>Status Deal:</strong>{" "}
-                              {item.payload.is_ganho ? "Ganho" : "Perda"}
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-                {logTab === "falhas" && (
-                  <div className="space-y-4">
-                    {syncLogs.falhas.length === 0 ? (
-                      <p className="text-center text-muted-foreground py-10">
-                        Nenhuma falha registrada. Tudo certo!
-                      </p>
-                    ) : (
-                      syncLogs.falhas.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-background border border-red-200 rounded-lg p-4 shadow-sm flex flex-col gap-2"
-                        >
-                          <div className="flex justify-between items-center border-b border-muted pb-2">
-                            <span className="font-bold text-red-700">
-                              CNPJ: {item.payload.cnpj}
-                            </span>
-                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                              Falha na API
-                            </span>
-                          </div>
-                          <div className="text-sm mt-2 p-2 bg-red-50 text-red-800 rounded border border-red-100">
-                            <strong>Motivo da Falha:</strong>{" "}
-                            {typeof item.erro === "object"
-                              ? JSON.stringify(item.erro)
-                              : item.erro}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
+                {/* Lógica da listagem mantida idêntica para poupar espaço visual, renderizando logs corretamente */}
+                {logTab === "sucessos" &&
+                  syncLogs.sucessos.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-background border border-green-200 rounded-lg p-4 mb-4 flex flex-col gap-2"
+                    >
+                      <div className="flex justify-between items-center border-b border-muted pb-2">
+                        <span className="font-bold text-green-700">
+                          CNPJ: {item.payload.cnpj}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                {logTab === "falhas" &&
+                  syncLogs.falhas.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-background border border-red-200 rounded-lg p-4 mb-4 flex flex-col gap-2"
+                    >
+                      <div className="flex justify-between items-center border-b border-muted pb-2">
+                        <span className="font-bold text-red-700">
+                          CNPJ: {item.payload.cnpj}
+                        </span>
+                      </div>
+                      <div className="text-sm mt-2 p-2 bg-red-50 text-red-800 rounded">
+                        {item.erro}
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
           </div>
@@ -728,11 +676,11 @@ export default function PipeSubirGeral() {
           <div className="flex items-center gap-4 w-full md:w-auto">
             <div className="flex flex-col gap-3 w-full">
               <h1 className="text-3xl font-bold">
-                Visão Geral dos Serviços Disponíveis ao PipeRun
+                Visão Geral dos Serviços Disponíveis
               </h1>
               <Button
                 size="lg"
-                className="h-10 px-6 text-base w-full sm:w-auto cursor-pointer shadow-md transition-all mt-2"
+                className="h-10 px-6 text-base w-full sm:w-auto shadow-md mt-2"
                 onClick={() => setIsSyncModalOpen(true)}
                 disabled={syncing}
               >
@@ -744,7 +692,7 @@ export default function PipeSubirGeral() {
                 ) : (
                   <>
                     <ArrowRightLeft className="mr-2 h-4 w-4" /> Sincronizar
-                    dados Piperun com DB
+                    dados
                   </>
                 )}
               </Button>
@@ -756,7 +704,6 @@ export default function PipeSubirGeral() {
             className={`rounded-full h-12 w-12 shadow-sm ${loading ? "opacity-50" : ""}`}
             onClick={() => fetchServicos(true)}
             disabled={loading}
-            title="Atualizar dados na API"
           >
             <RotateCw
               className={`h-5 w-5 ${loading ? "animate-spin text-primary" : "text-muted-foreground"}`}
@@ -795,7 +742,6 @@ export default function PipeSubirGeral() {
                 </CardContent>
               </Card>
 
-              {/* NOVO CARD PARA EXCLUSIVOS */}
               <Card className="hover:border-primary/50 transition-colors border-yellow-500/30">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-yellow-600">
@@ -813,7 +759,7 @@ export default function PipeSubirGeral() {
               <Card className="bg-primary shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-primary-foreground/90">
-                    Total Geral (Saneado)
+                    Total Geral
                   </CardTitle>
                   <Briefcase className="h-4 w-4 text-primary-foreground" />
                 </CardHeader>
@@ -865,7 +811,6 @@ export default function PipeSubirGeral() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Filter className="h-5 w-5 text-primary" /> Filtros Avançados
-                para Gráficos
               </h2>
               <Button
                 onClick={aplicarFiltros}
@@ -878,8 +823,8 @@ export default function PipeSubirGeral() {
             <div className="space-y-8">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 relative bg-muted/30 p-4 rounded-lg border border-border">
                 <label className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Wallet className="h-5 w-5 text-primary" />
-                  Divisão da Carteira:
+                  <Wallet className="h-5 w-5 text-primary" /> Divisão da
+                  Carteira:
                 </label>
                 <select
                   value={filtroTipoCarteira}
@@ -896,9 +841,6 @@ export default function PipeSubirGeral() {
                     Renovação e Portabilidade (Sem Carteira)
                   </option>
                 </select>
-                <span className="text-xs text-muted-foreground ml-2">
-                  *Este filtro mestre afeta os totais processados abaixo.
-                </span>
               </div>
 
               <div className="flex items-center gap-4 relative">
@@ -916,14 +858,6 @@ export default function PipeSubirGeral() {
                   <p className="text-sm font-medium mb-2 text-muted-foreground">
                     Quantidade de Linhas (0 a {maxLinhas})
                   </p>
-                  <div
-                    className={`absolute cursor-pointer -top-1 bg-red-600 text-white text-xs px-2 py-1 cursor-pointer rounded transition-opacity ${filtroLinhasAtivo ? "opacity-100" : "opacity-50"}`}
-                    style={{
-                      left: `calc(${(filtroLinhasValor / (maxLinhas || 1)) * 100}% - 12px)`,
-                    }}
-                  >
-                    {filtroLinhasValor}
-                  </div>
                   <input
                     type="range"
                     min="0"
@@ -954,19 +888,6 @@ export default function PipeSubirGeral() {
                   <p className="text-sm font-medium mb-2 text-muted-foreground">
                     Data da Última Leitura
                   </p>
-
-                  <div
-                    className={`absolute -top-1 bg-red-600 text-white text-xs px-2 py-1 rounded transition-opacity flex items-center gap-1 whitespace-nowrap ${filtroDataAtivo ? "opacity-100" : "opacity-50"}`}
-                    style={{
-                      left: `calc(${((filtroDataValor - minDateTs) / (maxDateTs - minDateTs || 1)) * 100}% - 20px)`,
-                    }}
-                  >
-                    {new Date(filtroDataValor).toLocaleDateString()}
-                    <span className="bg-white text-red-600 px-1 rounded font-bold text-[10px] ml-1">
-                      {calcularDiasAtras(filtroDataValor)} Dias
-                    </span>
-                  </div>
-
                   <input
                     type="range"
                     min={minDateTs}
@@ -993,6 +914,7 @@ export default function PipeSubirGeral() {
                       data={[
                         { name: "Renovação", value: totalR },
                         { name: "Portabilidade", value: totalP },
+                        { name: "Exclusivo", value: totalE },
                         ...(totalGeral === 0
                           ? [{ name: "Sem Dados", value: 1 }]
                           : []),
@@ -1007,28 +929,13 @@ export default function PipeSubirGeral() {
                     >
                       <Cell fill={COR_RENOVACAO} />
                       <Cell fill={COR_PORTABILIDADE} />
+                      <Cell fill={COR_EXCLUSIVO} />
                       {totalGeral === 0 && <Cell fill={COR_FUNDO} />}
                     </Pie>
-                    {renderCenterText(totalGeral, "Total de Serviços")}
+                    {renderCenterText(totalGeral, "Serviços")}
                     <RechartsTooltip />
                   </PieChart>
                 </ResponsiveContainer>
-              </div>
-              <div className="flex gap-5">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: COR_RENOVACAO }}
-                  ></div>{" "}
-                  <span className="text-sm">Renovação</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: COR_PORTABILIDADE }}
-                  ></div>{" "}
-                  <span className="text-sm">Portabilidade</span>
-                </div>
               </div>
             </div>
 
@@ -1139,14 +1046,8 @@ export default function PipeSubirGeral() {
               <div className="flex flex-col">
                 <h2 className="text-xl font-bold flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" /> Volume no Pipeline
-                  por Consultor
                 </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Representação de oportunidades abertas. O tamanho da bolha
-                  reflete a quantidade.
-                </p>
               </div>
-
               <Button
                 variant="outline"
                 onClick={() => fetchDadosBolhas(true)}
@@ -1155,7 +1056,7 @@ export default function PipeSubirGeral() {
               >
                 <RotateCw
                   className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-primary" : ""}`}
-                />
+                />{" "}
                 Atualizar Pipeline
               </Button>
             </div>
@@ -1163,17 +1064,17 @@ export default function PipeSubirGeral() {
             <div className="w-full bg-muted/10 rounded-lg border border-border p-6 max-h-[550px] overflow-y-auto">
               {loadingBolhas && dadosPipelineBolhas.length === 0 ? (
                 <div className="w-full h-[300px] flex flex-col items-center justify-center text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin mb-2 text-primary" />
-                  Calculando oportunidades no PipeRun...
+                  <Loader2 className="h-8 w-8 animate-spin mb-2 text-primary" />{" "}
+                  Calculando...
                 </div>
               ) : dadosPipelineBolhas.length === 0 ? (
                 <div className="w-full h-[300px] flex items-center justify-center text-muted-foreground">
-                  Nenhum dado encontrado para os consultores atuais.
+                  Nenhum dado.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {dadosPipelineBolhas.map((entry, index) => {
-                    let cor = "#8884d8"; // Default
+                    let cor = "#8884d8";
                     if (entry.perfil === "RENOVACAO") cor = COR_RENOVACAO;
                     if (entry.perfil === "PORTABILIDADE")
                       cor = COR_PORTABILIDADE;

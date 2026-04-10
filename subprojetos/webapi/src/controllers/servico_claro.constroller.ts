@@ -10,12 +10,15 @@ class ServicoClaroController {
       this.buscarServicosClaroPipePortabilidade.bind(this);
     this.buscarServicosClaroPipeRenovacao =
       this.buscarServicosClaroPipeRenovacao.bind(this);
+    this.buscarServicosClaroPipeExclusivo =
+      this.buscarServicosClaroPipeExclusivo.bind(this);
     this.atualizarStatusCrm = this.atualizarStatusCrm.bind(this);
     this.sincronizarDados = this.sincronizarDados.bind(this);
     this.obterTodosMotivosDeclinio = this.obterTodosMotivosDeclinio.bind(this);
     this.buscarDashboardHistorico = this.buscarDashboardHistorico.bind(this);
     this.buscarDashboardBase = this.buscarDashboardBase.bind(this);
-    this.buscarDashboardPorIndicacao = this.buscarDashboardPorIndicacao.bind(this);
+    this.buscarDashboardPorIndicacao =
+      this.buscarDashboardPorIndicacao.bind(this);
   }
 
   async buscarServicosClaroPipePortabilidade(
@@ -176,7 +179,8 @@ class ServicoClaroController {
 
   async buscarDashboardHistorico(req: Request, res: Response): Promise<void> {
     try {
-      const dadosHistorico = await this.servicoClaroService.obterDashboardHistorico();
+      const dadosHistorico =
+        await this.servicoClaroService.obterDashboardHistorico();
       res.status(200).json({
         status: true,
         mensagem: "Histórico de atendimento e declínio carregado com sucesso.",
@@ -194,10 +198,12 @@ class ServicoClaroController {
 
   async buscarDashboardBase(req: Request, res: Response): Promise<void> {
     try {
-      const dadosBase = await this.servicoClaroService.obterDashboardServicoBase();
+      const dadosBase =
+        await this.servicoClaroService.obterDashboardServicoBase();
       res.status(200).json({
         status: true,
-        mensagem: "Dashboard base (Visão Consolidada Claro) carregado com sucesso.",
+        mensagem:
+          "Dashboard base (Visão Consolidada Claro) carregado com sucesso.",
         total_registros: dadosBase.length,
         dados: dadosBase,
       });
@@ -210,11 +216,17 @@ class ServicoClaroController {
     }
   }
 
-  async buscarDashboardPorIndicacao(req: Request, res: Response): Promise<void> {
+  async buscarDashboardPorIndicacao(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
     try {
       const { tipo_indicacao } = req.params;
 
-      const dadosIndicacao = await this.servicoClaroService.obterDashboardIndicacaoEspecifica(String(tipo_indicacao));
+      const dadosIndicacao =
+        await this.servicoClaroService.obterDashboardIndicacaoEspecifica(
+          String(tipo_indicacao),
+        );
       res.status(200).json({
         status: true,
         mensagem: `Dados de indicação (${String(tipo_indicacao).toUpperCase()}) carregados com sucesso.`,
@@ -222,7 +234,9 @@ class ServicoClaroController {
         dados: dadosIndicacao,
       });
     } catch (error: any) {
-      const statusCode = error.message.includes("não possui uma View mapeada") ? 400 : 500;
+      const statusCode = error.message.includes("não possui uma View mapeada")
+        ? 400
+        : 500;
       res.status(statusCode).json({
         status: false,
         mensagem: `Erro ao buscar dados do dashboard para a indicação: ${req.params.tipo_indicacao}`,
