@@ -294,7 +294,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
         const dddEmp = resEmpresa.dddPrincipal;
         const dddDec = resDecisor.dddPrincipal;
-        const dddFinal = dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
+        const dddFinal =
+          dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
 
         return { ...item, dddPredominante: dddFinal };
       })
@@ -616,7 +617,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 {consultoresEnvio.map((id) => {
                   const nomeConsultor =
                     mapaConsultores.get(id)?.nome || "Desconhecido";
-                  
+
                   // A contagem do pill agora respeita a base validada de SP para bater com o visual
                   const totalDoConsultor = dadosGeraisFiltrados.filter(
                     (item) => item.seq_consultor === id,
@@ -950,6 +951,9 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                           <TableHead className="text-right bg-muted">
                             Última Leitura
                           </TableHead>
+                          <TableHead className="text-right bg-muted">
+                            Docdrive
+                          </TableHead>
                           <TableHead className="text-center bg-muted">
                             Ações
                           </TableHead>
@@ -1046,6 +1050,9 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                     {diff === 0 ? "Hoje" : `${diff}d`}
                                   </span>
                                 )}
+                              </TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                {item.servico_docdrive || "-" }
                               </TableCell>
                               <TableCell className="text-center">
                                 <div className="flex justify-center gap-2">

@@ -117,9 +117,9 @@ export default class ServicoClaroRepository {
     is_ganho: boolean,
   ) {
     let query = `
-                UPDATE omni.servico_claro 
-                SET situacao = $1, crm = false, observacao_fechamento = $2, dt_fechamento = $3
-            `;
+        UPDATE omni.servico_claro 
+        SET situacao = $1, crm = false, observacao_fechamento = $2, dt_fechamento = $3
+    `;
 
     const params: any[] = [situacao, observacao, dt_fechamento];
 
@@ -137,6 +137,20 @@ export default class ServicoClaroRepository {
     } catch (error) {
       console.error(
         "[ServicoClaroRepository] Erro ao atualizar serviço volta:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async buscarServicosClaroPipeExclusivo() {
+    const query = `SELECT * FROM omni.api_subir_exclusivo;`;
+    try {
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar RENOVAÇÕES:",
         error,
       );
       throw error;
@@ -203,9 +217,13 @@ export default class ServicoClaroRepository {
   async executarValidacaoTemporarioClaro() {
     const query = `SELECT omni.fn_validar_temporario_claro();`;
     try {
-      console.log(`[DB] Executando rotina noturna: omni.fn_validar_temporario_claro()...`);
+      console.log(
+        `[DB] Executando rotina noturna: omni.fn_validar_temporario_claro()...`,
+      );
       const result = await pool.query(query);
-      console.log(`[DB] Rotina fn_validar_temporario_claro executada com sucesso.`);
+      console.log(
+        `[DB] Rotina fn_validar_temporario_claro executada com sucesso.`,
+      );
       return result.rows;
     } catch (error) {
       console.error(
@@ -222,7 +240,10 @@ export default class ServicoClaroRepository {
       const result = await pool.query(query);
       return result.rows;
     } catch (error) {
-      console.error("[ServicoClaroRepository] Erro ao buscar Dashboard de Histórico:", error);
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar Dashboard de Histórico:",
+        error,
+      );
       throw error;
     }
   }
@@ -233,24 +254,29 @@ export default class ServicoClaroRepository {
       const result = await pool.query(query);
       return result.rows;
     } catch (error) {
-      console.error("[ServicoClaroRepository] Erro ao buscar Dashboard Base de Serviços:", error);
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar Dashboard Base de Serviços:",
+        error,
+      );
       throw error;
     }
   }
 
   async buscarDashboardPorIndicacao(tipoIndicacao: string) {
     const mapaViews: { [key: string]: string } = {
-      'renovacao': 'vw_servico_claro_renovacao',
-      'fora-do-prazo': 'vw_servico_claro_fora_prazo',
-      'portabilidade': 'vw_servico_claro_portabilidade',
-      'prazo-limitado': 'vw_servico_claro_prazo_limitado',
-      'prazo-excedido': 'vw_servico_claro_prazo_excedido'
+      renovacao: "vw_servico_claro_renovacao",
+      "fora-do-prazo": "vw_servico_claro_fora_prazo",
+      portabilidade: "vw_servico_claro_portabilidade",
+      "prazo-limitado": "vw_servico_claro_prazo_limitado",
+      "prazo-excedido": "vw_servico_claro_prazo_excedido",
     };
 
     const nomeView = mapaViews[tipoIndicacao.toLowerCase()];
 
     if (!nomeView) {
-      throw new Error(`A indicação informada (${tipoIndicacao}) não possui uma View mapeada no sistema.`);
+      throw new Error(
+        `A indicação informada (${tipoIndicacao}) não possui uma View mapeada no sistema.`,
+      );
     }
 
     const query = `SELECT * FROM omni.${nomeView};`;
@@ -258,7 +284,10 @@ export default class ServicoClaroRepository {
       const result = await pool.query(query);
       return result.rows;
     } catch (error) {
-      console.error(`[ServicoClaroRepository] Erro ao buscar dados da view ${nomeView}:`, error);
+      console.error(
+        `[ServicoClaroRepository] Erro ao buscar dados da view ${nomeView}:`,
+        error,
+      );
       throw error;
     }
   }

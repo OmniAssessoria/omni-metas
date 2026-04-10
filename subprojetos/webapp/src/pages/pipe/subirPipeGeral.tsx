@@ -13,6 +13,7 @@ import {
   X,
   Wallet,
   Users,
+  Target,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import API from "@/services/api";
@@ -40,6 +41,7 @@ import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLi
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import { compilarOportunidadesDinamico } from "@/services/hookApiRunTotalServicoConsultor";
+import { PipeSubirExclusivo } from "./subir_pipe/subirPipeExclusivos";
 
 export interface ITelaDetalhesProps {
   dados: IServicoPipeRun[];
@@ -52,7 +54,7 @@ export interface IApiResponse {
   dados: IServicoPipeRun[];
 }
 
-type ViewState = "geral" | "renovacao" | "portabilidade";
+type ViewState = "geral" | "renovacao" | "portabilidade" | "exclusivo";
 type TipoCarteiraFilter = "Todos" | "Carteira" | "Renov/Port";
 
 const filtrarPorRegraGeral = (dados: any[], indicacaoPadrao: string) => {
@@ -94,6 +96,7 @@ export default function PipeSubirGeral() {
   const [loading, setLoading] = useState<boolean>(false);
   const [renovacoes, setRenovacoes] = useState<IServicoPipeRun[]>([]);
   const [portabilidades, setPortabilidades] = useState<IServicoPipeRun[]>([]);
+  const [exclusivos, setExclusivos] = useState<IServicoPipeRun[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
   const [filteredRenovacoes, setFilteredRenovacoes] = useState<
     IServicoPipeRun[]
@@ -153,8 +156,9 @@ export default function PipeSubirGeral() {
         const cachedPortabilidade = sessionStorage.getItem(
           "cache_portabilidades",
         );
+        const cachedExclusivos = sessionStorage.getItem("cache_exclusivos");
 
-        if (cachedRenovacao && cachedPortabilidade) {
+        if (cachedRenovacao && cachedPortabilidade && cachedExclusivos) {
           const parsedR = filtrarPorRegraGeral(
             JSON.parse(cachedRenovacao),
             "RENOVACAO",
@@ -163,9 +167,11 @@ export default function PipeSubirGeral() {
             JSON.parse(cachedPortabilidade),
             "PORTABILIDADE",
           );
+          const parsedE = JSON.parse(cachedExclusivos); // Exclusivos não passam pela regra de filtro restrito
 
           setRenovacoes(parsedR);
           setPortabilidades(parsedP);
+          setExclusivos(parsedE);
           setFilteredRenovacoes(parsedR);
           setFilteredPortabilidades(parsedP);
           setLoading(false);
@@ -173,9 +179,11 @@ export default function PipeSubirGeral() {
         }
       }
 
-      const [resRenovacao, resPortabilidade] = await Promise.all([
+      // IMPORTANTE: Aqui arrumamos a variável resExclusivo
+      const [resRenovacao, resPortabilidade, resExclusivo] = await Promise.all([
         API.get<IApiResponse>("/api/servico-claro/piperun/renovacao"),
         API.get<IApiResponse>("/api/servico-claro/piperun/portabilidade"),
+        API.get<IApiResponse>("/api/servico-claro/piperun/exclusivo"),
       ]);
 
       const dadosR = filtrarPorRegraGeral(
@@ -186,14 +194,17 @@ export default function PipeSubirGeral() {
         resPortabilidade.data.dados || [],
         "PORTABILIDADE",
       );
+      const dadosE = resExclusivo.data.dados || []; // Pega todos os exclusivos puros
 
       setRenovacoes(dadosR);
       setPortabilidades(dadosP);
+      setExclusivos(dadosE);
       setFilteredRenovacoes(dadosR);
       setFilteredPortabilidades(dadosP);
 
       sessionStorage.setItem("cache_renovacoes", JSON.stringify(dadosR));
       sessionStorage.setItem("cache_portabilidades", JSON.stringify(dadosP));
+      sessionStorage.setItem("cache_exclusivos", JSON.stringify(dadosE));
 
       const msg = isManualRefresh
         ? "Dados atualizados e cacheados com sucesso!"
@@ -248,9 +259,6 @@ export default function PipeSubirGeral() {
     }
   }, [minDateTs, filtroDataValor]);
 
-  // ============================================================================
-  // NOVOS HOOKS DE CONSULTOR E PIPELINE - MOVIDOS PARA CIMA DOS RETURNS
-  // ============================================================================
   useEffect(() => {
     async function loadConsultores() {
       try {
@@ -321,7 +329,6 @@ export default function PipeSubirGeral() {
       fetchDadosBolhas();
     }
   }, [consultoresDB, fetchDadosBolhas]);
-  // ============================================================================
 
   const calcularDiasAtras = (timestamp: number) => {
     const hoje = new Date().getTime();
@@ -455,20 +462,22 @@ export default function PipeSubirGeral() {
     }
   };
 
-  // ============================================================================
-  // RETORNOS ANTECIPADOS (EARLY RETURNS)
-  // Agora posicionados corretamente APÓS todas as declarações de Hooks
-  // ============================================================================
   if (view === "renovacao")
     return (
       <PipeSubirRenovacao dados={renovacoes} onBack={() => setView("geral")} />
     );
+
   if (view === "portabilidade")
     return (
       <PipeSubirPortabilidade
         dados={portabilidades}
         onBack={() => setView("geral")}
       />
+    );
+
+  if (view === "exclusivo")
+    return (
+      <PipeSubirExclusivo dados={exclusivos} onBack={() => setView("geral")} />
     );
 
   return (
@@ -757,7 +766,7 @@ export default function PipeSubirGeral() {
 
         <div className="w-full flex flex-col gap-8 mt-8 max-w-6xl">
           <div className="max-h-[300px] overflow-y-auto pr-2 pb-2">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card className="hover:border-primary/50 transition-colors">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -786,6 +795,21 @@ export default function PipeSubirGeral() {
                 </CardContent>
               </Card>
 
+              {/* NOVO CARD PARA EXCLUSIVOS */}
+              <Card className="hover:border-primary/50 transition-colors border-yellow-500/30">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-yellow-600">
+                    Total Exclusivos
+                  </CardTitle>
+                  <Target className="h-4 w-4 text-yellow-600" />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-4xl font-bold text-yellow-600">
+                    {loading ? "..." : exclusivos.length}
+                  </p>
+                </CardContent>
+              </Card>
+
               <Card className="bg-primary shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-primary-foreground/90">
@@ -797,7 +821,9 @@ export default function PipeSubirGeral() {
                   <p className="text-4xl font-bold text-primary-foreground">
                     {loading
                       ? "..."
-                      : renovacoes.length + portabilidades.length}
+                      : renovacoes.length +
+                        portabilidades.length +
+                        exclusivos.length}
                   </p>
                 </CardContent>
               </Card>
@@ -820,6 +846,14 @@ export default function PipeSubirGeral() {
                 >
                   <ArrowRightLeft className="mr-2 h-5 w-5" /> Tela de
                   Portabilidade
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-16 px-10 border-2 border-yellow-600 text-yellow-600 hover:bg-yellow-50 text-lg w-full cursor-pointer sm:w-auto shadow-md"
+                  onClick={() => setView("exclusivo")}
+                >
+                  <Target className="mr-2 h-5 w-5" /> Tela de Exclusivos
                 </Button>
               </CardContent>
             </Card>
@@ -1144,7 +1178,7 @@ export default function PipeSubirGeral() {
                     if (entry.perfil === "PORTABILIDADE")
                       cor = COR_PORTABILIDADE;
                     if (entry.perfil === "CARTEIRA") cor = COR_CARTEIRA;
-                    if (entry.perfil === "AMBOS") cor = "#a855f7"; 
+                    if (entry.perfil === "AMBOS") cor = "#a855f7";
 
                     return (
                       <div

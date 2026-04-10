@@ -4,7 +4,8 @@ import { IServicoPipeRun } from "@/interfaces/servicoPipeRun.interface";
 import { API_PIPERUN } from "@/services/apiPiperunSubir";
 
 interface UseIntegracaoProps {
-  tipoOperacao: "Renovação" | "Portabilidade";
+  // AJUSTE: Adicionado o tipo "Exclusivo"
+  tipoOperacao: "Renovação" | "Portabilidade" | "Exclusivo";
   dadosGlobais: IServicoPipeRun[];
   consultoresEnvio: number[];
   empresasEnvio?: number[];
@@ -98,7 +99,7 @@ export function useIntegracaoPipeRun() {
             }
           } else {
             console.error(`🚨 Recusa pelo PipeRun. Serviço: ${servico.seq_claro}`, resultadoPipe);
-            falhasLogs.push({ payload: servico, erro: "Recusado pelas regras do PipeRun (ex: CPF/CNPJ inválido, DDD fora de SP, etc)" });
+            falhasLogs.push({ payload: servico, erro: "Recusado pelas regras do PipeRun (ex: CPF/CNPJ inválido, regra de funil bloqueou, etc)" });
           }
         } catch (error: any) {
           console.error(`🚨 Crash na thread do seq_claro ${servico?.seq_claro}:`, error);

@@ -10,6 +10,7 @@ export interface IServicoPipeRun {
     observacao_fechamento: string | null;
     dt_ultima_leitura: string | null;
     carteira: string | null;
+    exclusivo: boolean | null;
     servico_docdrive: string | null;
     servico_claro_situacao: string | null;
     servico_claro_edoc: boolean | null;

@@ -113,7 +113,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
 
-  const [syncLogs, setSyncLogs] = useState<{ sucessos: any[]; falhas: any[] } | null>(null);
+  const [syncLogs, setSyncLogs] = useState<{
+    sucessos: any[];
+    falhas: any[];
+  } | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
 
@@ -282,7 +285,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
     return dadosLocais
       .map((item) => {
-        const resEmpresa = extrairTelefonesEmpresaDaObservacao(item.observacao || "");
+        const resEmpresa = extrairTelefonesEmpresaDaObservacao(
+          item.observacao || "",
+        );
         const resDecisor = extrairEFormatarTelefonesDecisor(
           item.decisor_numero || "",
           item.decisor_num_obs || "",
@@ -290,7 +295,8 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
         const dddEmp = resEmpresa.dddPrincipal;
         const dddDec = resDecisor.dddPrincipal;
-        const dddFinal = dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
+        const dddFinal =
+          dddEmp !== "00" ? dddEmp : dddDec !== "00" ? dddDec : "00";
 
         return { ...item, dddPredominante: dddFinal };
       })
@@ -310,7 +316,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         return true;
       });
   }, [dadosLocais]);
-
 
   // O estado visual principal agora baseia-se na base já saneada
   const dadosFiltrados = useMemo(() => {
@@ -552,7 +557,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         setConsultoresEnvio([]);
         setEmpresasSelecionadas([]);
         setLimiteEnvio("");
-        
+
         if (logs) {
           setSyncLogs(logs);
           setLogTab(logs.falhas.length > 0 ? "falhas" : "sucessos");
@@ -607,12 +612,12 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 {consultoresEnvio.map((id) => {
                   const nomeConsultor =
                     mapaConsultores.get(id)?.nome || "Desconhecido";
-                  
+
                   // A contagem do pill agora respeita a base validada de 2+ linhas para bater com o visual
                   const totalDoConsultor = dadosGeraisFiltrados.filter(
                     (item) => item.seq_consultor === id,
                   ).length;
-                  
+
                   const qtdParaEnviar =
                     typeof limiteEnvio === "number" && limiteEnvio > 0
                       ? limiteEnvio
@@ -921,6 +926,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                         <TableHead className="text-right bg-muted">
                           Última Leitura
                         </TableHead>
+                        <TableHead className="text-right bg-muted">
+                          Docdrive
+                        </TableHead>
                         <TableHead className="w-[120px] text-center bg-muted">
                           Ações
                         </TableHead>
@@ -1014,6 +1022,9 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                                 </span>
                               )}
                             </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              {item.servico_docdrive || "-"}
+                            </TableCell>
                             <TableCell className="text-center">
                               <div className="flex justify-center gap-2">
                                 <Button
@@ -1080,7 +1091,12 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                   </span>
                 </DialogDescription>
               </DialogHeader>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-white hover:bg-muted hover:text-white" onClick={() => setModalLinhasAberto(false)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full text-white hover:bg-muted hover:text-white"
+                onClick={() => setModalLinhasAberto(false)}
+              >
                 <X className="h-5 w-5" />
               </Button>
             </div>
@@ -1088,44 +1104,82 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               {isCarregandoLinhas ? (
                 <div className="flex flex-col items-center justify-center py-12 h-full">
                   <Loader2 className="w-8 h-8 animate-spin text-white mb-4" />
-                  <p className="text-blue-700 font-bold text-lg">Carregando informações das linhas...</p>
+                  <p className="text-blue-700 font-bold text-lg">
+                    Carregando informações das linhas...
+                  </p>
                 </div>
               ) : dadosLinhas.length === 0 ? (
                 <div className="bg-muted/30 p-10 rounded-lg text-center border border-dashed border-border mt-4">
                   <Smartphone className="w-10 h-10 text-white mx-auto mb-3 opacity-80" />
-                  <p className="text-blue-700 font-bold text-lg">Nenhuma informação de linha encontrada para esta empresa.</p>
+                  <p className="text-blue-700 font-bold text-lg">
+                    Nenhuma informação de linha encontrada para esta empresa.
+                  </p>
                 </div>
               ) : (
                 <div className="border border-border rounded-lg shadow-sm w-full bg-card">
                   <Table className="relative border-collapse w-full">
                     <TableHeader className="sticky top-0 z-10 shadow-sm bg-muted ring-1 ring-border/50">
                       <TableRow className="hover:bg-transparent">
-                        <TableHead className="font-bold text-white py-3">Número</TableHead>
-                        <TableHead className="font-bold text-white py-3">Operadora</TableHead>
-                        <TableHead className="font-bold text-white py-3">Plano</TableHead>
-                        <TableHead className="font-bold text-white py-3">Valor</TableHead>
-                        <TableHead className="font-bold text-white py-3">Bônus</TableHead>
-                        <TableHead className="font-bold text-right text-white py-3">Fim Compromisso</TableHead>
-                        <TableHead className="font-bold text-center text-white py-3">Status</TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Número
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Operadora
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Plano
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Valor
+                        </TableHead>
+                        <TableHead className="font-bold text-white py-3">
+                          Bônus
+                        </TableHead>
+                        <TableHead className="font-bold text-right text-white py-3">
+                          Fim Compromisso
+                        </TableHead>
+                        <TableHead className="font-bold text-center text-white py-3">
+                          Status
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {dadosLinhas.map((linha, index) => (
-                        <TableRow key={`linha-${linha.seq_servico_operadora || index}`} className="hover:bg-muted/50 transition-colors">
-                          <TableCell className="font-bold tracking-wide py-3 text-blue-700">{formatarTelefone(linha.numero_linha)}</TableCell>
+                        <TableRow
+                          key={`linha-${linha.seq_servico_operadora || index}`}
+                          className="hover:bg-muted/50 transition-colors"
+                        >
+                          <TableCell className="font-bold tracking-wide py-3 text-blue-700">
+                            {formatarTelefone(linha.numero_linha)}
+                          </TableCell>
                           <TableCell className="py-3">
-                            <span className={`font-bold text-xs px-2.5 py-1 rounded-md ${linha.tipo_servico === "CLARO" ? "bg-red-50 text-red-700 border border-red-200" : linha.tipo_servico === "VIVO" ? "bg-purple-50 text-purple-700 border border-purple-200" : "bg-muted text-white border border-border"}`}>
+                            <span
+                              className={`font-bold text-xs px-2.5 py-1 rounded-md ${linha.tipo_servico === "CLARO" ? "bg-red-50 text-red-700 border border-red-200" : linha.tipo_servico === "VIVO" ? "bg-purple-50 text-purple-700 border border-purple-200" : "bg-muted text-white border border-border"}`}
+                            >
                               {linha.tipo_servico}
                             </span>
                           </TableCell>
-                          <TableCell className="py-3 font-medium text-white">{linha.plano || "-"}</TableCell>
-                          <TableCell className="font-bold text-white py-3">{formatarMoedaBRL(linha.valor)}</TableCell>
-                          <TableCell className="font-medium text-white py-3">{linha.bonus || "-"}</TableCell>
-                          <TableCell className="text-right py-3 font-medium text-white">{formatarDataApenasDia(linha.dt_fim_compromisso)}</TableCell>
+                          <TableCell className="py-3 font-medium text-white">
+                            {linha.plano || "-"}
+                          </TableCell>
+                          <TableCell className="font-bold text-white py-3">
+                            {formatarMoedaBRL(linha.valor)}
+                          </TableCell>
+                          <TableCell className="font-medium text-white py-3">
+                            {linha.bonus || "-"}
+                          </TableCell>
+                          <TableCell className="text-right py-3 font-medium text-white">
+                            {formatarDataApenasDia(linha.dt_fim_compromisso)}
+                          </TableCell>
                           <TableCell className="py-3">
                             <div className="flex items-center justify-center gap-2">
-                              <span className={`w-2.5 h-2.5 rounded-full ${linha.linha_ativa ? "bg-green-500" : "bg-red-500"}`} title={linha.linha_ativa ? "Ativa" : "Inativa"} />
-                              <span className="text-sm font-bold text-white text-left">{linha.linha_ativa ? "Ativa" : "Inativa"}</span>
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full ${linha.linha_ativa ? "bg-green-500" : "bg-red-500"}`}
+                                title={linha.linha_ativa ? "Ativa" : "Inativa"}
+                              />
+                              <span className="text-sm font-bold text-white text-left">
+                                {linha.linha_ativa ? "Ativa" : "Inativa"}
+                              </span>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1138,7 +1192,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={modalAtribuicaoAberto} onOpenChange={setModalAtribuicaoAberto}>
+        <Dialog
+          open={modalAtribuicaoAberto}
+          onOpenChange={setModalAtribuicaoAberto}
+        >
           <DialogContent className="sm:max-w-xl bg-background border border-border rounded-xl">
             <DialogHeader className="pb-4 border-b border-border">
               <DialogTitle className="flex items-center gap-2 text-xl font-bold text-white">
@@ -1146,7 +1203,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                 Atribuir Consultor Manualmente
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground mt-2">
-                Empresa: <strong className="text-white">{empresaAtribuicao?.nome}</strong>
+                Empresa:{" "}
+                <strong className="text-white">
+                  {empresaAtribuicao?.nome}
+                </strong>
               </DialogDescription>
             </DialogHeader>
 
@@ -1154,24 +1214,44 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               {isCarregandoConsultoresDisponiveis ? (
                 <div className="flex flex-col items-center justify-center py-6">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
-                  <span className="text-sm text-muted-foreground">Calculando consultores elegíveis com base na carga...</span>
+                  <span className="text-sm text-muted-foreground">
+                    Calculando consultores elegíveis com base na carga...
+                  </span>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-white">Selecione um Consultor Disponível</label>
-                    <Select onValueChange={setConsultorSelecionadoAtribuicao} value={consultorSelecionadoAtribuicao} disabled={consultoresDisponiveis.length === 0}>
+                    <label className="text-sm font-semibold text-white">
+                      Selecione um Consultor Disponível
+                    </label>
+                    <Select
+                      onValueChange={setConsultorSelecionadoAtribuicao}
+                      value={consultorSelecionadoAtribuicao}
+                      disabled={consultoresDisponiveis.length === 0}
+                    >
                       <SelectTrigger className="w-full bg-muted/50 border-border focus:ring-blue-500 text-white h-12">
-                        <SelectValue placeholder={consultoresDisponiveis.length === 0 ? "Nenhum consultor atende aos critérios" : "Escolha na lista..."} />
+                        <SelectValue
+                          placeholder={
+                            consultoresDisponiveis.length === 0
+                              ? "Nenhum consultor atende aos critérios"
+                              : "Escolha na lista..."
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
                         {consultoresDisponiveis.map((c) => (
-                          <SelectItem key={`atribuicao-${c.seq_consultor}`} value={String(c.seq_consultor)}>
+                          <SelectItem
+                            key={`atribuicao-${c.seq_consultor}`}
+                            value={String(c.seq_consultor)}
+                          >
                             <div className="flex justify-between items-center w-[400px]">
                               <span className="font-semibold">{c.nome}</span>
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <span>Carga: {c.carga_atual}</span>
-                                <span className="bg-muted px-2 py-1 rounded">Min: {c.perfil_qtd_linhas_min} | Máx: {c.perfil_qtd_linhas_max}</span>
+                                <span className="bg-muted px-2 py-1 rounded">
+                                  Min: {c.perfil_qtd_linhas_min} | Máx:{" "}
+                                  {c.perfil_qtd_linhas_max}
+                                </span>
                               </div>
                             </div>
                           </SelectItem>
@@ -1180,21 +1260,45 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                     </Select>
                   </div>
 
-                  {consultoresDisponiveis.length === 0 && !isCarregandoConsultoresDisponiveis && (
-                    <div className="p-4 border rounded-md bg-red-500/10 border-red-500/20">
-                      <p className="text-sm font-medium text-red-400">
-                        A lógica de distribuição não encontrou nenhum consultor compatível com a carga de linhas desta empresa para Portabilidade.
-                      </p>
-                    </div>
-                  )}
+                  {consultoresDisponiveis.length === 0 &&
+                    !isCarregandoConsultoresDisponiveis && (
+                      <div className="p-4 border rounded-md bg-red-500/10 border-red-500/20">
+                        <p className="text-sm font-medium text-red-400">
+                          A lógica de distribuição não encontrou nenhum
+                          consultor compatível com a carga de linhas desta
+                          empresa para Portabilidade.
+                        </p>
+                      </div>
+                    )}
                 </div>
               )}
             </div>
 
             <DialogFooter className="flex justify-end gap-2 pt-4 border-t border-border">
-              <Button variant="ghost" onClick={() => setModalAtribuicaoAberto(false)} disabled={isSalvandoAtribuicao} className="text-white hover:bg-muted">Cancelar</Button>
-              <Button onClick={salvarNovaAtribuicao} disabled={isSalvandoAtribuicao || !consultorSelecionadoAtribuicao || consultoresDisponiveis.length === 0} className="font-semibold text-white bg-blue-600 min-w-[120px] hover:bg-blue-700">
-                {isSalvandoAtribuicao ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Salvar Atribuição</>}
+              <Button
+                variant="ghost"
+                onClick={() => setModalAtribuicaoAberto(false)}
+                disabled={isSalvandoAtribuicao}
+                className="text-white hover:bg-muted"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={salvarNovaAtribuicao}
+                disabled={
+                  isSalvandoAtribuicao ||
+                  !consultorSelecionadoAtribuicao ||
+                  consultoresDisponiveis.length === 0
+                }
+                className="font-semibold text-white bg-blue-600 min-w-[120px] hover:bg-blue-700"
+              >
+                {isSalvandoAtribuicao ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" /> Salvar Atribuição
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1203,13 +1307,17 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         {isLogModalOpen && syncLogs && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-              
               <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   <FileJson className="h-6 w-6 text-primary" />
                   Relatório de Envio ao PipeRun
                 </h3>
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted" onClick={() => setIsLogModalOpen(false)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-muted"
+                  onClick={() => setIsLogModalOpen(false)}
+                >
                   <X className="h-5 w-5" />
                 </Button>
               </div>
@@ -1240,7 +1348,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                       </p>
                     ) : (
                       syncLogs.sucessos.map((item, idx) => (
-                        <div key={`suc-${idx}`} className="bg-background border border-green-200 rounded-lg p-4 shadow-sm flex flex-col gap-2">
+                        <div
+                          key={`suc-${idx}`}
+                          className="bg-background border border-green-200 rounded-lg p-4 shadow-sm flex flex-col gap-2"
+                        >
                           <div className="flex justify-between items-center border-b border-muted pb-2">
                             <span className="font-bold text-green-700">
                               Empresa: {item.payload.razao}
@@ -1250,12 +1361,22 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             </span>
                           </div>
                           <div className="grid grid-cols-3 gap-4 text-sm mt-2">
-                            <div><strong>CNPJ:</strong> {item.payload.cnpj}</div>
-                            <div><strong>Consultor:</strong> {item.payload.consultor_email || "Não atribuído"}</div>
-                            <div><strong>Linhas:</strong> {item.payload.qtd_servico_claro}</div>
+                            <div>
+                              <strong>CNPJ:</strong> {item.payload.cnpj}
+                            </div>
+                            <div>
+                              <strong>Consultor:</strong>{" "}
+                              {item.payload.consultor_email || "Não atribuído"}
+                            </div>
+                            <div>
+                              <strong>Linhas:</strong>{" "}
+                              {item.payload.qtd_servico_claro}
+                            </div>
                           </div>
                           <details className="mt-2 text-xs bg-muted/30 p-2 rounded cursor-pointer">
-                            <summary className="font-semibold text-muted-foreground hover:text-white">Ver Dados do Payload</summary>
+                            <summary className="font-semibold text-muted-foreground hover:text-white">
+                              Ver Dados do Payload
+                            </summary>
                             <pre className="mt-2 whitespace-pre-wrap break-all text-blue-600">
                               {JSON.stringify(item.payload, null, 2)}
                             </pre>
@@ -1274,7 +1395,10 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                       </p>
                     ) : (
                       syncLogs.falhas.map((item, idx) => (
-                        <div key={`falha-${idx}`} className="bg-background border border-red-200 rounded-lg p-4 shadow-sm flex flex-col gap-2">
+                        <div
+                          key={`falha-${idx}`}
+                          className="bg-background border border-red-200 rounded-lg p-4 shadow-sm flex flex-col gap-2"
+                        >
                           <div className="flex justify-between items-center border-b border-muted pb-2">
                             <span className="font-bold text-red-700">
                               Empresa: {item.payload?.razao || "Desconhecida"}
@@ -1284,15 +1408,28 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                             </span>
                           </div>
                           <div className="grid grid-cols-3 gap-4 text-sm mt-2">
-                            <div><strong>CNPJ:</strong> {item.payload?.cnpj}</div>
-                            <div><strong>Consultor:</strong> {item.payload?.consultor_email || "Não atribuído"}</div>
-                            <div><strong>Linhas:</strong> {item.payload?.qtd_servico_claro}</div>
+                            <div>
+                              <strong>CNPJ:</strong> {item.payload?.cnpj}
+                            </div>
+                            <div>
+                              <strong>Consultor:</strong>{" "}
+                              {item.payload?.consultor_email || "Não atribuído"}
+                            </div>
+                            <div>
+                              <strong>Linhas:</strong>{" "}
+                              {item.payload?.qtd_servico_claro}
+                            </div>
                           </div>
                           <div className="text-sm mt-2 p-2 bg-red-50 text-red-800 rounded border border-red-100">
-                            <strong>Motivo da Falha:</strong> {typeof item.erro === "object" ? JSON.stringify(item.erro) : item.erro}
+                            <strong>Motivo da Falha:</strong>{" "}
+                            {typeof item.erro === "object"
+                              ? JSON.stringify(item.erro)
+                              : item.erro}
                           </div>
                           <details className="mt-2 text-xs bg-muted/30 p-2 rounded cursor-pointer">
-                            <summary className="font-semibold text-muted-foreground hover:text-white">Ver Dados da Empresa que Falhou</summary>
+                            <summary className="font-semibold text-muted-foreground hover:text-white">
+                              Ver Dados da Empresa que Falhou
+                            </summary>
                             <pre className="mt-2 whitespace-pre-wrap break-all text-blue-600">
                               {JSON.stringify(item.payload, null, 2)}
                             </pre>
@@ -1306,7 +1443,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
             </div>
           </div>
         )}
-
       </main>
     </div>
   );

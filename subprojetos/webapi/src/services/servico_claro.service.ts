@@ -22,6 +22,11 @@ class ServicoClaroService {
     return dados && dados.length > 0 ? dados : [];
   }
 
+  async listarExclusivoPendentes() {
+    const dados = await this.repository.buscarServicosClaroPipeExclusivo();
+    return dados && dados.length > 0 ? dados : [];
+  }
+
   async marcarComoEnviadoCrm(seq_claro: number) {
     if (!seq_claro) {
       throw new Error("O identificador do serviço (seq_claro) é obrigatório.");
@@ -147,7 +152,8 @@ class ServicoClaroService {
     if (!tipoIndicacao) {
       throw new Error("O parâmetro de indicação é obrigatório para a busca.");
     }
-    const dados = await this.repository.buscarDashboardPorIndicacao(tipoIndicacao);
+    const dados =
+      await this.repository.buscarDashboardPorIndicacao(tipoIndicacao);
     return dados && dados.length > 0 ? dados : [];
   }
 }

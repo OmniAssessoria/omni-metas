@@ -60,6 +60,27 @@ class ServicoClaroController {
     }
   }
 
+  async buscarServicosClaroPipeExclusivo(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const servicos =
+        await this.servicoClaroService.listarExclusivoPendentes();
+      res.status(200).json({
+        status: true,
+        mensagem: "Serviços Claro (Exclusivo) encontrados com sucesso.",
+        dados: servicos,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: false,
+        mensagem: "Erro ao buscar serviços em exclusivos.",
+        detalhes: error.message,
+      });
+    }
+  }
+
   async atualizarStatusCrm(req: Request, res: Response): Promise<void> {
     try {
       const { seq_claro } = req.params;
