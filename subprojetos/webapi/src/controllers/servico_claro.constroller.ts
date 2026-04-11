@@ -19,6 +19,7 @@ class ServicoClaroController {
     this.buscarDashboardBase = this.buscarDashboardBase.bind(this);
     this.buscarDashboardPorIndicacao =
       this.buscarDashboardPorIndicacao.bind(this);
+    this.buscarDashboardEmpresasInfo = this.buscarDashboardEmpresasInfo.bind(this);
   }
 
   async buscarServicosClaroPipePortabilidade(
@@ -240,6 +241,25 @@ class ServicoClaroController {
       res.status(statusCode).json({
         status: false,
         mensagem: `Erro ao buscar dados do dashboard para a indicação: ${req.params.tipo_indicacao}`,
+        detalhes: error.message,
+      });
+    }
+  }
+
+  async buscarDashboardEmpresasInfo(req: Request, res: Response): Promise<void> {
+    try {
+      const dadosEmpresas = await this.servicoClaroService.obterDashboardEmpresasInfo();
+
+      res.status(200).json({
+        status: true,
+        mensagem: "Dashboard de funil CPC (Empresas) carregado com sucesso.",
+        dados: dadosEmpresas,
+      });
+    } catch (error: any) {
+      console.error(`[API GET ERROR] Falha ao buscar Dashboard Empresas:`, error.message);
+      res.status(500).json({
+        status: false,
+        mensagem: "Erro ao buscar dados consolidados das empresas (Funil CPC).",
         detalhes: error.message,
       });
     }

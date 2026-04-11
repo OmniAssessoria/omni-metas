@@ -22,7 +22,6 @@ import {
   RefreshCcw,
   History,
   BarChart2,
-  Clock,
   Download,
   Image as ImageIcon,
   FileSpreadsheet,
@@ -146,6 +145,7 @@ export default function DashboardAnaliticoMultiView() {
   const [dataFimPipe, setDataFimPipe] = useState<string>("");
   const [dadosPerdas, setDadosPerdas] = useState<any[]>([]);
   const [loadingPerdas, setLoadingPerdas] = useState<boolean>(false);
+  const [dadosFunilCpc, setDadosFunilCpc] = useState<any>(null);
 
   // NOVO ESTADO: Controle de visualização da aba de perdas (Tabela ou Gráfico)
   const [viewModePerdas, setViewModePerdas] = useState<"grafico" | "tabela">("grafico");
@@ -168,24 +168,15 @@ export default function DashboardAnaliticoMultiView() {
   const fetchTodasViews = useCallback(async () => {
     setLoading(true);
     try {
-      const [resRenov, resPort, resFora, resLim, resExc, resHist] =
+      const [resRenov, resPort, resFora, resLim, resExc, resHist, resFunil] =
         await Promise.all([
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/renovacao",
-          ),
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/portabilidade",
-          ),
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/fora-do-prazo",
-          ),
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/prazo-limitado",
-          ),
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/prazo-excedido",
-          ),
+          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/renovacao"),
+          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/portabilidade"),
+          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/fora-do-prazo"),
+          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-limitado"),
+          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-excedido"),
           API.get<IApiResponseView>("/api/servico-claro/dashboard/historico"),
+          API.get<any>("/api/servico-claro/dashboard/empresas"),
         ]);
 
       const prepararDados = (lista: any[]) => {
@@ -221,6 +212,10 @@ export default function DashboardAnaliticoMultiView() {
 
       setHistoricoBruto(payloadHistorico);
       setHistoricoFiltrado(payloadHistorico);
+
+      if (resFunil?.data?.dados) {
+        setDadosFunilCpc(resFunil.data.dados);
+      }
 
       setUltimaAtualizacao(new Date());
       setNotification("Bases de Serviço e Histórico atualizadas com sucesso!");
@@ -1443,6 +1438,103 @@ export default function DashboardAnaliticoMultiView() {
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="mt-4 text-slate-200 border-none shadow-lg bg-slate-900 overflow-hidden">
+              <div className="flex items-center gap-2 px-5 py-3 border-b bg-slate-800/80 border-slate-700/50">
+                <Database className="w-4 h-4 text-blue-400" />
+                <h3 className="text-xs font-bold tracking-wider uppercase text-slate-300">
+                  Métricas de Funil (CPC & eDoc) - Visão Global de Empresas
+                </h3>
+              </div>
+              <CardContent className="p-0">
+                {/* Truque do bg-slate-700 com gap-[1px] cria uma borda perfeita em grid independente da quebra de linha */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[1px] bg-slate-700/50">
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                      Passaram pelo CPC
+                    </p>
+                    <p className="text-xl font-black text-emerald-400">
+                      {dadosFunilCpc?.total_passado_cpc || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                      Lido CPC (Sem Serviço)
+                    </p>
+                    <p className="text-xl font-black text-white">
+                      {dadosFunilCpc?.total_passado_cpc_sem_servico || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                      Disp. p/ CPC (Sem Serv.)
+                    </p>
+                    <p className="text-xl font-black text-amber-400">
+                      {dadosFunilCpc?.disp_cpc_sem_servico || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                      Disp. p/ CPC (Com eDoc)
+                    </p>
+                    <p className="text-xl font-black text-white">
+                      {dadosFunilCpc?.disp_cpc_com_edoc || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                      Disp. CPC (eDoc + Drive)
+                    </p>
+                    <p className="text-xl font-black text-sky-400">
+                      {dadosFunilCpc?.disp_cpc_edoc_e_docdrive || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                      eDoc s/ Drive <br />(Já Lido CPC)
+                    </p>
+                    <p className="text-xl font-black text-slate-300">
+                      {dadosFunilCpc?.edoc_sem_docdrive_sem_serv_cpc_ok || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-purple-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                      CPC + eDoc + Serviço <br /> (Total Geral)
+                    </p>
+                    <p className="text-xl font-black text-purple-400">
+                      {dadosFunilCpc?.edoc_com_cpc_edoc_servico || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-red-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                      CPC + eDoc + Serviço <br /> (SEM DRIVE)
+                    </p>
+                    <p className="text-xl font-black text-red-500">
+                      {dadosFunilCpc?.edoc_com_cpc_edoc_servico_sem_drive || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-blue-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                      CPC + eDoc + Serviço <br /> (COM DRIVE)
+                    </p>
+                    <p className="text-xl font-black text-blue-400">
+                      {dadosFunilCpc?.edoc_com_cpc_edoc_servico_com_drive || 0}
+                    </p>
+                  </div>
+
+                </div>
+              </CardContent>
+            </Card>
+
           </div>
         </section>
 

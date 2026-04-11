@@ -2,6 +2,20 @@ import { INovoHistoricoEmpresaConsultor } from "../interfaces/novo_historico_emp
 import pool from "../module/postgresdb/conexao.js";
 
 export default class ServicoClaroRepository {
+  async buscarDashboardEmpresasInfo() {
+    const query = `SELECT * FROM omni.vw_dash_funil_cpc;`;
+    try {
+      const result = await pool.query(query);
+      return result.rows[0];
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar Dashboard Funil CPC (vw_dash_funil_cpc):",
+        error,
+      );
+      throw error;
+    }
+  }
+
   async buscarSeqEmpresaPorCnpj(cnpj: string) {
     const query = `SELECT seq_empresa FROM omni.empresa WHERE cnpj = $1;`;
     try {

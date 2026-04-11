@@ -12,6 +12,24 @@ class ServicoClaroService {
     this.repositoryConsultor = new ConsultorRepository();
   }
 
+  async obterDashboardEmpresasInfo() {
+    const dados = await this.repository.buscarDashboardEmpresasInfo();
+    if (!dados) {
+      return {
+        total_passado_cpc: 0,
+        total_passado_cpc_sem_servico: 0,
+        disp_cpc_sem_servico: 0,
+        disp_cpc_com_edoc: 0,
+        disp_cpc_edoc_e_docdrive: 0,
+        edoc_sem_docdrive_sem_serv_cpc_null: 0,
+        edoc_sem_docdrive_sem_serv_cpc_ok: 0,
+        data_hora_extracao: new Date().toISOString()
+      };
+    }
+
+    return dados;
+  }
+
   async listarPortabilidadesPendentes() {
     const dados = await this.repository.buscarServicosClaroPipePortabilidade();
     return dados && dados.length > 0 ? dados : [];
