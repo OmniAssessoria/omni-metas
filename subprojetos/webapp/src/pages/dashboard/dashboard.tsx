@@ -1448,7 +1448,6 @@ export default function DashboardAnaliticoMultiView() {
 
         <hr className="w-full max-w-7xl mx-auto border-slate-200" />
 
-        {/* SECÃO ORIGINAL: BASES NO PIPERUN (ABERTAS) */}
         <section className="w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
             <div>
@@ -1544,7 +1543,6 @@ export default function DashboardAnaliticoMultiView() {
 
         <hr className="w-full max-w-7xl mx-auto border-slate-200 mt-8 mb-8" />
 
-        {/* NOVA SEÇÃO: ANÁLISE DE PERDAS COM GRÁFICOS OU TABELA */}
         <section className="w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
             <div>
@@ -1556,7 +1554,6 @@ export default function DashboardAnaliticoMultiView() {
               </p>
             </div>
 
-            {/* Toggle Gráfico vs Tabela */}
             {dadosPerdas.length > 0 && (
               <div className="flex bg-slate-100 p-1 rounded-lg">
                 <button
@@ -1578,7 +1575,6 @@ export default function DashboardAnaliticoMultiView() {
           </div>
 
           <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
-            {/* Controles de Data */}
             <div className="flex flex-col md:flex-row items-end gap-4 mb-6 pb-6 border-b border-slate-100">
               <div className="space-y-1.5 w-full md:w-auto">
                 <label className="text-xs font-bold text-slate-700">Data Criação (Início)</label>
@@ -1612,7 +1608,6 @@ export default function DashboardAnaliticoMultiView() {
               </Button>
             </div>
 
-            {/* MODO GRÁFICO DE BOLHAS */}
             {viewModePerdas === "grafico" && (
               <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 min-h-[300px] max-h-[600px] overflow-y-auto">
                 {loadingPerdas ? (
@@ -1633,8 +1628,6 @@ export default function DashboardAnaliticoMultiView() {
                         { name: "Restante (Base)", value: restouBase < 0 ? 0 : restouBase, fill: CORES.sucesso },
                         { name: "Declinados", value: row.totalDeclinados, fill: CORES.declinio }
                       ];
-
-                      // Formatação de Moeda local
                       const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
                       return (
@@ -1649,7 +1642,6 @@ export default function DashboardAnaliticoMultiView() {
                             {row.perfil}
                           </span>
 
-                          {/* BOLHA / PIE CHART */}
                           <div className="w-40 h-40">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
@@ -1674,7 +1666,6 @@ export default function DashboardAnaliticoMultiView() {
                             </ResponsiveContainer>
                           </div>
 
-                          {/* RESUMO DOS DADOS ABAIXO DA BOLHA */}
                           <div className="w-full mt-4 space-y-2 text-xs">
                             <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded">
                               <span className="font-semibold text-slate-600">Base Total:</span>
