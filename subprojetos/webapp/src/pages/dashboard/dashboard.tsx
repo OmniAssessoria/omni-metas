@@ -835,8 +835,8 @@ export default function DashboardAnaliticoMultiView() {
               .toUpperCase()
               .normalize("NFD")
               .replace(/[\u0300-\u036f]/g, ""),
-            seq: c.codigo_crm || 0, 
-            email: "", 
+            seq: c.codigo_crm || 0,
+            email: "",
           }) as IConsultor,
       );
 
@@ -1555,23 +1555,21 @@ export default function DashboardAnaliticoMultiView() {
                 Filtre por data para visualizar o Total Base enviado ao consultor e a proporção declinada (em Bolhas ou Tabela).
               </p>
             </div>
-            
+
             {/* Toggle Gráfico vs Tabela */}
             {dadosPerdas.length > 0 && (
               <div className="flex bg-slate-100 p-1 rounded-lg">
                 <button
                   onClick={() => setViewModePerdas("grafico")}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
-                    viewModePerdas === "grafico" ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${viewModePerdas === "grafico" ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"
+                    }`}
                 >
                   <LayoutGrid className="w-4 h-4" /> Gráficos
                 </button>
                 <button
                   onClick={() => setViewModePerdas("tabela")}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
-                    viewModePerdas === "tabela" ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${viewModePerdas === "tabela" ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"
+                    }`}
                 >
                   <ListIcon className="w-4 h-4" /> Tabela
                 </button>
@@ -1616,7 +1614,7 @@ export default function DashboardAnaliticoMultiView() {
 
             {/* MODO GRÁFICO DE BOLHAS */}
             {viewModePerdas === "grafico" && (
-               <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 min-h-[300px] max-h-[600px] overflow-y-auto">
+              <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 min-h-[300px] max-h-[600px] overflow-y-auto">
                 {loadingPerdas ? (
                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-500">
                     <Loader2 className="h-8 w-8 animate-spin mb-2 text-red-500" />
@@ -1630,7 +1628,7 @@ export default function DashboardAnaliticoMultiView() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {dadosPerdas.map((row, index) => {
                       const restouBase = row.totalBase - row.totalDeclinados;
-                      
+
                       const dadosPie = [
                         { name: "Restante (Base)", value: restouBase < 0 ? 0 : restouBase, fill: CORES.sucesso },
                         { name: "Declinados", value: row.totalDeclinados, fill: CORES.declinio }
@@ -1650,7 +1648,7 @@ export default function DashboardAnaliticoMultiView() {
                           <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded mb-3 font-semibold uppercase tracking-wider">
                             {row.perfil}
                           </span>
-                          
+
                           {/* BOLHA / PIE CHART */}
                           <div className="w-40 h-40">
                             <ResponsiveContainer width="100%" height="100%">
@@ -1669,7 +1667,7 @@ export default function DashboardAnaliticoMultiView() {
                                   ))}
                                 </Pie>
                                 <RechartsTooltip
-                                  formatter={(val: any, name: string) => [val, name]}
+                                  formatter={(val: any, name: any) => [val, name]}
                                   contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
                                 />
                               </PieChart>
@@ -1687,9 +1685,9 @@ export default function DashboardAnaliticoMultiView() {
                               <span className="font-bold text-red-600">{row.totalDeclinados} <span className="text-[9px] text-red-400 font-normal">({fmt(row.valorDeclinados)})</span></span>
                             </div>
                             <div className="text-center pt-1 border-t border-slate-100 mt-1">
-                               <span className={`font-bold ${Number(row.taxaPerda) > 50 ? "text-red-600" : "text-amber-500"}`}>
-                                 {row.taxaPerda}% de Perda
-                               </span>
+                              <span className={`font-bold ${Number(row.taxaPerda) > 50 ? "text-red-600" : "text-amber-500"}`}>
+                                {row.taxaPerda}% de Perda
+                              </span>
                             </div>
                           </div>
                         </div>
