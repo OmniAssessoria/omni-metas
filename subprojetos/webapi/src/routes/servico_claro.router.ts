@@ -22,6 +22,7 @@ class RotasServicoClaro {
     this.router.get("/servico-claro/dashboard/base", this.servicoClaroController.buscarDashboardBase);
     this.router.get("/servico-claro/dashboard/indicacao/:tipo_indicacao", this.servicoClaroController.buscarDashboardPorIndicacao);
     this.router.get("/servico-claro/dashboard/empresas", this.servicoClaroController.buscarDashboardEmpresasInfo);
+    this.router.post("/servico-claro/layout/imagem-linhas", this.servicoClaroController.gerarLayoutImagemLinhas);
   }
 
   public retornarRotas(): Router {

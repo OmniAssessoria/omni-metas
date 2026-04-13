@@ -305,4 +305,33 @@ export default class ServicoClaroRepository {
       throw error;
     }
   }
+
+  async buscarLinhasPorSeqEmpresa(seq_empresa: number) {
+    const query = `
+      SELECT 
+        seq_servico_operadora, 
+        seq_empresa, 
+        tipo_servico, 
+        dt_fim_compromisso, 
+        numero_linha, 
+        plano, 
+        valor, 
+        bonus, 
+        linha_ativa 
+      FROM omni.servico_operadora 
+      WHERE seq_empresa = $1 
+        AND linha_ativa = true 
+        AND tipo_servico = 'CLARO';
+    `;
+    try {
+      const result = await pool.query(query, [seq_empresa]);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar linhas (servico_operadora):",
+        error,
+      );
+      throw error;
+    }
+  }
 }

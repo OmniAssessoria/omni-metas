@@ -11,6 +11,10 @@
     "build": "npm run build -workspaces"
   },
   "devDependencies": {
+    "@types/puppeteer": "^5.4.7",
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "puppeteer": "^24.40.0"
   }
 }

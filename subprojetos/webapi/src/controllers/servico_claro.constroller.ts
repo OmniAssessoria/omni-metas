@@ -1,11 +1,14 @@
 import { Request, Response } from "express";
 import ServicoClaroService from "../services/servico_claro.service.js";
+import GeradorImagemLayoutService from "../services/gerador_imagem_layout.service.js";
 
 class ServicoClaroController {
   private servicoClaroService: ServicoClaroService;
+  private geradorImagemLayoutService: GeradorImagemLayoutService;
 
   constructor() {
     this.servicoClaroService = new ServicoClaroService();
+    this.geradorImagemLayoutService = new GeradorImagemLayoutService();
     this.buscarServicosClaroPipePortabilidade =
       this.buscarServicosClaroPipePortabilidade.bind(this);
     this.buscarServicosClaroPipeRenovacao =
@@ -20,6 +23,7 @@ class ServicoClaroController {
     this.buscarDashboardPorIndicacao =
       this.buscarDashboardPorIndicacao.bind(this);
     this.buscarDashboardEmpresasInfo = this.buscarDashboardEmpresasInfo.bind(this);
+    this.gerarLayoutImagemLinhas = this.gerarLayoutImagemLinhas.bind(this);
   }
 
   async buscarServicosClaroPipePortabilidade(
@@ -260,6 +264,42 @@ class ServicoClaroController {
       res.status(500).json({
         status: false,
         mensagem: "Erro ao buscar dados consolidados das empresas (Funil CPC).",
+        detalhes: error.message,
+      });
+    }
+  }
+
+  async gerarLayoutImagemLinhas(req: Request, res: Response): Promise<void> {
+    try {
+      const { seq_empresa, razao, cnpj } = req.body;
+
+      console.log(`[API POST] Gerando layout Base64 para Empresa SEQ: ${seq_empresa} | ${razao}`);
+
+      if (!seq_empresa || isNaN(Number(seq_empresa))) {
+        res.status(400).json({ status: false, mensagem: "O parâmetro seq_empresa é obrigatório e deve ser numérico." });
+        return;
+      }
+
+      const resultado = await this.geradorImagemLayoutService.gerarLayoutInfoLinhas(
+        Number(seq_empresa),
+        razao || "Cliente Omni",
+        cnpj || "CNPJ não informado"
+      );
+
+      res.status(200).json({
+        status: true,
+        mensagem: "Proposta gerada em Base64 com sucesso.",
+        dados: {
+          imagem: resultado.imagem_base64,
+          metricas: resultado.analise
+        }
+      });
+
+    } catch (error: any) {
+      console.error(`[API POST ERROR] Falha ao gerar layout de linhas:`, error.message);
+      res.status(500).json({
+        status: false,
+        mensagem: "Erro interno na renderização da proposta comercial.",
         detalhes: error.message,
       });
     }
