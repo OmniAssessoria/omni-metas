@@ -53,7 +53,11 @@ class ConsultorService {
     return dados && dados.length > 0 ? dados : [];
   }
 
-  async listarConsultoresDisponiveisEmpresa(seq_empresa: number, indicacao: string, carteira?: string) {
+  async listarConsultoresDisponiveisEmpresa(
+    seq_empresa: number,
+    indicacao: string,
+    carteira?: string,
+  ) {
     if (!seq_empresa || seq_empresa <= 0) {
       throw new Error("PARAMETRO_EMPRESA_INVALIDO");
     }
@@ -61,7 +65,21 @@ class ConsultorService {
       throw new Error("PARAMETRO_INDICACAO_OBRIGATORIO");
     }
 
-    const consultores = await this.repo.buscarConsultoresDisponiveis(seq_empresa, indicacao, carteira);
+    const consultores = await this.repo.buscarConsultoresDisponiveis(
+      seq_empresa,
+      indicacao,
+      carteira,
+    );
+    return consultores || [];
+  }
+
+  async listarConsultoresDisponiveisEmpresaExclusiva(seq_empresa: number) {
+    if (!seq_empresa || seq_empresa <= 0) {
+      throw new Error("PARAMETRO_EMPRESA_INVALIDO");
+    }
+
+    const consultores =
+      await this.repo.buscarConsultoresDisponiveisExclusivos(seq_empresa);
     return consultores || [];
   }
 
@@ -74,7 +92,10 @@ class ConsultorService {
       throw new Error("PARAMETRO_EMPRESA_INVALIDO");
     }
 
-    const servicoAtualizado = await this.repo.atualizarConsultorEmpresa(seq_consultor, seq_empresa);
+    const servicoAtualizado = await this.repo.atualizarConsultorEmpresa(
+      seq_consultor,
+      seq_empresa,
+    );
 
     if (!servicoAtualizado) {
       throw new Error("SERVICO_CLARO_NAO_ENCONTRADO_PARA_EMPRESA");

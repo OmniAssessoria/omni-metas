@@ -208,6 +208,41 @@ class ConsultorController {
     }
   };
 
+  buscarConsultoresDisponiveisEmpresaExclusiva = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    try {
+      const seq_empresa = Number(req.params.seq_empresa);
+      if (isNaN(seq_empresa) || seq_empresa <= 0) {
+        res.status(400).json({
+          status: false,
+          mensagem: "O seq_empresa informado é inválido.",
+          dados: [],
+        });
+        return;
+      }
+
+      const consultores =
+        await this.consultorService.listarConsultoresDisponiveisEmpresaExclusiva(
+          seq_empresa,
+        );
+
+      res.status(200).json({
+        status: true,
+        mensagem: "Consultores exclusivos disponíveis listados com sucesso.",
+        dados: consultores,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: false,
+        mensagem:
+          error.message || "Erro ao buscar consultores exclusivos disponíveis",
+        dados: error,
+      });
+    }
+  };
+
   atualizarConsultorEmpresa = async (
     req: Request,
     res: Response,

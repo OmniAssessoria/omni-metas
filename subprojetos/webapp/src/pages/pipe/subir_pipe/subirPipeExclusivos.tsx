@@ -338,7 +338,7 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
 
     try {
       const response = await API.get(
-        `/api/consultor/disponiveis/empresa/${seq_empresa}?indicacao=EXCLUSIVO`,
+        `/api/consultor/disponiveis/empresa-exclusiva/${seq_empresa}`,
       );
       if (response.data && response.data.dados) {
         setConsultoresDisponiveis(response.data.dados);
@@ -491,7 +491,7 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
 
   const onClickSubirServicos = () => {
     handleSubirServicos({
-      tipoOperacao: "Exclusivo", // MUDADO DE Renovação PARA Exclusivo
+      tipoOperacao: "Exclusivo",
       dadosGlobais: dadosGeraisFiltrados,
       consultoresEnvio: consultoresEnvio,
       empresasEnvio: empresasSelecionadas,
@@ -967,7 +967,7 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="text-yellow-600 border-yellow-200 hover:bg-yellow-50 transition-colors px-2"
+                                    className="text-yellow-600 cursor-pointer border-yellow-200 hover:bg-yellow-50 transition-colors px-2"
                                     title="Histórico"
                                     onClick={() =>
                                       abrirHistorico(
@@ -981,7 +981,7 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 transition-colors px-2"
+                                    className="text-emerald-600 cursor-pointer border-emerald-200 hover:bg-emerald-50 transition-colors px-2"
                                     title="Alterar Consultor Manualmente"
                                     onClick={() =>
                                       abrirModalAtribuicao(

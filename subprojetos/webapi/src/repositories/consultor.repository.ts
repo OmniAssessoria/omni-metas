@@ -121,7 +121,11 @@ export default class ConsultorRepository {
     return result.rows[0];
   }
 
-  async buscarConsultoresDisponiveis(seq_empresa: number, indicacao: string, carteira?: string) {
+  async buscarConsultoresDisponiveis(
+    seq_empresa: number,
+    indicacao: string,
+    carteira?: string,
+  ) {
     const query = `
       WITH dados_empresa AS (
           SELECT 
@@ -171,20 +175,81 @@ export default class ConsultorRepository {
       ORDER BY carga_atual ASC, c.nome ASC;
     `;
 
-    // CORREÇÃO AQUI: Forçamos uma string vazia '' em vez de null para evitar crash de Data Type do Postgres
-    const values = [seq_empresa, indicacao, carteira || ''];
+    const values = [seq_empresa, indicacao, carteira || ""];
 
     try {
       const result = await pool.query(query, values);
       return result.rows;
     } catch (error) {
-      // Agora, se algo der errado no banco, aparecerá detalhado no console do Node.js
-      console.error("[ConsultorRepository] Erro SQL crítico ao buscar consultores disponíveis:", error);
+      console.error(
+        "[ConsultorRepository] Erro SQL crítico ao buscar consultores disponíveis:",
+        error,
+      );
       throw error;
     }
   }
 
-  async atualizarConsultorEmpresa(seq_consultor_novo: number, seq_empresa: number) {
+  async buscarConsultoresDisponiveisExclusivos(seq_empresa: number) {
+    const query = `
+      WITH dados_empresa AS (
+          SELECT 
+              COALESCE((SELECT qtd_servico_claro FROM omni.empresa WHERE seq_empresa = $1 AND cliente_ativo = TRUE), 0) as qtd_linhas,
+              (SELECT EXISTS (SELECT 1 FROM omni.historico_empresa_consultor WHERE seq_empresa = $1 AND tipo_servico = 'CLARO')) as tem_historico
+      )
+      SELECT 
+          c.seq_consultor,
+          c.nome,
+          c.perfil_indicacao,
+          c.perfil_qtd_linhas_min,
+          c.perfil_qtd_linhas_max,
+          (
+              SELECT COUNT(*) 
+              FROM omni.historico_empresa_consultor h_carga
+              JOIN omni.empresa e_carga ON e_carga.seq_empresa = h_carga.seq_empresa
+              WHERE h_carga.seq_consultor = c.seq_consultor
+                AND e_carga.cliente_ativo = TRUE
+          ) as carga_atual
+      FROM omni.consultor c
+      CROSS JOIN dados_empresa de
+      WHERE 
+        -- Garante que o consultor tenha um perfil válido configurado (ignora os zerados/sem perfil)
+        c.perfil_indicacao IS NOT NULL 
+        AND c.perfil_indicacao <> '' 
+        
+        -- AQUI ENTRA A ÚNICA REGRA DE MATCH: QUANTIDADE DE LINHAS
+        -- Ignoramos completamente qual é a string gravada em c.perfil_indicacao
+        AND de.qtd_linhas BETWEEN c.perfil_qtd_linhas_min AND c.perfil_qtd_linhas_max
+        
+        -- A REGRA DE HISTÓRICO PERMANECE PARA EVITAR REPETIÇÃO
+        AND (
+            NOT de.tem_historico 
+            OR NOT EXISTS (
+                SELECT 1 
+                FROM omni.historico_empresa_consultor h_check 
+                WHERE h_check.seq_empresa = $1 
+                  AND h_check.seq_consultor = c.seq_consultor 
+                  AND h_check.tipo_servico = 'CLARO'
+            )
+        )
+      ORDER BY carga_atual ASC, c.nome ASC;
+    `;
+
+    try {
+      const result = await pool.query(query, [seq_empresa]);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ConsultorRepository] Erro SQL crítico ao buscar consultores exclusivos disponíveis:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async atualizarConsultorEmpresa(
+    seq_consultor_novo: number,
+    seq_empresa: number,
+  ) {
     const query = `
         UPDATE omni.servico_claro
         SET seq_consultor = $1
@@ -200,7 +265,7 @@ export default class ConsultorRepository {
     } catch (error) {
       console.error(
         `[ConsultorRepository] Falha ao sobreescrever o seq_consultor (${seq_consultor_novo}) para a empresa (${seq_empresa}) no serviço CLARO:`,
-        error
+        error,
       );
       throw error;
     }
