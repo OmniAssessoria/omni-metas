@@ -32,7 +32,7 @@ import {
   Target,
   Search,
   LayoutGrid,
-  List as ListIcon
+  List as ListIcon,
 } from "lucide-react";
 import {
   PieChart,
@@ -96,13 +96,16 @@ export default function DashboardAnaliticoMultiView() {
     renovacao: [],
     portabilidade: [],
     fora_prazo: [],
+    aquecendo: [],
     prazo_limitado: [],
     prazo_excedido: [],
   });
+
   const [dadosFiltrados, setDadosFiltrados] = useState<DadosPorIndicacao>({
     renovacao: [],
     portabilidade: [],
     fora_prazo: [],
+    aquecendo: [],
     prazo_limitado: [],
     prazo_excedido: [],
   });
@@ -146,14 +149,15 @@ export default function DashboardAnaliticoMultiView() {
   const [dadosPerdas, setDadosPerdas] = useState<any[]>([]);
   const [loadingPerdas, setLoadingPerdas] = useState<boolean>(false);
   const [dadosFunilCpc, setDadosFunilCpc] = useState<any>(null);
-
-  // NOVO ESTADO: Controle de visualização da aba de perdas (Tabela ou Gráfico)
-  const [viewModePerdas, setViewModePerdas] = useState<"grafico" | "tabela">("grafico");
+  const [viewModePerdas, setViewModePerdas] = useState<"grafico" | "tabela">(
+    "grafico",
+  );
 
   const CORES = {
     renovacao: "#eab308",
     portabilidade: "#3b82f6",
     fora_prazo: "#ef4444",
+    aquecendo: "#0ea5e9",
     prazo_limitado: "#f97316",
     prazo_excedido: "#8b5cf6",
     vazio: "#e5e7eb",
@@ -161,8 +165,23 @@ export default function DashboardAnaliticoMultiView() {
     grafico_barras_2: "#10b981",
     grafico_barras_3: "#f43f5e",
     carteira_pipe: "#10b981",
-    declinio: "#ef4444", // Cor para a perda
-    sucesso: "#10b981"   // Cor para o que restou na base
+    declinio: "#ef4444",
+    sucesso: "#10b981",
+  };
+
+  const calcularMesesAtivosContrato = (
+    dataFimString?: string | null,
+  ): number | null => {
+    if (!dataFimString) return null;
+    const dataFim = new Date(dataFimString);
+    if (isNaN(dataFim.getTime())) return null;
+
+    const hoje = new Date();
+
+    const diffAnos = hoje.getFullYear() - dataFim.getFullYear();
+    const diffMeses = hoje.getMonth() - dataFim.getMonth();
+
+    return diffAnos * 12 + diffMeses + 24;
   };
 
   const fetchTodasViews = useCallback(async () => {
@@ -170,11 +189,21 @@ export default function DashboardAnaliticoMultiView() {
     try {
       const [resRenov, resPort, resFora, resLim, resExc, resHist, resFunil] =
         await Promise.all([
-          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/renovacao"),
-          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/portabilidade"),
-          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/fora-do-prazo"),
-          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-limitado"),
-          API.get<IApiResponseView>("/api/servico-claro/dashboard/indicacao/prazo-excedido"),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/renovacao",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/portabilidade",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/fora-do-prazo",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/prazo-limitado",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/prazo-excedido",
+          ),
           API.get<IApiResponseView>("/api/servico-claro/dashboard/historico"),
           API.get<any>("/api/servico-claro/dashboard/empresas"),
         ]);
@@ -186,7 +215,6 @@ export default function DashboardAnaliticoMultiView() {
             item.exclusivo === "true" ||
             item.exclusivo === "t" ||
             item.exclusivo === 1;
-
           return {
             ...item,
             ddd_predominante: item.ddd_predominante
@@ -197,10 +225,34 @@ export default function DashboardAnaliticoMultiView() {
         });
       };
 
+      const baseForaPrazoBruta = prepararDados(resFora.data.dados || []);
+
+      const arrayForaPrazoReal: IServicoViewAPI[] = [];
+      const arrayAquecendo: IServicoViewAPI[] = [];
+
+      baseForaPrazoBruta.forEach((item) => {
+        const mesesAtivos = calcularMesesAtivosContrato(item.dt_fim_contrato);
+
+        let offsetRenovacao = 0;
+        if (["CA", "CC", "CE"].includes(item.classificacao_contrato)) {
+          offsetRenovacao = 2;
+        }
+
+        const mesAlvoAquecimento = 15 + offsetRenovacao;
+
+        if (mesesAtivos !== null && mesesAtivos === mesAlvoAquecimento) {
+          item.indicacao = "AQUECENDO";
+          arrayAquecendo.push(item);
+        } else {
+          arrayForaPrazoReal.push(item);
+        }
+      });
+
       const payloadServicos: DadosPorIndicacao = {
         renovacao: prepararDados(resRenov.data.dados || []),
         portabilidade: prepararDados(resPort.data.dados || []),
-        fora_prazo: prepararDados(resFora.data.dados || []),
+        fora_prazo: arrayForaPrazoReal,
+        aquecendo: arrayAquecendo,
         prazo_limitado: prepararDados(resLim.data.dados || []),
         prazo_excedido: prepararDados(resExc.data.dados || []),
       };
@@ -209,7 +261,6 @@ export default function DashboardAnaliticoMultiView() {
 
       setDadosBrutos(payloadServicos);
       setDadosFiltrados(payloadServicos);
-
       setHistoricoBruto(payloadHistorico);
       setHistoricoFiltrado(payloadHistorico);
 
@@ -218,7 +269,7 @@ export default function DashboardAnaliticoMultiView() {
       }
 
       setUltimaAtualizacao(new Date());
-      setNotification("Bases de Serviço e Histórico atualizadas com sucesso!");
+      setNotification("Bases atualizadas, Aquecimentos calculados!");
       setTimeout(() => setNotification(null), 4000);
     } catch (error) {
       console.error("[ERRO FETCH VIEWS]:", error);
@@ -359,6 +410,7 @@ export default function DashboardAnaliticoMultiView() {
       renovacao: aplicarRegras(dadosBrutos.renovacao),
       portabilidade: aplicarRegras(dadosBrutos.portabilidade),
       fora_prazo: aplicarRegras(dadosBrutos.fora_prazo),
+      aquecendo: aplicarRegras(dadosBrutos.aquecendo),
       prazo_limitado: aplicarRegras(dadosBrutos.prazo_limitado),
       prazo_excedido: aplicarRegras(dadosBrutos.prazo_excedido),
     });
@@ -389,15 +441,17 @@ export default function DashboardAnaliticoMultiView() {
     const tr = dadosFiltrados.renovacao.length;
     const tp = dadosFiltrados.portabilidade.length;
     const tf = dadosFiltrados.fora_prazo.length;
+    const ta = dadosFiltrados.aquecendo?.length || 0;
     const tl = dadosFiltrados.prazo_limitado.length;
     const te = dadosFiltrados.prazo_excedido.length;
     return {
       renovacao: tr,
       portabilidade: tp,
       fora_prazo: tf,
+      aquecendo: ta,
       prazo_limitado: tl,
       prazo_excedido: te,
-      geral: tr + tp + tf + tl + te,
+      geral: tr + tp + tf + ta + tl + te,
     };
   }, [dadosFiltrados]);
 
@@ -406,6 +460,7 @@ export default function DashboardAnaliticoMultiView() {
       ...dadosFiltrados.renovacao,
       ...dadosFiltrados.portabilidade,
       ...dadosFiltrados.fora_prazo,
+      ...(dadosFiltrados.aquecendo || []),
       ...dadosFiltrados.prazo_limitado,
       ...dadosFiltrados.prazo_excedido,
     ];
@@ -728,7 +783,6 @@ export default function DashboardAnaliticoMultiView() {
     </div>
   );
 
-  // 1. Busca os consultores no BD para ter o owner_id
   useEffect(() => {
     async function loadConsultores() {
       try {
@@ -744,7 +798,6 @@ export default function DashboardAnaliticoMultiView() {
     loadConsultores();
   }, []);
 
-  // 2. Chama sua função dinâmica passando os consultores formatados para AS ABERTAS
   const fetchDadosBolhas = useCallback(
     async (isManualRefresh = false) => {
       if (consultoresDB.length === 0 && !isManualRefresh) return;
@@ -760,17 +813,20 @@ export default function DashboardAnaliticoMultiView() {
           }
         }
 
-        const payloadConsultoresFormatado: IConsultor[] = consultoresDB.map((c) => ({
-          nome: c.nome,
-          owner_id: c.codigo_crm,
-          perfil: String(c.perfil_indicacao)
-            .trim()
-            .toUpperCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, ""),
-          seq: c.codigo_crm || 0,
-          email: "",
-        } as IConsultor));
+        const payloadConsultoresFormatado: IConsultor[] = consultoresDB.map(
+          (c) =>
+            ({
+              nome: c.nome,
+              owner_id: c.codigo_crm,
+              perfil: String(c.perfil_indicacao)
+                .trim()
+                .toUpperCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, ""),
+              seq: c.codigo_crm || 0,
+              email: "",
+            }) as IConsultor,
+        );
 
         const dadosMapeados = await compilarOportunidadesDinamico(
           payloadConsultoresFormatado,
@@ -803,8 +859,6 @@ export default function DashboardAnaliticoMultiView() {
     }
   }, [consultoresDB, fetchDadosBolhas]);
 
-
-  // 3. Função do RELATÓRIO DE PERDAS
   const buscarRelatorioPerdasPeriodo = async () => {
     if (!dataInicioPipe || !dataFimPipe) {
       setNotification("Por favor, selecione a Data de Início e Fim.");
@@ -852,7 +906,6 @@ export default function DashboardAnaliticoMultiView() {
       setLoadingPerdas(false);
     }
   };
-
 
   return (
     <div className="flex h-screen overflow-hidden w-screen bg-slate-50 text-slate-900">
@@ -1015,7 +1068,6 @@ export default function DashboardAnaliticoMultiView() {
                     </select>
                   </div>
 
-                  {/* NOVO FILTRO: SERVIÇO EXCLUSIVO */}
                   <div className="space-y-1.5">
                     <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                       <Target className="w-3.5 h-3.5 text-yellow-500" /> Serviço
@@ -1366,7 +1418,6 @@ export default function DashboardAnaliticoMultiView() {
                 </div>
               </CardContent>
             </Card>
-
             <div className="mt-4">
               <div>
                 <h2 className="flex items-center gap-2 mb-4 text-lg font-bold text-slate-800">
@@ -1374,11 +1425,16 @@ export default function DashboardAnaliticoMultiView() {
                   Comparativa por Indicação
                 </h2>
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 {renderMiniGrafico(
                   "Fora do Prazo",
                   totais.fora_prazo,
                   CORES.fora_prazo,
+                )}
+                {renderMiniGrafico(
+                  "Aquecendo",
+                  totais.aquecendo,
+                  CORES.aquecendo,
                 )}
                 {renderMiniGrafico(
                   "Renovação",
@@ -1447,9 +1503,7 @@ export default function DashboardAnaliticoMultiView() {
                 </h3>
               </div>
               <CardContent className="p-0">
-                {/* Truque do bg-slate-700 com gap-[1px] cria uma borda perfeita em grid independente da quebra de linha */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[1px] bg-slate-700/50">
-
                   <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
                       Passaram pelo CPC
@@ -1497,7 +1551,8 @@ export default function DashboardAnaliticoMultiView() {
 
                   <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
-                      eDoc s/ Drive <br />(Já Lido CPC)
+                      eDoc s/ Drive <br />
+                      (Já Lido CPC)
                     </p>
                     <p className="text-xl font-black text-slate-300">
                       {dadosFunilCpc?.edoc_sem_docdrive_sem_serv_cpc_ok || 0}
@@ -1530,11 +1585,9 @@ export default function DashboardAnaliticoMultiView() {
                       {dadosFunilCpc?.edoc_com_cpc_edoc_servico_com_drive || 0}
                     </p>
                   </div>
-
                 </div>
               </CardContent>
             </Card>
-
           </div>
         </section>
 
@@ -1544,10 +1597,12 @@ export default function DashboardAnaliticoMultiView() {
           <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
             <div>
               <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-                <CloudCog className="w-6 h-6 text-blue-600" /> Bases Abertas no PipeRun (Hoje)
+                <CloudCog className="w-6 h-6 text-blue-600" /> Bases Abertas no
+                PipeRun (Hoje)
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                Visualização do volume de Oportunidades no Pipeline (Funil) por Consultor.
+                Visualização do volume de Oportunidades no Pipeline (Funil) por
+                Consultor.
               </p>
             </div>
           </div>
@@ -1555,7 +1610,8 @@ export default function DashboardAnaliticoMultiView() {
           <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                <Users className="w-5 h-5 text-blue-500" /> Oportunidades Compiladas
+                <Users className="w-5 h-5 text-blue-500" /> Oportunidades
+                Compiladas
               </h2>
               <Button
                 variant="outline"
@@ -1563,7 +1619,9 @@ export default function DashboardAnaliticoMultiView() {
                 disabled={loadingBolhas}
                 className="gap-2 shadow-sm flex items-center border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
-                <RotateCw className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-blue-500" : ""}`} />
+                <RotateCw
+                  className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-blue-500" : ""}`}
+                />
                 Atualizar Gráfico Pipe
               </Button>
             </div>
@@ -1583,7 +1641,8 @@ export default function DashboardAnaliticoMultiView() {
                   {dadosPipelineBolhas.map((entry, index) => {
                     let cor = "#8884d8";
                     if (entry.perfil === "RENOVACAO") cor = CORES.renovacao;
-                    if (entry.perfil === "PORTABILIDADE") cor = CORES.portabilidade;
+                    if (entry.perfil === "PORTABILIDADE")
+                      cor = CORES.portabilidade;
                     if (entry.perfil === "CARTEIRA") cor = CORES.carteira_pipe;
                     if (entry.perfil === "AMBOS") cor = "#a855f7";
 
@@ -1601,7 +1660,10 @@ export default function DashboardAnaliticoMultiView() {
                               <Pie
                                 data={[
                                   { name: "Total", value: entry.total },
-                                  { name: "Vazio", value: entry.total === 0 ? 1 : 0 },
+                                  {
+                                    name: "Vazio",
+                                    value: entry.total === 0 ? 1 : 0,
+                                  },
                                 ]}
                                 cx="50%"
                                 cy="50%"
@@ -1639,10 +1701,12 @@ export default function DashboardAnaliticoMultiView() {
           <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
             <div>
               <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-                <BarChart2 className="w-6 h-6 text-red-600" /> Análise de Perdas por Período (CRM)
+                <BarChart2 className="w-6 h-6 text-red-600" /> Análise de Perdas
+                por Período (CRM)
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                Filtre por data para visualizar o Total Base enviado ao consultor e a proporção declinada (em Bolhas ou Tabela).
+                Filtre por data para visualizar o Total Base enviado ao
+                consultor e a proporção declinada (em Bolhas ou Tabela).
               </p>
             </div>
 
@@ -1650,15 +1714,21 @@ export default function DashboardAnaliticoMultiView() {
               <div className="flex bg-slate-100 p-1 rounded-lg">
                 <button
                   onClick={() => setViewModePerdas("grafico")}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${viewModePerdas === "grafico" ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
+                    viewModePerdas === "grafico"
+                      ? "bg-white shadow-sm text-blue-600"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
                 >
                   <LayoutGrid className="w-4 h-4" /> Gráficos
                 </button>
                 <button
                   onClick={() => setViewModePerdas("tabela")}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${viewModePerdas === "tabela" ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
+                    viewModePerdas === "tabela"
+                      ? "bg-white shadow-sm text-blue-600"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
                 >
                   <ListIcon className="w-4 h-4" /> Tabela
                 </button>
@@ -1669,7 +1739,9 @@ export default function DashboardAnaliticoMultiView() {
           <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
             <div className="flex flex-col md:flex-row items-end gap-4 mb-6 pb-6 border-b border-slate-100">
               <div className="space-y-1.5 w-full md:w-auto">
-                <label className="text-xs font-bold text-slate-700">Data Criação (Início)</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Data Criação (Início)
+                </label>
                 <input
                   type="date"
                   value={dataInicioPipe}
@@ -1678,7 +1750,9 @@ export default function DashboardAnaliticoMultiView() {
                 />
               </div>
               <div className="space-y-1.5 w-full md:w-auto">
-                <label className="text-xs font-bold text-slate-700">Data Criação (Fim)</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Data Criação (Fim)
+                </label>
                 <input
                   type="date"
                   value={dataFimPipe}
@@ -1709,7 +1783,8 @@ export default function DashboardAnaliticoMultiView() {
                   </div>
                 ) : dadosPerdas.length === 0 ? (
                   <div className="w-full h-[200px] flex items-center justify-center text-slate-500 font-medium">
-                    Nenhum dado filtrado. Selecione um período e clique em buscar.
+                    Nenhum dado filtrado. Selecione um período e clique em
+                    buscar.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -1717,10 +1792,22 @@ export default function DashboardAnaliticoMultiView() {
                       const restouBase = row.totalBase - row.totalDeclinados;
 
                       const dadosPie = [
-                        { name: "Restante (Base)", value: restouBase < 0 ? 0 : restouBase, fill: CORES.sucesso },
-                        { name: "Declinados", value: row.totalDeclinados, fill: CORES.declinio }
+                        {
+                          name: "Restante (Base)",
+                          value: restouBase < 0 ? 0 : restouBase,
+                          fill: CORES.sucesso,
+                        },
+                        {
+                          name: "Declinados",
+                          value: row.totalDeclinados,
+                          fill: CORES.declinio,
+                        },
                       ];
-                      const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+                      const fmt = (val: number) =>
+                        new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(val);
 
                       return (
                         <div
@@ -1747,12 +1834,23 @@ export default function DashboardAnaliticoMultiView() {
                                   stroke="none"
                                 >
                                   {dadosPie.map((entry, idx) => (
-                                    <Cell key={`cell-${idx}`} fill={entry.fill} />
+                                    <Cell
+                                      key={`cell-${idx}`}
+                                      fill={entry.fill}
+                                    />
                                   ))}
                                 </Pie>
                                 <RechartsTooltip
-                                  formatter={(val: any, name: any) => [val, name]}
-                                  contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                                  formatter={(val: any, name: any) => [
+                                    val,
+                                    name,
+                                  ]}
+                                  contentStyle={{
+                                    borderRadius: "8px",
+                                    border: "none",
+                                    boxShadow:
+                                      "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                                  }}
                                 />
                               </PieChart>
                             </ResponsiveContainer>
@@ -1760,15 +1858,31 @@ export default function DashboardAnaliticoMultiView() {
 
                           <div className="w-full mt-4 space-y-2 text-xs">
                             <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded">
-                              <span className="font-semibold text-slate-600">Base Total:</span>
-                              <span className="font-bold">{row.totalBase} <span className="text-[9px] text-slate-400 font-normal">({fmt(row.valorBase)})</span></span>
+                              <span className="font-semibold text-slate-600">
+                                Base Total:
+                              </span>
+                              <span className="font-bold">
+                                {row.totalBase}{" "}
+                                <span className="text-[9px] text-slate-400 font-normal">
+                                  ({fmt(row.valorBase)})
+                                </span>
+                              </span>
                             </div>
                             <div className="flex justify-between items-center bg-red-50 p-1.5 rounded">
-                              <span className="font-semibold text-red-600">Declinados:</span>
-                              <span className="font-bold text-red-600">{row.totalDeclinados} <span className="text-[9px] text-red-400 font-normal">({fmt(row.valorDeclinados)})</span></span>
+                              <span className="font-semibold text-red-600">
+                                Declinados:
+                              </span>
+                              <span className="font-bold text-red-600">
+                                {row.totalDeclinados}{" "}
+                                <span className="text-[9px] text-red-400 font-normal">
+                                  ({fmt(row.valorDeclinados)})
+                                </span>
+                              </span>
                             </div>
                             <div className="text-center pt-1 border-t border-slate-100 mt-1">
-                              <span className={`font-bold ${Number(row.taxaPerda) > 50 ? "text-red-600" : "text-amber-500"}`}>
+                              <span
+                                className={`font-bold ${Number(row.taxaPerda) > 50 ? "text-red-600" : "text-amber-500"}`}
+                              >
                                 {row.taxaPerda}% de Perda
                               </span>
                             </div>
@@ -1789,39 +1903,73 @@ export default function DashboardAnaliticoMultiView() {
                     <tr>
                       <th className="px-6 py-4">Consultor</th>
                       <th className="px-6 py-4 text-center">Perfil</th>
-                      <th className="px-6 py-4 text-center border-l border-slate-200">Total Base (Qtd)</th>
+                      <th className="px-6 py-4 text-center border-l border-slate-200">
+                        Total Base (Qtd)
+                      </th>
                       <th className="px-6 py-4 text-right">Valor Base (R$)</th>
-                      <th className="px-6 py-4 text-center text-red-600 border-l border-slate-200">Declinados (Qtd)</th>
-                      <th className="px-6 py-4 text-right text-red-600">Valor Declinado (R$)</th>
-                      <th className="px-6 py-4 text-center bg-slate-100">% Perda</th>
+                      <th className="px-6 py-4 text-center text-red-600 border-l border-slate-200">
+                        Declinados (Qtd)
+                      </th>
+                      <th className="px-6 py-4 text-right text-red-600">
+                        Valor Declinado (R$)
+                      </th>
+                      <th className="px-6 py-4 text-center bg-slate-100">
+                        % Perda
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {dadosPerdas.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                          {loadingPerdas ? "Buscando relatórios..." : "Nenhum dado filtrado. Selecione um período e clique em buscar."}
+                        <td
+                          colSpan={7}
+                          className="px-6 py-8 text-center text-slate-500"
+                        >
+                          {loadingPerdas
+                            ? "Buscando relatórios..."
+                            : "Nenhum dado filtrado. Selecione um período e clique em buscar."}
                         </td>
                       </tr>
                     ) : (
                       dadosPerdas.map((row, index) => (
-                        <tr key={index} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-3 font-semibold text-slate-800">{row.nome}</td>
-                          <td className="px-6 py-3 text-center text-xs">
-                            <span className="bg-slate-100 px-2 py-1 rounded">{row.perfil}</span>
+                        <tr
+                          key={index}
+                          className="hover:bg-slate-50 transition-colors"
+                        >
+                          <td className="px-6 py-3 font-semibold text-slate-800">
+                            {row.nome}
                           </td>
-                          <td className="px-6 py-3 text-center border-l border-slate-200 font-bold">{row.totalBase}</td>
+                          <td className="px-6 py-3 text-center text-xs">
+                            <span className="bg-slate-100 px-2 py-1 rounded">
+                              {row.perfil}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3 text-center border-l border-slate-200 font-bold">
+                            {row.totalBase}
+                          </td>
                           <td className="px-6 py-3 text-right">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valorBase)}
+                            {new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }).format(row.valorBase)}
                           </td>
                           <td className="px-6 py-3 text-center text-red-600 font-bold border-l border-slate-200">
                             {row.totalDeclinados}
                           </td>
                           <td className="px-6 py-3 text-right text-red-600 font-medium">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valorDeclinados)}
+                            {new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }).format(row.valorDeclinados)}
                           </td>
                           <td className="px-6 py-3 text-center font-bold bg-slate-50">
-                            <span className={Number(row.taxaPerda) > 50 ? "text-red-600" : "text-amber-500"}>
+                            <span
+                              className={
+                                Number(row.taxaPerda) > 50
+                                  ? "text-red-600"
+                                  : "text-amber-500"
+                              }
+                            >
                               {row.taxaPerda}%
                             </span>
                           </td>

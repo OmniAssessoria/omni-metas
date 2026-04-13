@@ -30,4 +30,5 @@ export type DadosPorIndicacao = {
   fora_prazo: IServicoViewAPI[];
   prazo_limitado: IServicoViewAPI[];
   prazo_excedido: IServicoViewAPI[];
+  aquecendo: any[];
 };
