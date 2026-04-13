@@ -9,6 +9,7 @@ class ServicoClaroController {
   constructor() {
     this.servicoClaroService = new ServicoClaroService();
     this.geradorImagemLayoutService = new GeradorImagemLayoutService();
+    
     this.buscarServicosClaroPipePortabilidade =
       this.buscarServicosClaroPipePortabilidade.bind(this);
     this.buscarServicosClaroPipeRenovacao =
@@ -282,8 +283,8 @@ class ServicoClaroController {
 
       const resultado = await this.geradorImagemLayoutService.gerarLayoutInfoLinhas(
         Number(seq_empresa),
-        razao || "Cliente Omni",
-        cnpj || "CNPJ não informado"
+        razao,
+        cnpj
       );
 
       res.status(200).json({
