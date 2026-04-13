@@ -526,14 +526,18 @@ export default function DashboardAnaliticoMultiView() {
 
   const dadosGraficoConsultor = useMemo(() => {
     const map = new Map<string, number>();
+
     historicoFiltrado.forEach((h) => {
-      const nome = h.consultor_nome || "Não Atribuído";
-      map.set(nome, (map.get(nome) || 0) + 1);
+      if (h.consultor_nome && h.consultor_nome.trim() !== "") {
+        const nome = h.consultor_nome;
+        map.set(nome, (map.get(nome) || 0) + 1);
+      }
     });
+
     return Array.from(map.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
+      .slice(0, 10); // Mantém o Top 10
   }, [historicoFiltrado]);
 
   const exportToImage = async () => {
@@ -2125,7 +2129,7 @@ export default function DashboardAnaliticoMultiView() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={dadosGraficoConsultor}
-                    margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+                    margin={{ top: 20, right: 30, left: 0, bottom: 60 }} // Aumentei o bottom para os nomes
                   >
                     <CartesianGrid
                       strokeDasharray="3 3"
@@ -2134,9 +2138,13 @@ export default function DashboardAnaliticoMultiView() {
                     />
                     <XAxis
                       dataKey="name"
-                      fontSize={11}
+                      fontSize={10}
                       tickLine={false}
                       axisLine={false}
+                      interval={0}
+                      angle={-45} 
+                      textAnchor="end"
+                      height={70} 
                     />
                     <YAxis fontSize={12} tickLine={false} axisLine={false} />
                     <RechartsTooltip
@@ -2146,6 +2154,7 @@ export default function DashboardAnaliticoMultiView() {
                         border: "none",
                         boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                       }}
+                      labelFormatter={(value) => `Consultor: ${value}`}
                     />
                     <Bar
                       dataKey="value"
