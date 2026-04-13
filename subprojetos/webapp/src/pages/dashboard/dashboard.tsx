@@ -1920,7 +1920,7 @@ export default function DashboardAnaliticoMultiView() {
                       dadosPerdas.map((row, index) => (
                         <tr
                           key={index}
-                          className="hover:bg-slate-50 transition-colors"
+                          className="hover:bg-slate-50 text-black transition-colors"
                         >
                           <td className="px-6 py-3 font-semibold text-slate-800">
                             {row.nome}
