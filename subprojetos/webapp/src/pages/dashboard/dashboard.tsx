@@ -1857,17 +1857,6 @@ export default function DashboardAnaliticoMultiView() {
                           </div>
 
                           <div className="w-full mt-4 space-y-2 text-xs">
-                            <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded">
-                              <span className="font-semibold text-slate-600">
-                                Base Total:
-                              </span>
-                              <span className="font-bold">
-                                {row.totalBase}{" "}
-                                <span className="text-[9px] text-slate-400 font-normal">
-                                  ({fmt(row.valorBase)})
-                                </span>
-                              </span>
-                            </div>
                             <div className="flex justify-between items-center bg-red-50 p-1.5 rounded">
                               <span className="font-semibold text-red-600">
                                 Declinados:
@@ -1910,9 +1899,6 @@ export default function DashboardAnaliticoMultiView() {
                       <th className="px-6 py-4 text-center text-red-600 border-l border-slate-200">
                         Declinados (Qtd)
                       </th>
-                      <th className="px-6 py-4 text-right text-red-600">
-                        Valor Declinado (R$)
-                      </th>
                       <th className="px-6 py-4 text-center bg-slate-100">
                         % Perda
                       </th>
@@ -1946,12 +1932,6 @@ export default function DashboardAnaliticoMultiView() {
                           </td>
                           <td className="px-6 py-3 text-center border-l border-slate-200 font-bold">
                             {row.totalBase}
-                          </td>
-                          <td className="px-6 py-3 text-right">
-                            {new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }).format(row.valorBase)}
                           </td>
                           <td className="px-6 py-3 text-center text-red-600 font-bold border-l border-slate-200">
                             {row.totalDeclinados}
