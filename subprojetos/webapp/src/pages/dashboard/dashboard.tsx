@@ -1884,7 +1884,6 @@ export default function DashboardAnaliticoMultiView() {
               </div>
             )}
 
-            {/* MODO TABELA */}
             {viewModePerdas === "tabela" && (
               <div className="w-full overflow-x-auto rounded-lg border border-slate-200 mt-4">
                 <table className="w-full text-sm text-left">
@@ -1895,7 +1894,6 @@ export default function DashboardAnaliticoMultiView() {
                       <th className="px-6 py-4 text-center border-l border-slate-200">
                         Total Base (Qtd)
                       </th>
-                      <th className="px-6 py-4 text-right">Valor Base (R$)</th>
                       <th className="px-6 py-4 text-center text-red-600 border-l border-slate-200">
                         Declinados (Qtd)
                       </th>
@@ -1927,7 +1925,11 @@ export default function DashboardAnaliticoMultiView() {
                           </td>
                           <td className="px-6 py-3 text-center text-xs">
                             <span className="bg-slate-100 px-2 py-1 rounded">
-                              {row.perfil}
+                              {row.perfil === "AMBOS"
+                                ? "AMBOS (RENOVACAO/PORTABILIDADE)"
+                                : row.perfil === "CARTEIRA"
+                                  ? "CARTEIRA / RENOVACAO"
+                                  : row.perfil}
                             </span>
                           </td>
                           <td className="px-6 py-3 text-center border-l border-slate-200 font-bold">
@@ -1935,12 +1937,6 @@ export default function DashboardAnaliticoMultiView() {
                           </td>
                           <td className="px-6 py-3 text-center text-red-600 font-bold border-l border-slate-200">
                             {row.totalDeclinados}
-                          </td>
-                          <td className="px-6 py-3 text-right text-red-600 font-medium">
-                            {new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }).format(row.valorDeclinados)}
                           </td>
                           <td className="px-6 py-3 text-center font-bold bg-slate-50">
                             <span
