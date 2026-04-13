@@ -13,8 +13,6 @@ export interface IDadosLayoutHtml {
   cnpj: string;
   data_atual: string;
   linhas_tabela: string;
-  total_bonus: number;
-  total_gb_com_bonus: number;
   total_valor: number;
 }
 
@@ -88,7 +86,7 @@ export function gerarHtmlGlassmorphism(dados: IDadosLayoutHtml): string {
             font-size: 0.95em;
             letter-spacing: 0.5px;
         }
-        th:nth-child(3), th:nth-child(4), th:nth-child(5), th:nth-child(6) {
+        th:nth-child(3), th:nth-child(4), th:nth-child(5) {
             text-align: center;
         }
         tbody tr {
@@ -103,13 +101,8 @@ export function gerarHtmlGlassmorphism(dados: IDadosLayoutHtml): string {
             color: #ccc;
             font-size: 0.9em;
         }
-        td:nth-child(3), td:nth-child(4), td:nth-child(5), td:nth-child(6) {
+        td:nth-child(3), td:nth-child(4), td:nth-child(5) {
             text-align: center;
-        }
-        .highlight-red {
-            background: ${CORES.primaria_clara_bg};
-            font-weight: 600;
-            color: ${CORES.primaria_clara};
         }
         .highlight-yellow {
             background: ${CORES.primaria_bg};
@@ -131,7 +124,7 @@ export function gerarHtmlGlassmorphism(dados: IDadosLayoutHtml): string {
             color: ${CORES.preto};
             border-top: 3px solid ${CORES.primaria_escura};
         }
-        tfoot td:nth-child(3), tfoot td:nth-child(4), tfoot td:nth-child(5), tfoot td:nth-child(6) {
+        tfoot td:last-child {
             text-align: center;
         }
         .footer {
@@ -146,12 +139,13 @@ export function gerarHtmlGlassmorphism(dados: IDadosLayoutHtml): string {
 <body>
     <div class="container">
         <div class="glass header">
-            <h1>📱 Situação Atual dos Planos</h1>
+            <h1>Situação Atual dos Planos</h1>
+            <p>${dados.cnpj}</p>
             <p>${dados.razao_social}</p>
         </div>
 
         <div class="glass table-section">
-            <h2>📊 Detalhamento por Linha</h2>
+            <h2>Detalhamento por Linha</h2>
             <div class="table-wrapper">
                 <table>
                     <thead>
@@ -159,8 +153,7 @@ export function gerarHtmlGlassmorphism(dados: IDadosLayoutHtml): string {
                             <th>Número</th>
                             <th>Plano</th>
                             <th>Vencimento</th>
-                            <th>Bônus (GB)</th>
-                            <th>GB Total</th>
+                            <th>Bônus</th>
                             <th>Valor Ind.</th>
                         </tr>
                     </thead>
@@ -169,9 +162,7 @@ export function gerarHtmlGlassmorphism(dados: IDadosLayoutHtml): string {
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="3"><strong>TOTAL</strong></td>
-                            <td><strong>${dados.total_bonus.toFixed(1)}</strong></td>
-                            <td><strong>${dados.total_gb_com_bonus.toFixed(1)}</strong></td>
+                            <td colspan="4" style="text-align: right;"><strong>VALOR TOTAL MENSAL</strong></td>
                             <td><strong>R$ ${dados.total_valor.toFixed(2)}</strong></td>
                         </tr>
                     </tfoot>
@@ -180,11 +171,9 @@ export function gerarHtmlGlassmorphism(dados: IDadosLayoutHtml): string {
         </div>
 
         <div class="footer">
-            <p><strong>CNPJ:</strong> ${dados.cnpj}</p>
             <p>Documento gerado em ${dados.data_atual}</p>
         </div>
     </div>
 </body>
 </html>`;
 }
-

@@ -1,4 +1,7 @@
 import axios from "axios";
+// IMPORTANTE: Removemos a importação do pacote "form-data" do Node.js,
+// pois o Browser já possui sua própria classe FormData nativa.
+
 import { calcularMesesAteInicioContrato } from "@/utils/calcular_tempo_contrato_por_meses.util";
 import { obterDataInicioContrato } from "@/utils/calcular_dt_inicio_contrato.util";
 import { IPipeRunIntegrationParams } from "@/interfaces/pipeRunIntegrationParams.interface";
@@ -12,10 +15,6 @@ import {
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 
-/**
- * Função responsável por mapear, formatar e reestruturar a observação
- * cruzando as linhas de telefone com seus respectivos planos e valores.
- */
 function formatarObservacaoPlanosLinhas(
   observacaoRaw: string | null | undefined,
 ): string {
@@ -110,6 +109,8 @@ const apiPipeRunRest = axios.create({
   },
 });
 
+const URL_API_LOCAL = "http://localhost:3000";
+
 export const API_PIPERUN = async ({
   servicos,
   tipoOperacao,
@@ -158,9 +159,6 @@ export const API_PIPERUN = async ({
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
-      // ===================================================================
-      // REGRA: SE NÃO FOR EXCLUSIVO, APLICA TRAVAS DE DDD
-      // ===================================================================
       if (!isExclusivo) {
         if (isNaN(dddNumerico) || dddNumerico < 11 || dddNumerico > 19) {
           console.warn(
@@ -186,10 +184,6 @@ export const API_PIPERUN = async ({
         servico.dt_fim_contrato,
       );
       const mesesContrato = calcularMesesAteInicioContrato(dataInicioFormatada);
-
-      console.log(
-        `[Passo 1] ⏸️ PULADO TEMPORARIAMENTE: Criação de Pessoa comentada devido a erros de CPF na base.`,
-      );
 
       let companyId = null;
 
@@ -241,7 +235,7 @@ export const API_PIPERUN = async ({
         `[Passo 3] 🤝 Gerando payload da Oportunidade via Webhook/Hash...`,
       );
 
-      let hashDefinido = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe"; // Padrão Renovação
+      let hashDefinido = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
 
       const isCarteira =
         servico.carteira && String(servico.carteira).trim() !== "";
@@ -256,24 +250,11 @@ export const API_PIPERUN = async ({
         emailConsultor === "carolina.souza@rennovatecnologia.com.br";
 
       if (isConsultorCarolina) {
-        console.log(
-          `[Regra Especial] Consultora Carolina Souza detectada. Roteando via Hash para CARTEIRA.`,
-        );
         hashDefinido = "911c2966-27b7-4fc2-b9b2-21dc3deaa561";
       } else if (isCarteira) {
-        console.log(
-          `[Regra Especial] Cliente de Carteira detectado. Roteando via Hash para CARTEIRA.`,
-        );
         hashDefinido = "911c2966-27b7-4fc2-b9b2-21dc3deaa561";
       } else if (isPortabilidade) {
-        console.log(
-          `[Regra Especial] Operação de Portabilidade detectada. Roteando via Hash para PORTABILIDADE.`,
-        );
         hashDefinido = "856cb565-72d5-499f-aa40-d2bdb54825ac";
-      } else {
-        console.log(
-          `[Regra Especial] Fluxo Padrão. Roteando via Hash para RENOVAÇÃO.`,
-        );
       }
 
       const processarEFormatarLista = (
@@ -317,115 +298,82 @@ export const API_PIPERUN = async ({
         return listaFormatada.join(" <=> ");
       };
 
-      const decisorNome = servico.decisor_nome
-        ? servico.decisor_nome.trim().toUpperCase()
-        : "";
-      const decisorCpf = servico.decisor_cpf
-        ? formatarCPF(servico.decisor_cpf.trim())
-        : "";
-      const telefonesStr = processarEFormatarLista(
-        servico.decisor_numero,
-        servico.decisor_num_obs,
-        "telefone",
-      );
-      const emailsStr = processarEFormatarLista(
-        servico.decisor_email,
-        servico.decisor_email_observacao,
-        "email",
-      );
+      const decisorNome = servico.decisor_nome ? servico.decisor_nome.trim().toUpperCase() : "";
+      const decisorCpf = servico.decisor_cpf ? formatarCPF(servico.decisor_cpf.trim()) : "";
+      const telefonesStr = processarEFormatarLista(servico.decisor_numero, servico.decisor_num_obs, "telefone");
+      const emailsStr = processarEFormatarLista(servico.decisor_email, servico.decisor_email_observacao, "email");
 
       let infoDecisorStr = "";
       if (decisorNome || decisorCpf || telefonesStr || emailsStr) {
         infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > CPF: ${decisorCpf || "NÃO INFORMADO"} < ||||| > TELEFONES: ${telefonesStr || "NÃO INFORMADO"} ||||| EMAILS: ${emailsStr || "NÃO INFORMADO"}`;
       }
 
-      let payloadWebhook;
-
       // ===================================================================
-      // BIFURCAÇÃO DO PAYLOAD: EXCLUSIVO x PADRÃO
+      // 3.1) BUSCA A IMAGEM EM BASE64 DA API INTERNA
       // ===================================================================
-      if (isExclusivo) {
-        
-        const titleCard = `(${dddFinal}) EXCLUSIVO CLARO >> ${servico.razao}`;
+      let imagemLayoutBase64 = "";
+      try {
+        console.log(`[Passo 3.1] 📸 Gerando imagem da proposta em Base64 para ${servico.razao}...`);
 
-        const custom_fields_payload: Record<string, string | null | undefined> = {
-          "Inicio do Contrato": dataInicioFormatada,
-          "Final do Contrato": dataFimFormatada,
-          "Tempo de Contrato": String(mesesContrato),
-          "DDD": dddFinal,
-          "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
-          "DOCDRIVE": servico.servico_docdrive,
-          "Observacao": formatarObservacaoPlanosLinhas(servico.observacao),
-          "Indicacao": `EXCLUSIVO CLARO: ${servico.indicacao || "N/A"}`
-        };
+        // CORREÇÃO: O endpoint correto na sua controller está na raiz da URL base configurada no Vite
+        const responseImagem = await axios.post(`${URL_API_LOCAL}/api/servico-claro/layout/imagem-linhas`, {
+          seq_empresa: servico.seq_empresa,
+          razao: servico.razao,
+          cnpj: cnpjFormatado
+        });
 
-        if (infoDecisorStr) {
-          custom_fields_payload["Informações DECISOR (Possível decisor)"] = infoDecisorStr;
+        if (responseImagem.data?.status && responseImagem.data?.dados?.imagem) {
+          imagemLayoutBase64 = responseImagem.data.dados.imagem;
+          console.log(`[Passo 3.1] ✅ Imagem obtida com sucesso!`);
         }
-
-        payloadWebhook = {
-          rules: {
-            update: true,
-            filter_status_update: "open",
-            status: "open"
-          },
-          leads: [
-            {
-              title: titleCard,
-              company_id: companyId,
-              company: servico.razao,
-              cnpj: cnpjFormatado,
-              user: emailConsultor || undefined,
-              probability: 10,
-              custom_fields: custom_fields_payload
-            }
-          ]
-        };
-
-      } else {
-        
-        const titleCard = `(${dddFinal}) ${servico.indicacao || "GERAL"} >> ${servico.razao}`;
-
-        const custom_fields_payload: Record<string, string | null | undefined> = {
-          "Inicio do Contrato": dataInicioFormatada,
-          "Final do Contrato": dataFimFormatada,
-          "Tempo de Contrato": String(mesesContrato),
-          "DDD": dddFinal,
-          "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
-          "DOCDRIVE": servico.servico_docdrive,
-          "Observacao": formatarObservacaoPlanosLinhas(servico.observacao),
-          "Indicacao": servico.indicacao,
-        };
-
-        if (infoDecisorStr) {
-          custom_fields_payload["Informações DECISOR (Possível decisor)"] = infoDecisorStr;
-        }
-
-        payloadWebhook = {
-          rules: {
-            update: true,
-            filter_status_update: "open",
-            status: "open",
-          },
-          leads: [
-            {
-              title: titleCard,
-              company_id: companyId,
-              company: servico.razao,
-              cnpj: cnpjFormatado,
-              user: emailConsultor || undefined,
-              probability: 10,
-              custom_fields: custom_fields_payload,
-            },
-          ],
-        };
+      } catch (imgErr: any) {
+        console.warn(`[Passo 3.1] ⚠️ Falha ao gerar imagem. Oportunidade subirá sem ela.`);
       }
 
-      console.log(
-        `[DEBUG] Rota /integradorJson | Hash: ${hashDefinido} | Payload sendo enviado:\n`,
-        JSON.stringify(payloadWebhook, null, 2),
-      );
+      // ===================================================================
+      // 3.2) MONTA O PAYLOAD DO WEBHOOK
+      // ===================================================================
+      let payloadWebhook;
+      const custom_fields_payload: Record<string, string | null | undefined> = {
+        "Inicio do Contrato": dataInicioFormatada,
+        "Final do Contrato": dataFimFormatada,
+        "Tempo de Contrato": String(mesesContrato),
+        "DDD": dddFinal,
+        "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
+        "DOCDRIVE": servico.servico_docdrive,
+        "Observacao": formatarObservacaoPlanosLinhas(servico.observacao),
+      };
 
+      if (infoDecisorStr) {
+        custom_fields_payload["Informações DECISOR (Possível decisor)"] = infoDecisorStr;
+      }
+
+      const titleCard = isExclusivo
+        ? `(${dddFinal}) EXCLUSIVO CLARO >> ${servico.razao}`
+        : `(${dddFinal}) ${servico.indicacao || "GERAL"} >> ${servico.razao}`;
+
+      custom_fields_payload["Indicacao"] = isExclusivo
+        ? `EXCLUSIVO CLARO: ${servico.indicacao || "N/A"}`
+        : servico.indicacao;
+
+      payloadWebhook = {
+        rules: { update: true, filter_status_update: "open", status: "open" },
+        leads: [
+          {
+            title: titleCard,
+            company_id: companyId,
+            company: servico.razao,
+            cnpj: cnpjFormatado,
+            user: emailConsultor || undefined,
+            probability: 10,
+            custom_fields: custom_fields_payload
+          }
+        ]
+      };
+
+      // ===================================================================
+      // 4) DISPARA O WEBHOOK PARA CRIAR O DEAL
+      // ===================================================================
       const responseWebhook = await axios.post(
         `https://app.pipe.run/webservice/integradorJson`,
         payloadWebhook,
@@ -434,16 +382,91 @@ export const API_PIPERUN = async ({
           headers: { "Content-Type": "application/json" },
         },
       );
-
+      
+      // ===================================================================
+      // 5) EXTRAI O DEAL ID E ANEXA A IMAGEM VIA NOTA
+      // ===================================================================
+      let dealIdCriado = null;
       if (responseWebhook.status === 200 || responseWebhook.data?.success) {
-        console.log(
-          `✅ Oportunidade Criada com Sucesso via Webhook! Status: ${responseWebhook.status} - Hash Utilizado: ${hashDefinido}`,
-        );
+        console.log(`✅ Oportunidade Criada com Sucesso via Webhook! Status: ${responseWebhook.status}`);
+
+        const respData = responseWebhook.data?.data;
+        if (Array.isArray(respData) && respData.length > 0) {
+          dealIdCriado = respData[0].id;
+        } else if (respData?.id) {
+          dealIdCriado = respData.id;
+        } else if (responseWebhook.data?.id) {
+          dealIdCriado = responseWebhook.data.id;
+        }
       }
 
-      console.log(
-        `[Passo 4] ⏸️ PULADO TEMPORARIAMENTE: Vínculo Pessoa x Oportunidade ignorado (Passo 1 inativo).`,
-      );
+      if (dealIdCriado && imagemLayoutBase64) {
+        try {
+          console.log(`[Passo 5] 📎 Anexando imagem como nota no Deal ID: ${dealIdCriado}...`);
+
+          // Converte Base64 para Blob nativo do navegador
+          const base64DataStr = imagemLayoutBase64.includes("data:image")
+            ? imagemLayoutBase64
+            : `data:image/png;base64,${imagemLayoutBase64}`;
+
+          const responseFetch = await fetch(base64DataStr);
+          const blobImagem = await responseFetch.blob();
+
+          // Prepara o formulário de Upload
+          const formData = new FormData();
+          formData.append("files[]", blobImagem, `proposta_${servico.seq_empresa}.png`);
+          formData.append("deal_id", String(dealIdCriado));
+
+          // Faz o upload físico da imagem
+          const uploadResp = await axios.post(
+            `${apiPipeRunRest.defaults.baseURL}/files/upload/deal/note/image`,
+            formData,
+            {
+              headers: {
+                "token": TOKEN_PIPERUN,
+                "accept": "application/json"
+              }
+            }
+          );
+
+          if (uploadResp.data?.success && uploadResp.data?.data?.length > 0) {
+            const urlResource = uploadResp.data.data[0].url_resource;
+            console.log(`✅ Upload concluído! URL: ${urlResource}`);
+
+            // CULPADO 1 CORRIGIDO: Formatação idêntica ao Python, usando aspas duplas escapadas (\")
+            const imgHtml = `<img src="${urlResource}" alt="image" style="max-width:100%; height:auto;"/>`;
+
+            const notePayload: any = {
+              text: `<strong>Resumo de Situação Atual</strong><br><br>${imgHtml}`,
+              deal_id: Number(dealIdCriado)
+            };
+
+            // CULPADO 2 CORRIGIDO: Omitimos o user_id fixo.
+            // Se o PipeRun exigir explicitamente e der erro sem ele, remova as barras da linha abaixo:
+            // notePayload.user_id = 73042;
+
+            console.log(`[DEBUG] Criando nota no PipeRun. Payload:`, JSON.stringify(notePayload));
+
+            const responseNota = await apiPipeRunRest.post("/notes", notePayload);
+
+            if (responseNota.status === 200 || responseNota.status === 201) {
+              console.log(`✅ Nota com imagem anexada com sucesso no Deal!`);
+            } else {
+              console.warn(`⚠️ A nota foi enviada, mas o status foi ${responseNota.status}`);
+            }
+
+          } else {
+            console.warn(`⚠️ O upload retornou status HTTP ok, mas sem 'success: true'.`);
+          }
+        } catch (uploadErr: any) {
+          console.error(`❌ Erro ao anexar a imagem como nota no Deal ${dealIdCriado}:`, uploadErr.message);
+          if (uploadErr.response?.data) {
+            console.error("Detalhes PipeRun:", JSON.stringify(uploadErr.response.data));
+          }
+        }
+      } else if (!dealIdCriado && imagemLayoutBase64) {
+        console.warn(`⚠️ A imagem foi gerada, mas o Webhook não retornou um 'deal_id' legível para anexar a nota.`);
+      }
 
       console.log(`✅ Fluxo concluído com sucesso para: ${servico.razao}`);
       sucessos++;
@@ -457,10 +480,9 @@ export const API_PIPERUN = async ({
         console.error(
           `Status HTTP: ${err.response?.status} na Rota: ${err.config?.url}`,
         );
-        console.error(
-          `Detalhes da Recusa da API:`,
-          JSON.stringify(err.response?.data, null, 2),
-        );
+
+        const errorMessage = err.response?.data ? JSON.stringify(err.response.data).substring(0, 500) : "Sem dados";
+        console.error(`Detalhes da Recusa da API:`, errorMessage);
       } else {
         console.error(
           `Erro Interno no Node/Browser:`,
