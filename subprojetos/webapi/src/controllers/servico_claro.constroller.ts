@@ -26,6 +26,7 @@ class ServicoClaroController {
     this.buscarDashboardEmpresasInfo =
       this.buscarDashboardEmpresasInfo.bind(this);
     this.gerarLayoutImagemLinhas = this.gerarLayoutImagemLinhas.bind(this);
+    this.gerarLayoutImagemProposta = this.gerarLayoutImagemProposta.bind(this);
   }
 
   async buscarServicosClaroPipePortabilidade(

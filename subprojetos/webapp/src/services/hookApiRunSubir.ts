@@ -1,10 +1,10 @@
 import { useState } from "react";
-import API from "@/services/api";
 import { IServicoPipeRun } from "@/interfaces/servicoPipeRun.interface";
 import { API_PIPERUN } from "@/services/apiPiperunSubir";
+import API from "./api";
+
 
 interface UseIntegracaoProps {
-  // AJUSTE: Adicionado o tipo "Exclusivo"
   tipoOperacao: "Renovação" | "Portabilidade" | "Exclusivo";
   dadosGlobais: IServicoPipeRun[];
   consultoresEnvio: number[];

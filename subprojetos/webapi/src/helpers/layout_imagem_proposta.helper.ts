@@ -30,13 +30,11 @@ export const CORES = {
   azul_bg: "rgba(33, 150, 243, 0.15)",
 };
 
-// ============================================================================
-// LÓGICA DE NEGÓCIOS (Equivalente à classe AnalisadorPlanos do Python)
-// ============================================================================
 export class AnalisadorPlanosHelper {
-  private extrairGbPlano(nomePlano: string): number {
-    if (!nomePlano) return 0;
-    const match = nomePlano.match(/(\d+)\s*GB/i);
+  public extrairGb(texto: any): number {
+    if (!texto) return 0;
+    if (typeof texto === "number") return texto;
+    const match = String(texto).match(/(\d+)/);
     return match ? parseInt(match[1], 10) : 0;
   }
 
@@ -51,12 +49,14 @@ export class AnalisadorPlanosHelper {
 
       const plano = servico.plano || "";
       const valor = Number(servico.valor) || 0;
-      const gb = this.extrairGbPlano(plano);
+
+      const gbBase = this.extrairGb(plano);
+      const bonusExistente = this.extrairGb(servico.bonus);
 
       if (!planos_agrupados[plano]) {
         planos_agrupados[plano] = {
           quantidade: 0,
-          gb_unitario: gb,
+          gb_unitario: gbBase,
           valor_unitario: valor,
           total_valor: 0,
           total_gb: 0,
@@ -65,10 +65,10 @@ export class AnalisadorPlanosHelper {
 
       planos_agrupados[plano].quantidade += 1;
       planos_agrupados[plano].total_valor += valor;
-      planos_agrupados[plano].total_gb += gb;
+      planos_agrupados[plano].total_gb += gbBase + bonusExistente;
 
       total_valor += valor;
-      total_gb += gb;
+      total_gb += gbBase + bonusExistente;
       total_linhas += 1;
     }
 
@@ -90,11 +90,14 @@ export class AnalisadorPlanosHelper {
       gbAcumulado: number,
       valorAcumulado: number,
       comboAtual: any[],
-      idxPlano: number
+      idxPlano: number,
     ) => {
       if (linhasRestantes === 0) {
         if (gbAcumulado >= gbMinimo) {
-          const totalBonus = comboAtual.reduce((acc, p) => acc + p.bonus * p.qtd, 0);
+          const totalBonus = comboAtual.reduce(
+            (acc, p) => acc + p.bonus * p.qtd,
+            0,
+          );
           combinacoes.push({
             combo: [...comboAtual],
             total_gb: gbAcumulado,
@@ -120,7 +123,7 @@ export class AnalisadorPlanosHelper {
             gbAcumulado + plano.gb * qtd,
             valorAcumulado + plano.valor * qtd,
             novoCombo,
-            i + 1
+            i + 1,
           );
         }
       }
@@ -131,43 +134,44 @@ export class AnalisadorPlanosHelper {
   }
 
   public encontrarMelhorOfertaEconomica(analiseAtual: any) {
-    const combinacoes = this.gerarCombinacoes(analiseAtual.total_linhas, analiseAtual.total_gb);
+    const combinacoes = this.gerarCombinacoes(
+      analiseAtual.total_linhas,
+      analiseAtual.total_gb,
+    );
     if (!combinacoes || combinacoes.length === 0) return null;
 
-    return combinacoes.reduce((min, atual) => (atual.total_valor < min.total_valor ? atual : min), combinacoes[0]);
+    return combinacoes.reduce(
+      (min, atual) => (atual.total_valor < min.total_valor ? atual : min),
+      combinacoes[0],
+    );
   }
 
   public encontrarMelhorOfertaMesmoValor(analiseAtual: any) {
     const valorMaximo = analiseAtual.total_valor * 1.05;
     const combinacoes = this.gerarCombinacoes(analiseAtual.total_linhas, 0);
-    
-    const combinacoesValidas = combinacoes.filter((c) => c.total_valor <= valorMaximo);
+
+    const combinacoesValidas = combinacoes.filter(
+      (c) => c.total_valor <= valorMaximo,
+    );
     if (!combinacoesValidas || combinacoesValidas.length === 0) return null;
 
     return combinacoesValidas.reduce(
-      (max, atual) => (atual.total_gb_com_bonus > max.total_gb_com_bonus ? atual : max),
-      combinacoesValidas[0]
+      (max, atual) =>
+        atual.total_gb_com_bonus > max.total_gb_com_bonus ? atual : max,
+      combinacoesValidas[0],
     );
-  }
-
-  public formatarTelefone(numeroStr: string): string {
-    if (!numeroStr) return "-";
-    const apenasNumeros = numeroStr.replace(/\D/g, "");
-    if (apenasNumeros.length === 11) {
-      return apenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-    }
-    return numeroStr;
   }
 }
 
 // ============================================================================
-// GERAÇÃO DO HTML (Equivalente ao GeradorPDF do Python)
+// GERAÇÃO DO HTML
 // ============================================================================
 export function gerarHtmlPropostaCompleta(proposta: any): string {
   const eco = proposta.oferta_economica;
   const turbo = proposta.oferta_mais_gb;
   const atual = proposta.situacao_atual;
 
+  // Valores para o Header/Cards
   const eco_total_val = eco ? eco.total_valor : 0;
   const eco_total_gb = eco ? eco.total_gb_com_bonus : 0;
   const turbo_total_val = turbo ? turbo.total_valor : 0;
@@ -177,68 +181,21 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
   const economia_contrato = economia > 0 ? economia * 24 : 0;
   const ganho_gb = turbo ? turbo_total_gb - atual.total_gb : 0;
 
-  const analisador = new AnalisadorPlanosHelper();
-
-  const gerarTabelaAtual = () => {
-    let linhasHtml = "";
-    let total_gb = 0;
-    let total_bonus = 0;
-    let total_valor = 0;
-
-    atual.servicos.forEach((servico: any) => {
-      const numero = analisador.formatarTelefone(servico.numero_linha);
-      const plano = servico.plano || "-";
-      const bonus = Number(servico.bonus) || 0;
-      const gb_base = analisador["extrairGbPlano"](plano); 
-      const gb_total = gb_base + bonus;
-      const valor = Number(servico.valor) || 0;
-
-      total_gb += gb_base;
-      total_bonus += bonus;
-      total_valor += valor;
-
-      linhasHtml += `
-        <tr>
-            <td>${numero}</td>
-            <td class="plan-name">${plano}</td>
-            <td>${bonus.toFixed(1)}</td>
-            <td class="highlight-red">${gb_total.toFixed(1)}</td>
-            <td class="highlight-yellow">R$ ${valor.toFixed(2)}</td>
-        </tr>`;
-    });
-
-    return `
-      <div class="table-wrapper">
-          <table>
-              <thead>
-                  <tr><th>Número</th><th>Plano</th><th>Bônus (GB)</th><th>GB Total</th><th>Valor</th></tr>
-              </thead>
-              <tbody>${linhasHtml}</tbody>
-              <tfoot>
-                  <tr>
-                      <td colspan="2"><strong>TOTAL</strong></td>
-                      <td><strong>${total_bonus.toFixed(1)}</strong></td>
-                      <td><strong>${(total_gb + total_bonus).toFixed(1)}</strong></td>
-                      <td><strong>R$ ${total_valor.toFixed(2)}</strong></td>
-                  </tr>
-              </tfoot>
-          </table>
-      </div>`;
-  };
-
+  // TABELA PROPOSTA (Reaproveitável para Econômica e Turbo)
   const gerarTabelaProposta = (combo: any[]) => {
-    if (!combo || combo.length === 0) return "<p style='color:#ccc;'>Nenhuma combinação viável encontrada.</p>";
-    
+    if (!combo || combo.length === 0)
+      return "<p style='color:#ccc;'>Nenhuma combinação viável encontrada.</p>";
+
     let linhasHtml = "";
-    let total_gb_base = 0;
-    let total_bonus = 0;
-    let total_valor = 0;
+    let prop_gb_base = 0;
+    let prop_bonus = 0;
+    let prop_valor = 0;
     let cont_linhas = 0;
 
     combo.forEach((item: any) => {
-      total_gb_base += item.gb * item.qtd;
-      total_bonus += item.bonus * item.qtd;
-      total_valor += item.valor * item.qtd;
+      prop_gb_base += item.gb * item.qtd;
+      prop_bonus += item.bonus * item.qtd;
+      prop_valor += item.valor * item.qtd;
 
       for (let i = 0; i < item.qtd; i++) {
         cont_linhas++;
@@ -250,8 +207,8 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
           <tr>
               <td>${numero_ficticio}</td>
               <td class="plan-name">${plano_nome}</td>
-              <td>${item.bonus.toFixed(1)}</td>
-              <td class="highlight-red">${gb_total.toFixed(1)}</td>
+              <td>${item.bonus.toFixed(1)} GB</td>
+              <td class="highlight-red">${gb_total.toFixed(1)} GB</td>
               <td class="highlight-yellow">R$ ${item.valor.toFixed(2)}</td>
           </tr>`;
       }
@@ -261,15 +218,15 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
       <div class="table-wrapper">
           <table>
               <thead>
-                  <tr><th>Linha</th><th>Novo Plano Sugerido</th><th>Bônus (GB)</th><th>GB Total</th><th>Valor</th></tr>
+                  <tr><th>Linha</th><th>Novo Plano Sugerido</th><th>Bônus</th><th>GB Total</th><th>Valor</th></tr>
               </thead>
               <tbody>${linhasHtml}</tbody>
               <tfoot>
                   <tr>
                       <td colspan="2"><strong>TOTAL</strong></td>
-                      <td><strong>${total_bonus.toFixed(1)}</strong></td>
-                      <td><strong>${(total_gb_base + total_bonus).toFixed(1)}</strong></td>
-                      <td><strong>R$ ${total_valor.toFixed(2)}</strong></td>
+                      <td><strong>${prop_bonus.toFixed(1)} GB</strong></td>
+                      <td><strong>${(prop_gb_base + prop_bonus).toFixed(1)} GB</strong></td>
+                      <td><strong>R$ ${prop_valor.toFixed(2)}</strong></td>
                   </tr>
               </tfoot>
           </table>
@@ -345,7 +302,8 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
 <body>
     <div class="container">
         <div class="glass header">
-            <h1>📱 Proposta Comercial</h1>
+            <h1>Proposta Comercial</h1>
+            <p><strong>${proposta.empresa.cnpj}</strong></p>
             <p>${proposta.empresa.razao_social}</p>
         </div>
 
@@ -359,7 +317,9 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
 
         <h2 class="offers-title">🎯 Ofertas Personalizadas</h2>
         <div class="offers-container">
-            ${eco ? `
+            ${
+              eco
+                ? `
             <div class="offer-card offer-economica">
                 <span class="offer-badge badge-economica">💰 Economia</span>
                 <h3 class="offer-title">Oferta Econômica</h3>
@@ -368,48 +328,74 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
                     <strong>Economia no Contrato</strong>
                     <p>R$ ${economia_contrato.toFixed(2)} em 24 meses</p>
                 </div>
+                
                 <div class="benefit-item">
-                    <span class="benefit-icon">📶</span>
-                    <div class="benefit-text"><strong>Internet Total</strong>${eco_total_gb} GB disponíveis</div>
+                    <span class="benefit-icon">🛜</span>
+                    <div class="benefit-text"><strong>Internet Total</strong><br>${eco_total_gb} GB disponíveis (Compartilhável entre as linhas)</div>
                 </div>
-            </div>` : ''}
+                <div class="benefit-item">
+                    <span class="benefit-icon">📞</span>
+                    <div class="benefit-text"><strong>Ligações Ilimitadas</strong><br>Para fixo e móvel em todo Brasil</div>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-icon">💬</span>
+                    <div class="benefit-text"><strong>Apps Ilimitados</strong><br>WhatsApp e Waze sem consumir internet</div>
+                </div>
+            </div>`
+                : ""
+            }
 
-            ${turbo ? `
+            ${
+              turbo
+                ? `
             <div class="offer-card offer-turbo">
                 <span class="offer-badge badge-turbo">🚀 Turbinado</span>
                 <h3 class="offer-title">Oferta Mais GB</h3>
                 <div class="offer-price">R$ ${turbo_total_val.toFixed(2)}<small>/mês</small></div>
                 <div class="highlight-box">
-                    <strong>+${ganho_gb} GB Extras</strong>
+                    <strong>+${ganho_gb.toFixed(0)} GB Extras</strong>
                     <p>Pelo mesmo investimento</p>
                 </div>
+
                 <div class="benefit-item">
-                    <span class="benefit-icon">📶</span>
-                    <div class="benefit-text"><strong>Internet Total</strong>${turbo_total_gb} GB disponíveis</div>
+                    <span class="benefit-icon">🛜</span>
+                    <div class="benefit-text"><strong>Internet Total</strong><br>${turbo_total_gb} GB disponíveis (Compartilhável entre as linhas)</div>
                 </div>
-            </div>` : ''}
+                <div class="benefit-item">
+                    <span class="benefit-icon">📞</span>
+                    <div class="benefit-text"><strong>Ligações Ilimitadas</strong><br>Para fixo e móvel em todo Brasil</div>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-icon">💬</span>
+                    <div class="benefit-text"><strong>Apps Ilimitados</strong><br>WhatsApp e Waze sem consumir intenet</div>
+                </div>
+            </div>`
+                : ""
+            }
         </div>
 
-        <div class="glass table-section">
-            <h2>📊 Situação Atual</h2>
-            ${gerarTabelaAtual()}
-        </div>
-
-        ${eco ? `
+        ${
+          eco
+            ? `
         <div class="glass table-section">
             <h2>💰 Detalhamento - Oferta Econômica</h2>
             ${gerarTabelaProposta(eco.combo)}
-        </div>` : ''}
+        </div>`
+            : ""
+        }
 
-        ${turbo ? `
+        ${
+          turbo
+            ? `
         <div class="glass table-section">
             <h2>🚀 Detalhamento - Oferta Mais GB</h2>
             ${gerarTabelaProposta(turbo.combo)}
-        </div>` : ''}
+        </div>`
+            : ""
+        }
 
         <div class="footer">
-            <p><strong>CNPJ:</strong> ${proposta.empresa.cnpj}</p>
-            <p>Proposta válida por 7 dias • Contrato de 24 meses • ${proposta.data_geracao}</p>
+            <p>Proposta válida por 7 dias • Contrato de 24 meses • Gerado em: ${proposta.data_geracao}</p>
         </div>
     </div>
 </body>

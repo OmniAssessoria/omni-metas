@@ -1,4 +1,4 @@
-import { formatarTelefone, limparPontuacao } from "./funtionFormataDados.util";
+import { formatarTelefone, limparPontuacao } from "./formataDados.util";
 
 export const extrairTelefonesEmpresaDaObservacao = (observacao: string | null) => {
     const telefonesUnicos = new Set<string>();

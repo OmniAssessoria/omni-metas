@@ -2,7 +2,10 @@ import ServicoClaroRepository from "../repositories/servico_claro.repository";
 import { gerarHtmlGlassmorphism } from "../helpers/layout_imagem_linhas.helper";
 import puppeteer from "puppeteer";
 import dayjs from "dayjs";
-import { AnalisadorPlanosHelper, gerarHtmlPropostaCompleta } from "../helpers/layout_imagem_proposta.helper";
+import {
+  AnalisadorPlanosHelper,
+  gerarHtmlPropostaCompleta,
+} from "../helpers/layout_imagem_proposta.helper";
 
 class GeradorImagemLayoutService {
   private repository: ServicoClaroRepository;
@@ -89,17 +92,23 @@ class GeradorImagemLayoutService {
         height: 1000,
         deviceScaleFactor: 2,
       });
-      await page.setContent(htmlCompleto, { waitUntil: "networkidle0" });
 
-      const bodyHandle = await page.$("body");
-      const boundingBox = await bodyHandle?.boundingBox();
-      const documentHeight = boundingBox
-        ? Math.ceil(boundingBox.height) + 100
-        : 2000;
+      // GARANTE QUE TODO CSS E FONTES CARREGUEM
+      await page.setContent(htmlCompleto, { waitUntil: "networkidle0" });
+      await page.evaluateHandle("document.fonts.ready");
+
+      // CÁLCULO PRECISO DO TAMANHO DA IMAGEM
+      const documentHeight = await page.evaluate(() => {
+        return Math.max(
+          document.body.scrollHeight,
+          document.documentElement.scrollHeight,
+          document.body.offsetHeight,
+        );
+      });
 
       await page.setViewport({
         width: 1200,
-        height: documentHeight,
+        height: documentHeight + 100, // Margem de segurança pro rodapé
         deviceScaleFactor: 2,
       });
 
@@ -133,7 +142,6 @@ class GeradorImagemLayoutService {
     razao: string,
     cnpj: string,
   ) {
-    // 1. Busca as linhas ativas da empresa
     const linhasDb =
       await this.repository.buscarLinhasPorSeqEmpresa(seq_empresa);
 
@@ -179,17 +187,23 @@ class GeradorImagemLayoutService {
         height: 1000,
         deviceScaleFactor: 2,
       });
-      await page.setContent(htmlCompleto, { waitUntil: "networkidle0" });
 
-      const bodyHandle = await page.$("body");
-      const boundingBox = await bodyHandle?.boundingBox();
-      const documentHeight = boundingBox
-        ? Math.ceil(boundingBox.height) + 100
-        : 2500;
+      // GARANTE QUE TODO CSS E FONTES CARREGUEM
+      await page.setContent(htmlCompleto, { waitUntil: "networkidle0" });
+      await page.evaluateHandle("document.fonts.ready");
+
+      // CÁLCULO PRECISO DO TAMANHO DA IMAGEM
+      const documentHeight = await page.evaluate(() => {
+        return Math.max(
+          document.body.scrollHeight,
+          document.documentElement.scrollHeight,
+          document.body.offsetHeight,
+        );
+      });
 
       await page.setViewport({
         width: 1200,
-        height: documentHeight,
+        height: documentHeight + 100, // Margem de segurança pro rodapé
         deviceScaleFactor: 2,
       });
 
