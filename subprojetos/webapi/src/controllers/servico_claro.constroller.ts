@@ -9,7 +9,7 @@ class ServicoClaroController {
   constructor() {
     this.servicoClaroService = new ServicoClaroService();
     this.geradorImagemLayoutService = new GeradorImagemLayoutService();
-    
+
     this.buscarServicosClaroPipePortabilidade =
       this.buscarServicosClaroPipePortabilidade.bind(this);
     this.buscarServicosClaroPipeRenovacao =
@@ -23,7 +23,8 @@ class ServicoClaroController {
     this.buscarDashboardBase = this.buscarDashboardBase.bind(this);
     this.buscarDashboardPorIndicacao =
       this.buscarDashboardPorIndicacao.bind(this);
-    this.buscarDashboardEmpresasInfo = this.buscarDashboardEmpresasInfo.bind(this);
+    this.buscarDashboardEmpresasInfo =
+      this.buscarDashboardEmpresasInfo.bind(this);
     this.gerarLayoutImagemLinhas = this.gerarLayoutImagemLinhas.bind(this);
   }
 
@@ -251,9 +252,13 @@ class ServicoClaroController {
     }
   }
 
-  async buscarDashboardEmpresasInfo(req: Request, res: Response): Promise<void> {
+  async buscarDashboardEmpresasInfo(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
     try {
-      const dadosEmpresas = await this.servicoClaroService.obterDashboardEmpresasInfo();
+      const dadosEmpresas =
+        await this.servicoClaroService.obterDashboardEmpresasInfo();
 
       res.status(200).json({
         status: true,
@@ -261,7 +266,10 @@ class ServicoClaroController {
         dados: dadosEmpresas,
       });
     } catch (error: any) {
-      console.error(`[API GET ERROR] Falha ao buscar Dashboard Empresas:`, error.message);
+      console.error(
+        `[API GET ERROR] Falha ao buscar Dashboard Empresas:`,
+        error.message,
+      );
       res.status(500).json({
         status: false,
         mensagem: "Erro ao buscar dados consolidados das empresas (Funil CPC).",
@@ -274,33 +282,92 @@ class ServicoClaroController {
     try {
       const { seq_empresa, razao, cnpj } = req.body;
 
-      console.log(`[API POST] Gerando layout Base64 para Empresa SEQ: ${seq_empresa} | ${razao}`);
+      console.log(
+        `[API POST] Gerando layout Base64 para Empresa SEQ: ${seq_empresa} | ${razao}`,
+      );
 
       if (!seq_empresa || isNaN(Number(seq_empresa))) {
-        res.status(400).json({ status: false, mensagem: "O parâmetro seq_empresa é obrigatório e deve ser numérico." });
+        res
+          .status(400)
+          .json({
+            status: false,
+            mensagem:
+              "O parâmetro seq_empresa é obrigatório e deve ser numérico.",
+          });
         return;
       }
 
-      const resultado = await this.geradorImagemLayoutService.gerarLayoutInfoLinhas(
-        Number(seq_empresa),
-        razao,
-        cnpj
-      );
+      const resultado =
+        await this.geradorImagemLayoutService.gerarLayoutInfoLinhas(
+          Number(seq_empresa),
+          razao,
+          cnpj,
+        );
 
       res.status(200).json({
         status: true,
         mensagem: "Proposta gerada em Base64 com sucesso.",
         dados: {
           imagem: resultado.imagem_base64,
-          metricas: resultado.analise
-        }
+          metricas: resultado.analise,
+        },
       });
-
     } catch (error: any) {
-      console.error(`[API POST ERROR] Falha ao gerar layout de linhas:`, error.message);
+      console.error(
+        `[API POST ERROR] Falha ao gerar layout de linhas:`,
+        error.message,
+      );
       res.status(500).json({
         status: false,
         mensagem: "Erro interno na renderização da proposta comercial.",
+        detalhes: error.message,
+      });
+    }
+  }
+  
+  async gerarLayoutImagemProposta(req: Request, res: Response): Promise<void> {
+    try {
+      const { seq_empresa, razao, cnpj } = req.body;
+
+      console.log(
+        `[API POST] Gerando PROPOSTA em Base64 para Empresa SEQ: ${seq_empresa} | ${razao}`,
+      );
+
+      if (!seq_empresa || isNaN(Number(seq_empresa))) {
+        res
+          .status(400)
+          .json({
+            status: false,
+            mensagem:
+              "O parâmetro seq_empresa é obrigatório e deve ser numérico.",
+          });
+        return;
+      }
+
+      const resultado =
+        await this.geradorImagemLayoutService.gerarLayoutImagemProposta(
+          Number(seq_empresa),
+          razao || "Empresa Não Informada",
+          cnpj || "CNPJ Não Informado",
+        );
+
+      res.status(200).json({
+        status: true,
+        mensagem: "Proposta Comercial gerada em Base64 com sucesso.",
+        dados: {
+          imagem: resultado.imagem_base64,
+          metricas: resultado.analise,
+        },
+      });
+    } catch (error: any) {
+      console.error(
+        `[API POST ERROR] Falha ao gerar proposta comercial:`,
+        error.message,
+      );
+      res.status(500).json({
+        status: false,
+        mensagem:
+          "Erro interno na renderização da proposta comercial multiplano.",
         detalhes: error.message,
       });
     }

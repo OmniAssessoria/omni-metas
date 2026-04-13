@@ -1,7 +1,8 @@
 import ServicoClaroRepository from "../repositories/servico_claro.repository";
 import { gerarHtmlGlassmorphism } from "../helpers/layout_imagem_linhas.helper";
 import puppeteer from "puppeteer";
-import dayjs from "dayjs"; 
+import dayjs from "dayjs";
+import { AnalisadorPlanosHelper, gerarHtmlPropostaCompleta } from "../helpers/layout_imagem_proposta.helper";
 
 class GeradorImagemLayoutService {
   private repository: ServicoClaroRepository;
@@ -12,18 +13,25 @@ class GeradorImagemLayoutService {
 
   private formatarTelefone(numeroStr: string): string {
     if (!numeroStr) return "-";
-    const apenasNumeros = numeroStr.replace(/\D/g, '');
+    const apenasNumeros = numeroStr.replace(/\D/g, "");
     if (apenasNumeros.length === 11) {
-      return apenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+      return apenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
     }
-    return numeroStr; 
+    return numeroStr;
   }
 
-  async gerarLayoutInfoLinhas(seq_empresa: number, razao: string, cnpj: string) {
-    const linhasDb = await this.repository.buscarLinhasPorSeqEmpresa(seq_empresa);
+  async gerarLayoutInfoLinhas(
+    seq_empresa: number,
+    razao: string,
+    cnpj: string,
+  ) {
+    const linhasDb =
+      await this.repository.buscarLinhasPorSeqEmpresa(seq_empresa);
 
     if (!linhasDb || linhasDb.length === 0) {
-      throw new Error(`Nenhuma linha ativa (tipo CLARO) encontrada para a empresa ${seq_empresa}`);
+      throw new Error(
+        `Nenhuma linha ativa (tipo CLARO) encontrada para a empresa ${seq_empresa}`,
+      );
     }
 
     let total_valor = 0;
@@ -32,11 +40,11 @@ class GeradorImagemLayoutService {
     linhasDb.forEach((linha) => {
       const bonusString = linha.bonus ? String(linha.bonus).trim() : "-";
       const valor = Number(linha.valor) || 0;
-      
+
       const numeroFormatado = this.formatarTelefone(linha.numero_linha);
-      const dataVencimento = linha.dt_fim_compromisso 
-        ? dayjs(linha.dt_fim_compromisso).format('DD/MM/YYYY') 
-        : '-';
+      const dataVencimento = linha.dt_fim_compromisso
+        ? dayjs(linha.dt_fim_compromisso).format("DD/MM/YYYY")
+        : "-";
 
       total_valor += valor;
 
@@ -50,58 +58,170 @@ class GeradorImagemLayoutService {
         </tr>`;
     });
 
-    const data_atual = dayjs().format('DD/MM/YYYY HH:mm');
+    const data_atual = dayjs().format("DD/MM/YYYY HH:mm");
 
     const htmlCompleto = gerarHtmlGlassmorphism({
       razao_social: razao,
       cnpj: cnpj,
       data_atual,
       linhas_tabela,
-      total_valor
+      total_valor,
     });
 
     try {
-      console.log(`[Puppeteer] Renderizando layout em memória para a empresa: ${razao}`);
-      
+      console.log(
+        `[Puppeteer] Renderizando layout em memória para a empresa: ${razao}`,
+      );
+
       const browser = await puppeteer.launch({
         headless: true,
         args: [
-          '--no-sandbox', 
-          '--disable-setuid-sandbox', 
-          '--disable-dev-shm-usage'
-        ]
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+        ],
       });
-      
+
       const page = await browser.newPage();
-      
-      await page.setViewport({ width: 1200, height: 1000, deviceScaleFactor: 2 });
-      await page.setContent(htmlCompleto, { waitUntil: 'networkidle0' });
 
-      const bodyHandle = await page.$('body');
+      await page.setViewport({
+        width: 1200,
+        height: 1000,
+        deviceScaleFactor: 2,
+      });
+      await page.setContent(htmlCompleto, { waitUntil: "networkidle0" });
+
+      const bodyHandle = await page.$("body");
       const boundingBox = await bodyHandle?.boundingBox();
-      const documentHeight = boundingBox ? Math.ceil(boundingBox.height) + 100 : 2000;
+      const documentHeight = boundingBox
+        ? Math.ceil(boundingBox.height) + 100
+        : 2000;
 
-      await page.setViewport({ width: 1200, height: documentHeight, deviceScaleFactor: 2 });
+      await page.setViewport({
+        width: 1200,
+        height: documentHeight,
+        deviceScaleFactor: 2,
+      });
 
-      const base64Screenshot = await page.screenshot({ 
-        encoding: 'base64', 
-        fullPage: true 
+      const base64Screenshot = await page.screenshot({
+        encoding: "base64",
+        fullPage: true,
       });
 
       await browser.close();
-      console.log(`[Puppeteer] Base64 gerado com sucesso! Linhas Processadas: ${linhasDb.length}`);
+      console.log(
+        `[Puppeteer] Base64 gerado com sucesso! Linhas Processadas: ${linhasDb.length}`,
+      );
 
       return {
         imagem_base64: `data:image/png;base64,${base64Screenshot}`,
         analise: {
-            linhas_processadas: linhasDb.length,
-            total_valor,
-        }
+          linhas_processadas: linhasDb.length,
+          total_valor,
+        },
       };
-
     } catch (error: any) {
       console.error(`[Puppeteer Erro] Falha ao processar print HTML:`, error);
-      throw new Error(`Falha no motor de renderização visual em memória: ${error.message}`);
+      throw new Error(
+        `Falha no motor de renderização visual em memória: ${error.message}`,
+      );
+    }
+  }
+
+  async gerarLayoutImagemProposta(
+    seq_empresa: number,
+    razao: string,
+    cnpj: string,
+  ) {
+    // 1. Busca as linhas ativas da empresa
+    const linhasDb =
+      await this.repository.buscarLinhasPorSeqEmpresa(seq_empresa);
+
+    if (!linhasDb || linhasDb.length === 0) {
+      throw new Error(
+        `Nenhuma linha ativa (tipo CLARO) encontrada para a empresa ${seq_empresa}`,
+      );
+    }
+
+    const analisador = new AnalisadorPlanosHelper();
+    const analiseAtual = analisador.analisarPlanosCliente(linhasDb);
+    const ofertaEconomica =
+      analisador.encontrarMelhorOfertaEconomica(analiseAtual);
+    const ofertaMaisGb =
+      analisador.encontrarMelhorOfertaMesmoValor(analiseAtual);
+
+    const dataProposta = {
+      empresa: { razao_social: razao, cnpj: cnpj },
+      situacao_atual: analiseAtual,
+      oferta_economica: ofertaEconomica,
+      oferta_mais_gb: ofertaMaisGb,
+      data_geracao: dayjs().format("DD/MM/YYYY HH:mm"),
+    };
+
+    const htmlCompleto = gerarHtmlPropostaCompleta(dataProposta);
+
+    try {
+      console.log(`[Puppeteer] Renderizando PROPOSTA para a empresa: ${razao}`);
+
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+        ],
+      });
+
+      const page = await browser.newPage();
+
+      await page.setViewport({
+        width: 1200,
+        height: 1000,
+        deviceScaleFactor: 2,
+      });
+      await page.setContent(htmlCompleto, { waitUntil: "networkidle0" });
+
+      const bodyHandle = await page.$("body");
+      const boundingBox = await bodyHandle?.boundingBox();
+      const documentHeight = boundingBox
+        ? Math.ceil(boundingBox.height) + 100
+        : 2500;
+
+      await page.setViewport({
+        width: 1200,
+        height: documentHeight,
+        deviceScaleFactor: 2,
+      });
+
+      const base64Screenshot = await page.screenshot({
+        encoding: "base64",
+        fullPage: true,
+      });
+
+      await browser.close();
+      console.log(`[Puppeteer] Base64 da Proposta gerado com sucesso!`);
+
+      return {
+        imagem_base64: `data:image/png;base64,${base64Screenshot}`,
+        analise: {
+          linhas_processadas: analiseAtual.total_linhas,
+          valor_atual: analiseAtual.total_valor,
+          valor_oferta_economica: ofertaEconomica
+            ? ofertaEconomica.total_valor
+            : null,
+          economia_projetada_24m: ofertaEconomica
+            ? (analiseAtual.total_valor - ofertaEconomica.total_valor) * 24
+            : 0,
+          ganho_gb_turbo: ofertaMaisGb
+            ? ofertaMaisGb.total_gb_com_bonus - analiseAtual.total_gb
+            : 0,
+        },
+      };
+    } catch (error: any) {
+      console.error(`[Puppeteer Erro] Falha ao renderizar proposta:`, error);
+      throw new Error(
+        `Falha no motor de renderização visual da proposta: ${error.message}`,
+      );
     }
   }
 }
