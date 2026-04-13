@@ -1961,7 +1961,6 @@ export default function DashboardAnaliticoMultiView() {
 
         <hr className="w-full max-w-7xl mx-auto border-slate-200" />
 
-        {/* RESTANTE DO CÓDIGO DE ANÁLISE DE HISTÓRICO... */}
         <section className="w-full max-w-7xl mx-auto">
           <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
             <div>
