@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
+
 import {
   Briefcase,
   Bell,
@@ -12,6 +13,7 @@ import {
   ToggleRight,
   Loader2,
   Database,
+  Info,
   CloudCog,
   Calendar,
   Eraser,
@@ -1506,7 +1508,9 @@ export default function DashboardAnaliticoMultiView() {
                   Métricas de Funil (CPC & eDoc) - Visão Global de Empresas
                 </h3>
               </div>
+
               <CardContent className="p-0">
+                {/* GRID DE MÉTRICAS - MANTIDO EXATAMENTE IGUAL */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[1px] bg-slate-700/50">
                   <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
@@ -1519,47 +1523,10 @@ export default function DashboardAnaliticoMultiView() {
 
                   <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Lido CPC (Sem Serviço)
+                      Lido CPC (SEM SERVIÇO - FORA DO PRAZO/RENOV/PORT/EXCED)
                     </p>
                     <p className="text-xl font-black text-white">
                       {dadosFunilCpc?.total_passado_cpc_sem_servico || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Disp. p/ CPC (Sem Serv.)
-                    </p>
-                    <p className="text-xl font-black text-amber-400">
-                      {dadosFunilCpc?.disp_cpc_sem_servico || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Disp. p/ CPC (Com eDoc)
-                    </p>
-                    <p className="text-xl font-black text-white">
-                      {dadosFunilCpc?.disp_cpc_com_edoc || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Disp. CPC (eDoc + Drive)
-                    </p>
-                    <p className="text-xl font-black text-sky-400">
-                      {dadosFunilCpc?.disp_cpc_edoc_e_docdrive || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
-                      eDoc s/ Drive <br />
-                      (Já Lido CPC)
-                    </p>
-                    <p className="text-xl font-black text-slate-300">
-                      {dadosFunilCpc?.edoc_sem_docdrive_sem_serv_cpc_ok || 0}
                     </p>
                   </div>
 
@@ -1589,6 +1556,106 @@ export default function DashboardAnaliticoMultiView() {
                       {dadosFunilCpc?.edoc_com_cpc_edoc_servico_com_drive || 0}
                     </p>
                   </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                      Disp. p/ CPC (SEM SERVICO)
+                    </p>
+                    <p className="text-xl font-black text-amber-400">
+                      {dadosFunilCpc?.disp_cpc_sem_servico || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                      Disp. p/ CPC + EDOC (LIDO NO EDOC)
+                    </p>
+                    <p className="text-xl font-black text-white">
+                      {dadosFunilCpc?.disp_cpc_com_edoc || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                      Disp. CPC (eDoc + Drive)
+                    </p>
+                    <p className="text-xl font-black text-sky-400">
+                      {dadosFunilCpc?.disp_cpc_edoc_e_docdrive || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                      eDoc s/ Drive <br />
+                      (Já Lido CPC)
+                    </p>
+                    <p className="text-xl font-black text-slate-300">
+                      {dadosFunilCpc?.edoc_sem_docdrive_sem_serv_cpc_ok || 0}
+                    </p>
+                  </div>
+                </div>
+
+                {/* SEÇÃO DE LEGENDA ADICIONADA AQUI */}
+                <div className="px-5 py-4 bg-slate-800/40 border-t border-slate-700/50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Info className="w-3.5 h-3.5 text-slate-400" />
+                    <h4 className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
+                      Legenda de Termos e Siglas
+                    </h4>
+                  </div>
+
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-xs">
+                    <li className="flex items-start gap-2">
+                      <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
+                        1
+                      </span>
+                      <p className="text-slate-400 leading-relaxed">
+                        <strong className="text-slate-200 font-semibold mr-1">
+                          SERVIÇO:
+                        </strong>
+                        Tem cadastro de linhas no banco (seja FORA DO PRAZO,
+                        RENOVAÇÃO, PORTABILIDADE, PRAZO EXCEDIDO ou PRAZO
+                        LIMITADO).
+                      </p>
+                    </li>
+
+                    <li className="flex items-start gap-2">
+                      <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
+                        2
+                      </span>
+                      <p className="text-slate-400 leading-relaxed">
+                        <strong className="text-slate-200 font-semibold mr-1">
+                          CPC:
+                        </strong>
+                        Foi lido na aplicação CPC.
+                      </p>
+                    </li>
+
+                    <li className="flex items-start gap-2">
+                      <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
+                        3
+                      </span>
+                      <p className="text-slate-400 leading-relaxed">
+                        <strong className="text-slate-200 font-semibold mr-1">
+                          EDOC:
+                        </strong>
+                        Foi lido na aplicação EDOC.
+                      </p>
+                    </li>
+
+                    <li className="flex items-start gap-2">
+                      <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
+                        4
+                      </span>
+                      <p className="text-slate-400 leading-relaxed">
+                        <strong className="text-slate-200 font-semibold mr-1">
+                          DRIVE:
+                        </strong>
+                        Possui contrato armazenado no DRIVE ou em outros
+                        repositórios de arquivos.
+                      </p>
+                    </li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>
@@ -2142,9 +2209,9 @@ export default function DashboardAnaliticoMultiView() {
                       tickLine={false}
                       axisLine={false}
                       interval={0}
-                      angle={-45} 
+                      angle={-45}
                       textAnchor="end"
-                      height={70} 
+                      height={70}
                     />
                     <YAxis fontSize={12} tickLine={false} axisLine={false} />
                     <RechartsTooltip
