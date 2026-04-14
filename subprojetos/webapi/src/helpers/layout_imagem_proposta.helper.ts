@@ -171,7 +171,29 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
   const turbo = proposta.oferta_mais_gb;
   const atual = proposta.situacao_atual;
 
-  // Valores para o Header/Cards
+  const formatarTelefoneProposta = (numeroStr: string): string => {
+    if (!numeroStr) return "-";
+    let apenasNumeros = String(numeroStr).replace(/\D/g, "");
+
+    if (apenasNumeros.startsWith("55") && apenasNumeros.length >= 12) {
+      apenasNumeros = apenasNumeros.substring(2);
+    }
+
+    if (apenasNumeros.length === 11) {
+      return `+55 ${apenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3")}`;
+    } else if (apenasNumeros.length === 10) {
+      return `+55 ${apenasNumeros.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3")}`;
+    }
+    return numeroStr;
+  };
+
+  const linhasAtivas = (atual.servicos || []).filter(
+    (s: any) => s.linha_ativa !== false,
+  );
+  const telefonesReais = linhasAtivas.map((s: any) =>
+    formatarTelefoneProposta(s.numero_linha),
+  );
+
   const eco_total_val = eco ? eco.total_valor : 0;
   const eco_total_gb = eco ? eco.total_gb_com_bonus : 0;
   const turbo_total_val = turbo ? turbo.total_valor : 0;
@@ -181,7 +203,6 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
   const economia_contrato = economia > 0 ? economia * 24 : 0;
   const ganho_gb = turbo ? turbo_total_gb - atual.total_gb : 0;
 
-  // TABELA PROPOSTA (Reaproveitável para Econômica e Turbo)
   const gerarTabelaProposta = (combo: any[]) => {
     if (!combo || combo.length === 0)
       return "<p style='color:#ccc;'>Nenhuma combinação viável encontrada.</p>";
@@ -190,7 +211,8 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
     let prop_gb_base = 0;
     let prop_bonus = 0;
     let prop_valor = 0;
-    let cont_linhas = 0;
+
+    let index_telefone = 0;
 
     combo.forEach((item: any) => {
       prop_gb_base += item.gb * item.qtd;
@@ -198,14 +220,16 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
       prop_valor += item.valor * item.qtd;
 
       for (let i = 0; i < item.qtd; i++) {
-        cont_linhas++;
-        const numero_ficticio = `Linha ${cont_linhas}`;
+        const numero_real =
+          telefonesReais[index_telefone] || `Linha ${index_telefone + 1}`;
+        index_telefone++;
+
         const plano_nome = `Claro Pós ${item.gb}GB`;
         const gb_total = item.gb + item.bonus;
 
         linhasHtml += `
           <tr>
-              <td>${numero_ficticio}</td>
+              <td>${numero_real}</td>
               <td class="plan-name">${plano_nome}</td>
               <td>${item.bonus.toFixed(1)} GB</td>
               <td class="highlight-red">${gb_total.toFixed(1)} GB</td>
@@ -218,7 +242,7 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
       <div class="table-wrapper">
           <table>
               <thead>
-                  <tr><th>Linha</th><th>Novo Plano Sugerido</th><th>Bônus</th><th>GB Total</th><th>Valor</th></tr>
+                  <tr><th>Número da Linha</th><th>Novo Plano Sugerido</th><th>Bônus</th><th>GB Total</th><th>Valor</th></tr>
               </thead>
               <tbody>${linhasHtml}</tbody>
               <tfoot>
