@@ -93,11 +93,9 @@ class GeradorImagemLayoutService {
         deviceScaleFactor: 2,
       });
 
-      // GARANTE QUE TODO CSS E FONTES CARREGUEM
       await page.setContent(htmlCompleto, { waitUntil: "networkidle0" });
       await page.evaluateHandle("document.fonts.ready");
 
-      // CÁLCULO PRECISO DO TAMANHO DA IMAGEM
       const documentHeight = await page.evaluate(() => {
         return Math.max(
           document.body.scrollHeight,
@@ -108,7 +106,7 @@ class GeradorImagemLayoutService {
 
       await page.setViewport({
         width: 1200,
-        height: documentHeight + 100, // Margem de segurança pro rodapé
+        height: documentHeight + 100, 
         deviceScaleFactor: 2,
       });
 
@@ -200,7 +198,7 @@ class GeradorImagemLayoutService {
 
       await page.setViewport({
         width: 1200,
-        height: documentHeight + 100, 
+        height: documentHeight + 100,
         deviceScaleFactor: 2,
       });
 

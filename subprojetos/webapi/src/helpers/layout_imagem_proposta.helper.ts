@@ -50,8 +50,8 @@ export class AnalisadorPlanosHelper {
       const plano = servico.plano || "";
       const valor = Number(servico.valor) || 0;
 
+      // Mantém APENAS o cálculo do GB base do plano, igual ao Python.
       const gbBase = this.extrairGb(plano);
-      const bonusExistente = this.extrairGb(servico.bonus);
 
       if (!planos_agrupados[plano]) {
         planos_agrupados[plano] = {
@@ -65,10 +65,14 @@ export class AnalisadorPlanosHelper {
 
       planos_agrupados[plano].quantidade += 1;
       planos_agrupados[plano].total_valor += valor;
-      planos_agrupados[plano].total_gb += gbBase + bonusExistente;
+
+      // NÃO SOMAMOS MAIS O BÔNUS AQUI
+      planos_agrupados[plano].total_gb += gbBase;
 
       total_valor += valor;
-      total_gb += gbBase + bonusExistente;
+
+      // NÃO SOMAMOS MAIS O BÔNUS AQUI
+      total_gb += gbBase;
       total_linhas += 1;
     }
 
@@ -167,8 +171,16 @@ export class AnalisadorPlanosHelper {
 // GERAÇÃO DO HTML
 // ============================================================================
 export function gerarHtmlPropostaCompleta(proposta: any): string {
-  const eco = proposta.oferta_economica;
-  const turbo = proposta.oferta_mais_gb;
+  let eco = proposta.oferta_economica;
+  let turbo = proposta.oferta_mais_gb;
+
+  // Trava de segurança para exibição
+  if (eco && turbo && eco.total_valor > turbo.total_valor) {
+    const temp = eco;
+    eco = turbo;
+    turbo = temp;
+  }
+
   const atual = proposta.situacao_atual;
 
   const formatarTelefoneProposta = (numeroStr: string): string => {
