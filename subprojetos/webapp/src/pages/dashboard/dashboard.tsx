@@ -1523,10 +1523,20 @@ export default function DashboardAnaliticoMultiView() {
 
                   <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Lido CPC (SEM SERVIÇO - FORA DO PRAZO/RENOV/PORT/EXCED)
+                      Lido CPC (SEM SERVIÇO)
                     </p>
                     <p className="text-xl font-black text-white">
                       {dadosFunilCpc?.total_passado_cpc_sem_servico || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                      CPC + eDoc <br />
+                      (SEM SERVIÇO E DRIVE)
+                    </p>
+                    <p className="text-xl font-black text-slate-300">
+                      {dadosFunilCpc?.edoc_sem_docdrive_sem_serv_cpc_ok || 0}
                     </p>
                   </div>
 
@@ -1583,19 +1593,8 @@ export default function DashboardAnaliticoMultiView() {
                       {dadosFunilCpc?.disp_cpc_edoc_e_docdrive || 0}
                     </p>
                   </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
-                      eDoc s/ Drive <br />
-                      (Já Lido CPC)
-                    </p>
-                    <p className="text-xl font-black text-slate-300">
-                      {dadosFunilCpc?.edoc_sem_docdrive_sem_serv_cpc_ok || 0}
-                    </p>
-                  </div>
                 </div>
 
-                {/* SEÇÃO DE LEGENDA ADICIONADA AQUI */}
                 <div className="px-5 py-4 bg-slate-800/40 border-t border-slate-700/50">
                   <div className="flex items-center gap-2 mb-3">
                     <Info className="w-3.5 h-3.5 text-slate-400" />
