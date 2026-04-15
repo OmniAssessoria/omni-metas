@@ -50,7 +50,6 @@ export class AnalisadorPlanosHelper {
       const plano = servico.plano || "";
       const valor = Number(servico.valor) || 0;
 
-      // Mantém APENAS o cálculo do GB base do plano, igual ao Python.
       const gbBase = this.extrairGb(plano);
 
       if (!planos_agrupados[plano]) {
