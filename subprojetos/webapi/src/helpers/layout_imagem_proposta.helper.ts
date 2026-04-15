@@ -151,13 +151,17 @@ export class AnalisadorPlanosHelper {
 
   public encontrarMelhorOfertaMesmoValor(analiseAtual: any) {
     const valorMaximo = analiseAtual.total_valor * 1.05;
-    const combinacoes = this.gerarCombinacoes(analiseAtual.total_linhas, 0);
+
+    const combinacoes = this.gerarCombinacoes(
+      analiseAtual.total_linhas,
+      analiseAtual.total_gb,
+    );
 
     const combinacoesValidas = combinacoes.filter(
       (c) => c.total_valor <= valorMaximo,
     );
     if (!combinacoesValidas || combinacoesValidas.length === 0) return null;
-
+    
     return combinacoesValidas.reduce(
       (max, atual) =>
         atual.total_gb_com_bonus > max.total_gb_com_bonus ? atual : max,
