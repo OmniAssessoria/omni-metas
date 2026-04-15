@@ -133,7 +133,6 @@ export class AnalisadorPlanosHelper {
     return combinacoes;
   }
 
-  // NOVA FUNÇÃO 1: Focada puramente no MENOR VALOR possível (respeitando a Base de GB)
   public encontrarMelhorOfertaEconomica(analiseAtual: any) {
     const combinacoes = this.gerarCombinacoes(
       analiseAtual.total_linhas,
