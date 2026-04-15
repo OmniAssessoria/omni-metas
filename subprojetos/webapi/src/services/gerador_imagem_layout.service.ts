@@ -2,10 +2,7 @@ import ServicoClaroRepository from "../repositories/servico_claro.repository";
 import { gerarHtmlGlassmorphism } from "../helpers/layout_imagem_linhas.helper";
 import puppeteer from "puppeteer";
 import dayjs from "dayjs";
-import {
-  AnalisadorPlanosHelper,
-  gerarHtmlPropostaCompleta,
-} from "../helpers/layout_imagem_proposta.helper";
+import { AnalisadorPlanosHelper, gerarHtmlPropostaCompleta } from "../helpers/layout_imagem_proposta.helper";
 
 class GeradorImagemLayoutService {
   private repository: ServicoClaroRepository;
@@ -106,7 +103,7 @@ class GeradorImagemLayoutService {
 
       await page.setViewport({
         width: 1200,
-        height: documentHeight + 100, 
+        height: documentHeight + 100,
         deviceScaleFactor: 2,
       });
 
@@ -151,10 +148,11 @@ class GeradorImagemLayoutService {
 
     const analisador = new AnalisadorPlanosHelper();
     const analiseAtual = analisador.analisarPlanosCliente(linhasDb);
+
+    // Novas chamadas das funções refatoradas
     const ofertaEconomica =
       analisador.encontrarMelhorOfertaEconomica(analiseAtual);
-    const ofertaMaisGb =
-      analisador.encontrarMelhorOfertaMesmoValor(analiseAtual);
+    const ofertaMaisGb = analisador.encontrarMelhorOfertaMaisGb(analiseAtual);
 
     const dataProposta = {
       empresa: { razao_social: razao, cnpj: cnpj },
