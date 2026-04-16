@@ -230,7 +230,7 @@ export const API_PIPERUN = async ({
 
       const titleCard = isExclusivo
         ? `(${dddFinal}) EXCLUSIVO CLARO >> ${servico.razao}`
-        : `(${dddFinal}) ${servico.indicacao} >> ${servico.razao}${isCarteira ? ` >> ${servico.carteira}` : ""}`;
+        : `(${dddFinal}) ${servico.indicacao} >> ${servico.razao}${isCarteira ? ` >> CARTEIRA` : ""}`;
 
       const payloadWebhook = {
         rules: { update: true, filter_status_update: "open", status: "open" },
