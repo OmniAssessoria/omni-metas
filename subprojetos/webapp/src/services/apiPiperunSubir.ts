@@ -221,6 +221,7 @@ export const API_PIPERUN = async ({
         Indicacao: isExclusivo
           ? `EXCLUSIVO CLARO: ${servico.indicacao || "N/A"}`
           : servico.indicacao,
+        Carteira: servico.carteira,
       };
 
       if (infoDecisorStr)
@@ -229,7 +230,7 @@ export const API_PIPERUN = async ({
 
       const titleCard = isExclusivo
         ? `(${dddFinal}) EXCLUSIVO CLARO >> ${servico.razao}`
-        : `(${dddFinal}) ${servico.indicacao || "GERAL"} >> ${servico.razao}`;
+        : `(${dddFinal}) ${servico.indicacao} >> ${servico.razao}${isCarteira ? ` >> ${servico.carteira}` : ""}`;
 
       const payloadWebhook = {
         rules: { update: true, filter_status_update: "open", status: "open" },
