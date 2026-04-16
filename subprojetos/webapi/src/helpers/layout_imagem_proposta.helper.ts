@@ -211,7 +211,6 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
                 <div class="offer-price">R$ ${eco_total_val.toFixed(2)}<small>/mês</small></div>
                 <div class="highlight-box">
                     <strong>Economia no Contrato</strong>
-                    <p>R$ ${economia_contrato.toFixed(2)} em 24 meses</p>
                 </div>
                 
                 <div class="benefit-item">
