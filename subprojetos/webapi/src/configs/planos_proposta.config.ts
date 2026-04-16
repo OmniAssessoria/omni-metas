@@ -10,4 +10,3 @@ export const PLANOS_DISPONIVEIS = [
   { gb: 100, valor: 99.99, bonus: 40 },
   { gb: 150, valor: 149.99, bonus: 50 },
 ];
-
