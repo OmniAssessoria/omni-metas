@@ -160,9 +160,8 @@ class GeradorImagemLayoutService {
     const analisador = new AnalisadorPlanosHelper();
     const analiseAtual = analisador.analisarPlanosCliente(linhasDb);
 
-    const ofertaEconomica =
-      analisador.encontrarMelhorOfertaEconomica(analiseAtual);
-    const ofertaMaisGb = analisador.encontrarMelhorOfertaMaisGb(analiseAtual);
+    const ofertaEconomica = analisador.encontrarMelhorOfertaEconomica(analiseAtual);
+    const ofertaMaisGb = analisador.encontrarMelhorOfertaMaisGb(analiseAtual, ofertaEconomica);
 
     const dataProposta = {
       empresa: { razao_social: razao, cnpj: cnpj },
