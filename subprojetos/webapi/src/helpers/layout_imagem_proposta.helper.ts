@@ -1,16 +1,3 @@
-export const PLANOS_DISPONIVEIS = [
-  { gb: 6, valor: 39.99, bonus: 5 },
-  { gb: 10, valor: 44.99, bonus: 0 },
-  { gb: 15, valor: 49.99, bonus: 10 },
-  { gb: 20, valor: 54.99, bonus: 5 },
-  { gb: 25, valor: 59.99, bonus: 20 },
-  { gb: 30, valor: 64.99, bonus: 10 },
-  { gb: 40, valor: 69.99, bonus: 30 },
-  { gb: 50, valor: 74.99, bonus: 15 },
-  { gb: 100, valor: 99.99, bonus: 40 },
-  { gb: 150, valor: 149.99, bonus: 50 },
-];
-
 export const CORES = {
   primaria: "#F5A800",
   primaria_escura: "#D49200",
@@ -30,141 +17,6 @@ export const CORES = {
   azul_bg: "rgba(33, 150, 243, 0.15)",
 };
 
-export class AnalisadorPlanosHelper {
-  public extrairGb(texto: any): number {
-    if (!texto) return 0;
-    if (typeof texto === "number") return texto;
-    const match = String(texto).match(/(\d+)/);
-    return match ? parseInt(match[1], 10) : 0;
-  }
-
-  public analisarPlanosCliente(servicos: any[]) {
-    const planos_agrupados: Record<string, any> = {};
-    let total_valor = 0;
-    let total_gb = 0;
-    let total_linhas = 0;
-
-    for (const servico of servicos) {
-      if (servico.linha_ativa === false) continue;
-
-      const plano = servico.plano || "";
-      const valor = Number(servico.valor) || 0;
-
-      const gbBase = this.extrairGb(plano);
-
-      if (!planos_agrupados[plano]) {
-        planos_agrupados[plano] = {
-          quantidade: 0,
-          gb_unitario: gbBase,
-          valor_unitario: valor,
-          total_valor: 0,
-          total_gb: 0,
-        };
-      }
-
-      planos_agrupados[plano].quantidade += 1;
-      planos_agrupados[plano].total_valor += valor;
-
-      planos_agrupados[plano].total_gb += gbBase;
-      total_valor += valor;
-      total_gb += gbBase;
-      total_linhas += 1;
-    }
-
-    return {
-      planos_agrupados,
-      total_valor,
-      total_gb,
-      total_linhas,
-      servicos,
-    };
-  }
-
-  private gerarCombinacoes(totalLinhas: number, gbMinimo: number) {
-    const combinacoes: any[] = [];
-    const planos = PLANOS_DISPONIVEIS;
-
-    const gerarRecursivo = (
-      linhasRestantes: number,
-      gbAcumulado: number,
-      valorAcumulado: number,
-      comboAtual: any[],
-      idxPlano: number,
-    ) => {
-      if (linhasRestantes === 0) {
-        // Regra 1 Aplicada Aqui: SEM BONUS, soma total >= base antiga
-        if (gbAcumulado >= gbMinimo) {
-          const totalBonus = comboAtual.reduce(
-            (acc, p) => acc + p.bonus * p.qtd,
-            0,
-          );
-          combinacoes.push({
-            combo: [...comboAtual],
-            total_gb: gbAcumulado,
-            total_gb_com_bonus: gbAcumulado + totalBonus,
-            total_valor: valorAcumulado,
-          });
-        }
-        return;
-      }
-
-      for (let i = idxPlano; i < planos.length; i++) {
-        const plano = planos[i];
-        for (let qtd = 1; qtd <= linhasRestantes; qtd++) {
-          const novoCombo = [...comboAtual];
-          novoCombo.push({
-            qtd,
-            gb: plano.gb,
-            valor: plano.valor,
-            bonus: plano.bonus,
-          });
-          gerarRecursivo(
-            linhasRestantes - qtd,
-            gbAcumulado + plano.gb * qtd,
-            valorAcumulado + plano.valor * qtd,
-            novoCombo,
-            i + 1,
-          );
-        }
-      }
-    };
-
-    gerarRecursivo(totalLinhas, 0, 0, [], 0);
-    return combinacoes;
-  }
-
-  public encontrarMelhorOfertaEconomica(analiseAtual: any) {
-    const combinacoes = this.gerarCombinacoes(
-      analiseAtual.total_linhas,
-      analiseAtual.total_gb,
-    );
-    if (!combinacoes || combinacoes.length === 0) return null;
-
-    return combinacoes.reduce(
-      (min, atual) => (atual.total_valor < min.total_valor ? atual : min),
-      combinacoes[0],
-    );
-  }
-
-  public encontrarMelhorOfertaMaisGb(analiseAtual: any) {
-    const combinacoes = this.gerarCombinacoes(
-      analiseAtual.total_linhas,
-      analiseAtual.total_gb,
-    );
-
-    if (!combinacoes || combinacoes.length === 0) return null;
-    const combinacoesValidas = combinacoes;
-
-    if (!combinacoesValidas || combinacoesValidas.length === 0) return null;
-
-    return combinacoesValidas.reduce(
-      (max, atual) =>
-        atual.total_gb_com_bonus > max.total_gb_com_bonus ? atual : max,
-      combinacoesValidas[0],
-    );
-  }
-}
-
 // ============================================================================
 // GERAÇÃO DO HTML
 // ============================================================================
@@ -172,7 +24,6 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
   let eco = proposta.oferta_economica;
   let turbo = proposta.oferta_mais_gb;
 
-  // Trava de segurança para exibição
   if (eco && turbo && eco.total_valor > turbo.total_valor) {
     const temp = eco;
     eco = turbo;

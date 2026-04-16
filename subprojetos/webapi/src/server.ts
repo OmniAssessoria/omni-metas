@@ -4,7 +4,7 @@ import cron from "node-cron";
 import Piperun from "./validators/piperun_sincronizar.helper.js";
 
 async function Servidor() {
-  app.listen(3000, () => {
+  const server = app.listen(3000, () => {
     console.log("Server está rodando http://localhost:3000");
     
     const piperunCron = new Piperun();
@@ -22,6 +22,8 @@ async function Servidor() {
 
     console.log("Cron Job ativado: Rotina do PipeRun agendada para 19:00 (Horário de SP).");
   });
+
+  server.setTimeout(300000);
 }
 
 Servidor();

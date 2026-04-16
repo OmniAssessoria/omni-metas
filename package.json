@@ -5,7 +5,7 @@
     "subprojetos/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace @web_base/webapi\" \"npm run dev --workspace @web_base/webapp\"",
+    "dev": "NODE_OPTIONS='--max-old-space-size=4096' concurrently \"npm run dev --workspace @web_base/webapi\" \"npm run dev --workspace @web_base/webapp\"",
     "dev:api": "npm run dev --workspace @web_base/webapi",
     "dev:app": "npm run dev --workspace @web_base/webapp",
     "build": "npm run build -workspaces"
@@ -25,6 +25,6 @@
   },
   "dependencies": {
     "form-data": "^4.0.5",
-    "puppeteer": "^24.40.0"
+    "puppeteer": "^24.41.0"
   }
 }

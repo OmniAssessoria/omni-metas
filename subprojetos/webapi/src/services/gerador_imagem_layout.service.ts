@@ -1,8 +1,9 @@
+import dayjs from "dayjs";
 import ServicoClaroRepository from "../repositories/servico_claro.repository";
 import { gerarHtmlGlassmorphism } from "../helpers/layout_imagem_linhas.helper";
-import puppeteer from "puppeteer";
-import dayjs from "dayjs";
-import { AnalisadorPlanosHelper, gerarHtmlPropostaCompleta } from "../helpers/layout_imagem_proposta.helper";
+import puppeteer, { Browser, Page } from "puppeteer";
+import { gerarHtmlPropostaCompleta } from "../helpers/layout_imagem_proposta.helper";
+import { AnalisadorPlanosHelper } from "../helpers/algoritmo_analisar_proposta_plano.helper";
 
 class GeradorImagemLayoutService {
   private repository: ServicoClaroRepository;
@@ -68,21 +69,25 @@ class GeradorImagemLayoutService {
       total_valor,
     });
 
+    let browser: Browser | null = null;
+    let page: Page | null = null;
+
     try {
       console.log(
         `[Puppeteer] Renderizando layout em memória para a empresa: ${razao}`,
       );
 
-      const browser = await puppeteer.launch({
+      browser = await puppeteer.launch({
         headless: true,
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
+          "--disable-gpu" 
         ],
       });
 
-      const page = await browser.newPage();
+      page = await browser.newPage();
 
       await page.setViewport({
         width: 1200,
@@ -112,7 +117,6 @@ class GeradorImagemLayoutService {
         fullPage: true,
       });
 
-      await browser.close();
       console.log(
         `[Puppeteer] Base64 gerado com sucesso! Linhas Processadas: ${linhasDb.length}`,
       );
@@ -129,6 +133,13 @@ class GeradorImagemLayoutService {
       throw new Error(
         `Falha no motor de renderização visual em memória: ${error.message}`,
       );
+    } finally {
+      if (page) {
+        await page.close().catch((e: any) => console.error("Erro ao fechar page (linhas)", e));
+      }
+      if (browser) {
+        await browser.close().catch((e: any) => console.error("Erro ao fechar browser (linhas)", e));
+      }
     }
   }
 
@@ -149,7 +160,6 @@ class GeradorImagemLayoutService {
     const analisador = new AnalisadorPlanosHelper();
     const analiseAtual = analisador.analisarPlanosCliente(linhasDb);
 
-    // Novas chamadas das funções refatoradas
     const ofertaEconomica =
       analisador.encontrarMelhorOfertaEconomica(analiseAtual);
     const ofertaMaisGb = analisador.encontrarMelhorOfertaMaisGb(analiseAtual);
@@ -164,19 +174,23 @@ class GeradorImagemLayoutService {
 
     const htmlCompleto = gerarHtmlPropostaCompleta(dataProposta);
 
+    let browser: Browser | null = null;
+    let page: Page | null = null;
+
     try {
       console.log(`[Puppeteer] Renderizando PROPOSTA para a empresa: ${razao}`);
 
-      const browser = await puppeteer.launch({
+      browser = await puppeteer.launch({
         headless: true,
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
+          "--disable-gpu" 
         ],
       });
 
-      const page = await browser.newPage();
+      page = await browser.newPage();
 
       await page.setViewport({
         width: 1200,
@@ -205,7 +219,6 @@ class GeradorImagemLayoutService {
         fullPage: true,
       });
 
-      await browser.close();
       console.log(`[Puppeteer] Base64 da Proposta gerado com sucesso!`);
 
       return {
@@ -229,6 +242,13 @@ class GeradorImagemLayoutService {
       throw new Error(
         `Falha no motor de renderização visual da proposta: ${error.message}`,
       );
+    } finally {
+      if (page) {
+        await page.close().catch((e: any) => console.error("Erro ao fechar page (proposta)", e));
+      }
+      if (browser) {
+        await browser.close().catch((e: any) => console.error("Erro ao fechar browser (proposta)", e));
+      }
     }
   }
 }
