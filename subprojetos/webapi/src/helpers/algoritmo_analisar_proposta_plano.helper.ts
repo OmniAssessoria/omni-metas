@@ -120,13 +120,15 @@ export class AnalisadorPlanosHelper {
   }
 
   // ============================================================================
-  // OFERTA MAIS GB (Regra: Teto elástico a partir de +6%, MAIS CARA que a Eco, Máximo de GB)
+  // OFERTA MAIS GB (Regra: Teto elástico, MAIS CARA e MAIOR GB BASE que a Eco)
   // ============================================================================
   public encontrarMelhorOfertaMaisGb(analiseAtual: any, ofertaEconomica?: any) {
     const planos = PLANOS_DISPONIVEIS;
     const totalLinhas = analiseAtual.total_linhas;
     const gbMinimo = analiseAtual.total_gb;    
+    
     const valorEco = ofertaEconomica ? ofertaEconomica.total_valor : -1;
+    const gbBaseEco = ofertaEconomica ? ofertaEconomica.total_gb : -1;
 
     const buscarComLimite = (multiplicadorLimite: number) => {
       const limiteValorPermitido = analiseAtual.total_valor * multiplicadorLimite;
@@ -146,8 +148,14 @@ export class AnalisadorPlanosHelper {
         if (linhasRestantes === 0) {
           if (gbAcumulado >= gbMinimo && valorAcumulado <= limiteValorPermitido) {
             
-            if (ofertaEconomica && valorAcumulado <= valorEco) {
-              return; 
+            // ===============================================================
+            // REGRA ABSOLUTA DE DESEMPATE
+            // Descarta a proposta se o valor for menor/igual OU o GB for menor/igual
+            // ===============================================================
+            if (ofertaEconomica) {
+              if (valorAcumulado <= valorEco || gbAcumulado <= gbBaseEco) {
+                return; 
+              }
             }
 
             const totalBonus = comboAtual.reduce((acc, p) => acc + p.bonus * p.qtd, 0);
