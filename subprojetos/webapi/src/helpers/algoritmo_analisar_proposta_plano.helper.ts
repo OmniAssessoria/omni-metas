@@ -49,7 +49,7 @@ export class AnalisadorPlanosHelper {
   }
 
   // ============================================================================
-  // OFERTA ECONÔMICA (Regra: Manter GB mínimo, buscar o Menor Valor)
+  // OFERTA ECONÔMICA
   // ============================================================================
   public encontrarMelhorOfertaEconomica(analiseAtual: any) {
     const planos = PLANOS_DISPONIVEIS;
@@ -120,15 +120,18 @@ export class AnalisadorPlanosHelper {
   }
 
   // ============================================================================
-  // OFERTA MAIS GB (Regra: Teto elástico, MAIS CARA e MAIOR GB BASE que a Eco)
+  // OFERTA MAIS GB
   // ============================================================================
   public encontrarMelhorOfertaMaisGb(analiseAtual: any, ofertaEconomica?: any) {
     const planos = PLANOS_DISPONIVEIS;
     const totalLinhas = analiseAtual.total_linhas;
+    
+    // REGRA 1: O GB Mínimo da base do cliente atual (Sem Bônus)
     const gbMinimo = analiseAtual.total_gb;    
     
+    // REGRA 2: Os valores da Econômica para o Desempate
     const valorEco = ofertaEconomica ? ofertaEconomica.total_valor : -1;
-    const gbBaseEco = ofertaEconomica ? ofertaEconomica.total_gb : -1;
+    const gbTotalEco = ofertaEconomica ? ofertaEconomica.total_gb_com_bonus : -1; // TOTAL ECO (Com Bônus)
 
     const buscarComLimite = (multiplicadorLimite: number) => {
       const limiteValorPermitido = analiseAtual.total_valor * multiplicadorLimite;
@@ -146,20 +149,22 @@ export class AnalisadorPlanosHelper {
         }
 
         if (linhasRestantes === 0) {
+          // Validação da Base do Cliente: gbAcumulado (Sem Bônus) tem que ser >= gbMinimo (Sem Bônus)
           if (gbAcumulado >= gbMinimo && valorAcumulado <= limiteValorPermitido) {
             
+            const totalBonus = comboAtual.reduce((acc, p) => acc + p.bonus * p.qtd, 0);
+            const totalGbComBonus = gbAcumulado + totalBonus;
+
             // ===============================================================
-            // REGRA ABSOLUTA DE DESEMPATE
-            // Descarta a proposta se o valor for menor/igual OU o GB for menor/igual
+            // CRITÉRIO DE DESEMPATE CONTRA A ECONÔMICA
+            // Se empatar ou for menor no VALOR, descarta.
+            // Se empatar ou for menor no TOTAL GB (Base + Bônus), descarta.
             // ===============================================================
             if (ofertaEconomica) {
-              if (valorAcumulado <= valorEco || gbAcumulado <= gbBaseEco) {
+              if (valorAcumulado <= valorEco || totalGbComBonus <= gbTotalEco) {
                 return; 
               }
             }
-
-            const totalBonus = comboAtual.reduce((acc, p) => acc + p.bonus * p.qtd, 0);
-            const totalGbComBonus = gbAcumulado + totalBonus;
 
             const ofertaAtual = {
               combo: [...comboAtual],
