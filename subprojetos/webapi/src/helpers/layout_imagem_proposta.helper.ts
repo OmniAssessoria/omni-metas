@@ -24,6 +24,12 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
   let eco = proposta.oferta_economica;
   let turbo = proposta.oferta_mais_gb;
 
+  if (eco && turbo) {
+    if (turbo.total_valor <= eco.total_valor) {
+      turbo = null;
+    }
+  }
+
   if (eco && turbo && eco.total_valor > turbo.total_valor) {
     const temp = eco;
     eco = turbo;
