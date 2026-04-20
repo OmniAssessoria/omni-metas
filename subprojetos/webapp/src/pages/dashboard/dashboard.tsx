@@ -352,6 +352,7 @@ export default function DashboardAnaliticoMultiView() {
           return false;
         if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
         if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
+
         if (filtroDDD !== "TODOS") {
           if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
             if (
@@ -359,6 +360,18 @@ export default function DashboardAnaliticoMultiView() {
               item.indicacao === "RENOVACAO"
             )
               return false;
+          } else if (filtroDDD === "EXCLUSO_11_RENOVACAO_E_FORA_ESTADO") {
+            if (
+              item.ddd_predominante === "11" &&
+              item.indicacao === "RENOVACAO"
+            ) {
+              return false;
+            }
+
+            const dddNum = Number(item.ddd_predominante);
+            if (dddNum < 11 || dddNum > 19) {
+              return false;
+            }
           } else if (filtroDDD === "FORA_SP") {
             const dddNum = Number(item.ddd_predominante);
             if (dddNum >= 11 && dddNum <= 19) return false;
@@ -366,6 +379,7 @@ export default function DashboardAnaliticoMultiView() {
             if (item.ddd_predominante !== filtroDDD) return false;
           }
         }
+
         if (filtroConsultor !== "TODOS") {
           if (filtroConsultor === "NAO_ATRIBUIDO") {
             if (item.seq_consultor !== null) return false;
@@ -1106,6 +1120,9 @@ export default function DashboardAnaliticoMultiView() {
                     >
                       <option value="TODOS">Todos os DDDs</option>
                       <optgroup label="Filtros Inteligentes">
+                        <option value="EXCLUSO_11_RENOVACAO_E_FORA_ESTADO">
+                          Todos (Sem 11 p/ Renovação e Fora do Estado)
+                        </option>
                         <option value="EXCLUSO_11_RENOVACAO">
                           Todos (Excluso 11 Renovação)
                         </option>
