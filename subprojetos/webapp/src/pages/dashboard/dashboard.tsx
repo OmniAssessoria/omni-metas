@@ -1227,7 +1227,7 @@ export default function DashboardAnaliticoMultiView() {
                   </div>
                   <div className=" border border-slate-200 bg-white rounded-lg p-3 space-y-3">
                     {renderRangeSlider(
-                      "Leitura CPC",
+                      "Dias de Leitura CPC",
                       <ScanSearch className="w-3.5 h-3.5 text-teal-500" />,
                       filtroCpcAtivo,
                       setFiltroCpcAtivo,
