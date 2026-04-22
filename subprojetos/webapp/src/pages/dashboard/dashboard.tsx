@@ -65,7 +65,6 @@ const calcularMesesAtivosContrato = (
   return diffAnos * 12 + diffMeses + 24;
 };
 
-// Extrator global para ser reutilizado
 const prepararDados = (lista: any[]) => {
   return lista.map((item) => {
     const isExclusivoReal =
@@ -84,9 +83,6 @@ const prepararDados = (lista: any[]) => {
 };
 
 export default function DashboardAnaliticoMultiView() {
-  // ==========================================
-  // ESTADOS DE CARREGAMENTO INDEPENDENTES
-  // ==========================================
   const [loadingServicos, setLoadingServicos] = useState<boolean>(false);
   const [loadingCarteira, setLoadingCarteira] = useState<boolean>(false);
   const [loadingHistorico, setLoadingHistorico] = useState<boolean>(false);
@@ -98,7 +94,6 @@ export default function DashboardAnaliticoMultiView() {
   >(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
 
-  // Estados Base (Serviços)
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
     renovacao: [],
     portabilidade: [],
@@ -116,11 +111,8 @@ export default function DashboardAnaliticoMultiView() {
     prazo_excedido: [],
   });
 
-  // Estados Base (Carteira)
   const [carteiraBruta, setCarteiraBruta] = useState<any[]>([]);
   const [carteiraFiltrada, setCarteiraFiltrada] = useState<any[]>([]);
-
-  // Filtros Globais
   const [filtroSituacao, setFiltroSituacao] =
     useState<TipoSituacaoFilter>("TODOS");
   const [filtroCarteira, setFiltroCarteira] =
@@ -144,8 +136,6 @@ export default function DashboardAnaliticoMultiView() {
   const [isLinhasMaxInitialized, setIsLinhasMaxInitialized] = useState(false);
   const [filtroCpcAtivo, setFiltroCpcAtivo] = useState(false);
   const [filtroCpcValor, setFiltroCpcValor] = useState(30);
-
-  // Histórico e Perdas
   const [historicoBruto, setHistoricoBruto] = useState<IHistoricoViewAPI[]>([]);
   const [historicoFiltrado, setHistoricoFiltrado] = useState<
     IHistoricoViewAPI[]
@@ -180,10 +170,6 @@ export default function DashboardAnaliticoMultiView() {
     declinio: "#ef4444",
     sucesso: "#10b981",
   };
-
-  // ==========================================
-  // ROTINAS DE FETCH INDEPENDENTES (ISOLADAS)
-  // ==========================================
 
   const fetchServicos = useCallback(async (isManualRefresh = false) => {
     setLoadingServicos(true);
@@ -324,7 +310,6 @@ export default function DashboardAnaliticoMultiView() {
     }
   }, []);
 
-  // Busca inicial independente
   useEffect(() => {
     fetchServicos();
     fetchCarteira();
@@ -1050,12 +1035,11 @@ export default function DashboardAnaliticoMultiView() {
           </div>
         )}
 
-
         <DashServicoClaro
           ultimaAtualizacao={ultimaAtualizacao}
           exportToImage={exportToImage}
           fetchTodasViews={() => fetchServicos(true)}
-          loading={loadingServicos} 
+          loading={loadingServicos}
           limparFiltros={limparFiltros}
           aplicarFiltrosGlobais={aplicarFiltrosGlobais}
           setModalExportacaoAberto={setModalExportacaoAberto}
