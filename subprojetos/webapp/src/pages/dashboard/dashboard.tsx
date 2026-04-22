@@ -1,40 +1,20 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 
 import {
-  Briefcase,
   Bell,
-  Filter,
-  Wallet,
-  AlertCircle,
   ToggleLeft,
   ToggleRight,
   Loader2,
   Database,
   Info,
-  CloudCog,
-  Calendar,
-  Eraser,
-  Users,
-  ScanSearch,
-  Power,
-  Tag,
-  RefreshCcw,
-  History,
-  BarChart2,
   Download,
-  Image as ImageIcon,
   FileSpreadsheet,
   FileText,
   FileCode2,
   X,
-  RotateCw,
-  Target,
-  Search,
-  LayoutGrid,
-  List as ListIcon,
 } from "lucide-react";
 import {
   PieChart,
@@ -42,11 +22,6 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
 } from "recharts";
 import API from "@/services/api";
 import ExcelJS from "exceljs";
@@ -74,6 +49,9 @@ import {
   compilarOportunidadesDinamico,
 } from "@/services/hookApiRunTotalServicoConsultor";
 import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
+import DashCrm from "@/components/dash_crm/dash_crm";
+import DashHistorico from "@/components/dash_historico/dash_historico";
+import DashServicoClaro from "@/components/dash_servico_claro/dash_servico_claro";
 
 const calcularDiasPassados = (dataString?: string | null): number | null => {
   if (!dataString) return null;
@@ -984,14 +962,12 @@ export default function DashboardAnaliticoMultiView() {
             </div>
           </div>
         )}
-
         {notification && (
           <div className="fixed z-50 flex items-center gap-3 px-6 py-4 text-white shadow-2xl top-6 right-6 bg-slate-800 rounded-xl animate-in slide-in-from-right-8 duration-300">
             <Bell className="w-5 h-5 text-emerald-400" />
             <p className="font-medium">{notification}</p>
           </div>
         )}
-
         {loading && (
           <div className="absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-sm bg-slate-50/80">
             <Loader2 className="w-12 h-12 mb-4 animate-spin text-primary" />
@@ -999,1259 +975,246 @@ export default function DashboardAnaliticoMultiView() {
           </div>
         )}
 
-        <section>
-          <div className="flex flex-col items-start justify-between w-full max-w-7xl gap-4 mb-6 mx-auto lg:flex-row lg:items-center">
-            <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
-                Análise Geral das Bases (Serviços Claro)
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Última atualização:{" "}
-                {ultimaAtualizacao
-                  ? ultimaAtualizacao.toLocaleTimeString()
-                  : "Aguardando sincronização"}
-              </p>
+        <DashServicoClaro
+          ultimaAtualizacao={ultimaAtualizacao}
+          exportToImage={exportToImage}
+          fetchTodasViews={fetchTodasViews}
+          loading={loading}
+          limparFiltros={limparFiltros}
+          aplicarFiltrosGlobais={aplicarFiltrosGlobais}
+          setModalExportacaoAberto={setModalExportacaoAberto}
+          filtroAtivo={filtroAtivo}
+          setFiltroAtivo={setFiltroAtivo}
+          filtroExclusivo={filtroExclusivo}
+          setFiltroExclusivo={setFiltroExclusivo}
+          filtroDDD={filtroDDD}
+          setFiltroDDD={setFiltroDDD}
+          filtroConsultor={filtroConsultor}
+          setFiltroConsultor={setFiltroConsultor}
+          listaConsultoresUnicos={listaConsultoresUnicos}
+          filtroSituacao={filtroSituacao}
+          setFiltroSituacao={setFiltroSituacao}
+          filtroCarteira={filtroCarteira}
+          setFiltroCarteira={setFiltroCarteira}
+          filtroPiperun={filtroPiperun}
+          setFiltroPiperun={setFiltroPiperun}
+          filtroDataFim={filtroDataFim}
+          setFiltroDataFim={setFiltroDataFim}
+          filtroClassificacao={filtroClassificacao}
+          setFiltroClassificacao={setFiltroClassificacao}
+          tipoFiltroLinha={tipoFiltroLinha}
+          setTipoFiltroLinha={setTipoFiltroLinha}
+          filtroLinhasRangeMin={filtroLinhasRangeMin}
+          setFiltroLinhasRangeMin={setFiltroLinhasRangeMin}
+          filtroLinhasRangeMax={filtroLinhasRangeMax}
+          setFiltroLinhasRangeMax={setFiltroLinhasRangeMax}
+          filtroLinhasExact={filtroLinhasExact}
+          setFiltroLinhasExact={setFiltroLinhasExact}
+          maxLinhasGlobal={maxLinhasGlobal}
+          filtroCpcAtivo={filtroCpcAtivo}
+          setFiltroCpcAtivo={setFiltroCpcAtivo}
+          filtroCpcValor={filtroCpcValor}
+          setFiltroCpcValor={setFiltroCpcValor}
+          maxDiasCpcGlobal={maxDiasCpcGlobal}
+          totais={totais}
+          CORES={CORES}
+          renderCenterText={renderCenterText}
+        />
+        <div className="w-full max-w-7xl mx-auto space-y-6">
+          <Card className="mt-4 text-slate-200 border-none shadow-lg bg-slate-900 overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 border-b bg-slate-800/80 border-slate-700/50">
+              <Database className="w-4 h-4 text-blue-400" />
+              <h3 className="text-xs font-bold tracking-wider uppercase text-slate-300">
+                Métricas de Funil (CPC & eDoc) - Visão Global de Empresas
+              </h3>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={exportToImage}
-                className="flex items-center gap-2 px-5 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-slate-50 rounded-xl"
-              >
-                <ImageIcon className="w-4 h-4 text-purple-500" />
-                Exportar Análises (Imagem)
-              </Button>
-              <Button
-                onClick={fetchTodasViews}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-2 font-semibold text-white transition-all shadow-md bg-blue-600 hover:bg-blue-700 rounded-xl"
-              >
-                <RefreshCcw
-                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                />
-                {loading ? "Buscando..." : "Refresh Dados"}
-              </Button>
-            </div>
-          </div>
-
-          <div className="w-full space-y-6 max-w-7xl mx-auto">
-            <Card className="bg-white border-none shadow-md">
-              <CardContent className="p-5">
-                <div className="flex flex-col justify-between gap-4 pb-4 mb-5 border-b md:flex-row md:items-center border-slate-100">
-                  <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
-                    <Filter className="w-4 h-4 text-primary" /> Filtros em
-                    Memória (Sem usar DB)
-                  </h2>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                      onClick={limparFiltros}
-                      variant="outline"
-                      size="sm"
-                      className="transition-colors shadow-sm cursor-pointer text-white"
-                    >
-                      <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
-                    </Button>
-                    <Button
-                      onClick={aplicarFiltrosGlobais}
-                      size="sm"
-                      className="px-6 transition-transform shadow-md cursor-pointer hover:scale-105 bg-emerald-400 text-black font-semibold"
-                    >
-                      Aplicar na Base Atual
-                    </Button>
-                    <Button
-                      onClick={() => setModalExportacaoAberto("servicos")}
-                      size="sm"
-                      className="px-4 transition-colors shadow-md cursor-pointer bg-red-600 hover:bg-red-700 text-white font-bold"
-                    >
-                      <Download className="w-4 h-4 mr-2" /> Exportar Base
-                      Serviços
-                    </Button>
-                  </div>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[1px] bg-slate-700/50">
+                <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                    Passaram pelo CPC
+                  </p>
+                  <p className="text-xl font-black text-emerald-400">
+                    {dadosFunilCpc?.total_passado_cpc || 0}
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <Power className="w-3.5 h-3.5 text-orange-500" /> Serviço
-                      Ativo?
-                    </label>
-                    <select
-                      value={filtroAtivo}
-                      onChange={(e) =>
-                        setFiltroAtivo(e.target.value as TipoAtivoFilter)
-                      }
-                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="TODOS">Todos (Ativos e Inativos)</option>
-                      <option value="SIM">Sim (Apenas Ativos)</option>
-                      <option value="NAO">Não (Apenas Inativos)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <Target className="w-3.5 h-3.5 text-yellow-500" /> Serviço
-                      Exclusivo
-                    </label>
-                    <select
-                      value={filtroExclusivo}
-                      onChange={(e) =>
-                        setFiltroExclusivo(
-                          e.target.value as "TODOS" | "SIM" | "NAO",
-                        )
-                      }
-                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="TODOS">Ambos (Sim e Não)</option>
-                      <option value="SIM">Sim (Apenas Exclusivos)</option>
-                      <option value="NAO">Não (Apenas Normais)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <span className="font-extrabold text-blue-500">📞</span>{" "}
-                      Região (DDD Maioral)
-                    </label>
-                    <select
-                      value={filtroDDD}
-                      onChange={(e) => setFiltroDDD(e.target.value)}
-                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="TODOS">Todos os DDDs</option>
-                      <optgroup label="Filtros Inteligentes">
-                        <option value="EXCLUSO_11_RENOVACAO_E_FORA_ESTADO">
-                          Todos (Sem 11 p/ Renovação e Fora do Estado)
-                        </option>
-                        <option value="EXCLUSO_11_RENOVACAO">
-                          Todos (Excluso 11 Renovação)
-                        </option>
-                        <option value="FORA_SP">DDDs Fora de São Paulo</option>
-                      </optgroup>
-                      <optgroup label="São Paulo">
-                        <option value="11">11 - São Paulo/Metropol.</option>
-                        <option value="12">12 - Vale do Paraíba/Lit.</option>
-                        <option value="13">13 - Baixada Santista</option>
-                        <option value="14">14 - Bauru/Marília</option>
-                        <option value="15">15 - Sorocaba/Itapetininga</option>
-                        <option value="16">16 - Ribeirão Preto/Franca</option>
-                        <option value="17">17 - S. José do Rio Preto</option>
-                        <option value="18">18 - Pres. Prud./Araçatuba</option>
-                        <option value="19">19 - Campinas/Piracicaba</option>
-                      </optgroup>
-                      <optgroup label="Outros">
-                        <option value="00">Indefinido/Sem Linhas</option>
-                      </optgroup>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <Users className="w-3.5 h-3.5 text-purple-500" />{" "}
-                      Consultor Atribuído
-                    </label>
-                    <select
-                      value={filtroConsultor}
-                      onChange={(e) => setFiltroConsultor(e.target.value)}
-                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="TODOS">Todos os Consultores</option>
-                      <option value="NAO_ATRIBUIDO">❌ Não Atribuídos</option>
-                      <optgroup label="Consultores Disponíveis">
-                        {listaConsultoresUnicos.map((consultor) => (
-                          <option
-                            key={consultor.seq}
-                            value={String(consultor.seq)}
-                          >
-                            {consultor.nome}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <AlertCircle className="w-3.5 h-3.5 text-sky-500" />{" "}
-                      Situação do Atend.
-                    </label>
-                    <select
-                      value={filtroSituacao}
-                      onChange={(e) =>
-                        setFiltroSituacao(e.target.value as TipoSituacaoFilter)
-                      }
-                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="TODOS">Todas as Situações</option>
-                      <option value="ABERTO">Aberto (Em Negociação)</option>
-                      <option value="TEMPORARIO">
-                        Temporário (Aguard. 15d)
-                      </option>
-                      <option value="PAUSADO">Pausado (Aguard. 30d)</option>
-                      <option value="INVIAVEL">Inviável (Perdido)</option>
-                      <option value="GANHO">Ganho (Fechado)</option>
-                      <option value="BLACKLIST">Blacklist</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <Wallet className="w-3.5 h-3.5 text-emerald-500" /> Atrib.
-                      de Carteira
-                    </label>
-                    <select
-                      value={filtroCarteira}
-                      onChange={(e) =>
-                        setFiltroCarteira(e.target.value as TipoCarteiraFilter)
-                      }
-                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="AMBOS">Ambos (Com e Sem)</option>
-                      <option value="COM_CARTEIRA">Com Carteira</option>
-                      <option value="SEM_CARTEIRA">Sem Carteira</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <CloudCog className="w-3.5 h-3.5 text-indigo-500" />{" "}
-                      PipeRun (CRM)
-                    </label>
-                    <select
-                      value={filtroPiperun}
-                      onChange={(e) =>
-                        setFiltroPiperun(e.target.value as TipoPiperunFilter)
-                      }
-                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="AMBOS">Ambos (Dentro e Fora)</option>
-                      <option value="SIM">Sim (No CRM)</option>
-                      <option value="NAO">Não (Fora do CRM)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <Calendar className="w-3.5 h-3.5 text-red-500" />{" "}
-                      Vencimento Contr.
-                    </label>
-                    <input
-                      type="date"
-                      value={filtroDataFim}
-                      onChange={(e) => setFiltroDataFim(e.target.value)}
-                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none cursor-pointer border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className=" border border-slate-200 bg-white rounded-lg p-3 space-y-3">
-                    {renderRangeSlider(
-                      "Dias de Leitura CPC",
-                      <ScanSearch className="w-3.5 h-3.5 text-teal-500" />,
-                      filtroCpcAtivo,
-                      setFiltroCpcAtivo,
-                      filtroCpcValor,
-                      setFiltroCpcValor,
-                      maxDiasCpcGlobal,
-                      "d",
-                      "Hoje (0d)",
-                      `Até ${maxDiasCpcGlobal}d`,
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <Tag className="w-3.5 h-3.5 text-pink-500" />{" "}
-                      Classificação
-                    </label>
-                    <select
-                      value={filtroClassificacao}
-                      onChange={(e) =>
-                        setFiltroClassificacao(
-                          e.target.value as TipoClassificacaoFilter,
-                        )
-                      }
-                      className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="TODOS">Todas as Classificações</option>
-                      <option value="CA">CA</option>
-                      <option value="CB">CB</option>
-                      <option value="CC">CC</option>
-                      <option value="CD">CD</option>
-                      <option value="CE">CE</option>
-                      <option value="CF">CF</option>
-                      <option value="CG">CG</option>
-                      <option value="SEM_CLASSIFICACAO">
-                        Sem Classificação
-                      </option>
-                    </select>
-                  </div>
-                  <div className="col-span-1 md:col-span-2 xl:col-span-3 border border-slate-200 bg-white rounded-lg p-3 space-y-3">
-                    <label className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                      <Briefcase className="w-4 h-4 text-amber-500" /> Controle
-                      de Volume de Linhas Totais
-                    </label>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div
-                        className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "RANGE" ? "border-primary bg-slate-50 shadow-sm" : "border-slate-100 opacity-60"}`}
-                      >
-                        <div className="flex items-center justify-between mb-6">
-                          <div>
-                            <p className="font-semibold text-slate-700 text-sm">
-                              Intervalo (Range)
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              Ex: De 2 até 7 linhas
-                            </p>
-                          </div>
-                          <button
-                            onClick={() =>
-                              setTipoFiltroLinha(
-                                tipoFiltroLinha === "RANGE" ? "NONE" : "RANGE",
-                              )
-                            }
-                            className="transition-opacity cursor-pointer text-primary hover:opacity-80"
-                          >
-                            {tipoFiltroLinha === "RANGE" ? (
-                              <ToggleRight className="w-7 h-7 text-emerald-500" />
-                            ) : (
-                              <ToggleLeft className="w-7 h-7 text-slate-400" />
-                            )}
-                          </button>
-                        </div>
-
-                        <div className="relative pt-6 pb-2">
-                          <div
-                            className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-slate-900 transition-all shadow-md top-0 bg-yellow-400 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
-                            style={{
-                              left: `calc(${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}% - 12px)`,
-                            }}
-                          >
-                            {filtroLinhasRangeMin}
-                          </div>
-
-                          <div
-                            className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-white transition-all shadow-md top-0 bg-green-500 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
-                            style={{
-                              left: `calc(${(filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}% - 12px)`,
-                            }}
-                          >
-                            {filtroLinhasRangeMax}
-                          </div>
-
-                          <div className="relative h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                            <div
-                              className={`absolute h-full transition-all ${tipoFiltroLinha === "RANGE" ? "bg-slate-400" : "bg-slate-300"}`}
-                              style={{
-                                left: `${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}%`,
-                                right: `${100 - (filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}%`,
-                              }}
-                            />
-                          </div>
-
-                          <input
-                            type="range"
-                            min="0"
-                            max={maxLinhasGlobal}
-                            value={filtroLinhasRangeMin}
-                            onChange={(e) =>
-                              setFiltroLinhasRangeMin(
-                                Math.min(
-                                  Number(e.target.value),
-                                  filtroLinhasRangeMax - 1,
-                                ),
-                              )
-                            }
-                            disabled={tipoFiltroLinha !== "RANGE"}
-                            className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
-                            [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-yellow-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
-                            [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-yellow-400 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none
-                            z-20"
-                          />
-
-                          <input
-                            type="range"
-                            min="0"
-                            max={maxLinhasGlobal}
-                            value={filtroLinhasRangeMax}
-                            onChange={(e) =>
-                              setFiltroLinhasRangeMax(
-                                Math.max(
-                                  Number(e.target.value),
-                                  filtroLinhasRangeMin + 1,
-                                ),
-                              )
-                            }
-                            disabled={tipoFiltroLinha !== "RANGE"}
-                            className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
-                            [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-green-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
-                            [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-green-500 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none
-                            z-30"
-                          />
-
-                          <div className="flex justify-between mt-3 text-[10px] text-slate-400 font-medium">
-                            <span>0 Lins</span>
-                            <span>{maxLinhasGlobal} Máx</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "EXACT" ? "border-primary bg-slate-50 shadow-sm" : "border-slate-100 opacity-60"}`}
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <p className="font-semibold text-slate-700 text-sm">
-                              Valor Específico
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              Ex: Exatamente 5 linhas
-                            </p>
-                          </div>
-                          <button
-                            onClick={() =>
-                              setTipoFiltroLinha(
-                                tipoFiltroLinha === "EXACT" ? "NONE" : "EXACT",
-                              )
-                            }
-                            className="transition-opacity cursor-pointer text-primary hover:opacity-80"
-                          >
-                            {tipoFiltroLinha === "EXACT" ? (
-                              <ToggleRight className="w-7 h-7 text-emerald-500" />
-                            ) : (
-                              <ToggleLeft className="w-7 h-7 text-slate-400" />
-                            )}
-                          </button>
-                        </div>
-                        <div>
-                          <input
-                            type="number"
-                            min="0"
-                            max={maxLinhasGlobal}
-                            value={filtroLinhasExact}
-                            onChange={(e) =>
-                              setFiltroLinhasExact(Number(e.target.value))
-                            }
-                            disabled={tipoFiltroLinha !== "EXACT"}
-                            className="w-full h-10 px-4 text-sm font-bold transition-all border shadow-inner outline-none border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                            placeholder="Insira a quantia exata..."
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <div className="mt-4">
-              <div>
-                <h2 className="flex items-center gap-2 mb-4 text-lg font-bold text-slate-800">
-                  <PieChart className="w-5 h-5 text-primary" /> Visualização
-                  Comparativa por Indicação
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                {renderMiniGrafico(
-                  "Fora do Prazo",
-                  totais.fora_prazo,
-                  CORES.fora_prazo,
-                )}
-                {renderMiniGrafico(
-                  "Aquecendo",
-                  totais.aquecendo,
-                  CORES.aquecendo,
-                )}
-                {renderMiniGrafico(
-                  "Renovação",
-                  totais.renovacao,
-                  CORES.renovacao,
-                )}
-                {renderMiniGrafico(
-                  "Portabilidade",
-                  totais.portabilidade,
-                  CORES.portabilidade,
-                )}
-                {renderMiniGrafico(
-                  "Prazo Excedido",
-                  totais.prazo_excedido,
-                  CORES.prazo_excedido,
-                )}
-                {renderMiniGrafico(
-                  "Prazo Limitado",
-                  totais.prazo_limitado,
-                  CORES.prazo_limitado,
-                )}
-              </div>
-            </div>
-
-            <Card className="mt-6 text-white border-none shadow-xl bg-slate-800">
-              <CardContent className="flex flex-col items-center justify-between p-5 md:flex-row">
-                <div className="flex items-center gap-4 mb-4 md:mb-0">
-                  <div className="p-3 rounded-full bg-white/10">
-                    <Database className="w-6 h-6 text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium tracking-wider uppercase text-slate-400">
-                      Volume Total Filtrado
-                    </p>
-                    <h3 className="font-black text-3xl">{totais.geral}</h3>
-                  </div>
-                </div>
-                <div className="flex gap-6 text-sm">
-                  <div className="text-right">
-                    <p className="mb-0.5 text-slate-400">Volume Atual</p>
-                    <p className="flex items-center gap-2 font-bold text-amber-400">
-                      Renovação{" "}
-                      <span className="px-2 py-0.5 text-white rounded bg-white/20">
-                        {totais.renovacao}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="mb-0.5 text-slate-400">Volume Atual</p>
-                    <p className="flex items-center gap-2 font-bold text-blue-400">
-                      Portabilidade{" "}
-                      <span className="px-2 py-0.5 text-white rounded bg-white/20">
-                        {totais.portabilidade}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="mt-4 text-slate-200 border-none shadow-lg bg-slate-900 overflow-hidden">
-              <div className="flex items-center gap-2 px-5 py-3 border-b bg-slate-800/80 border-slate-700/50">
-                <Database className="w-4 h-4 text-blue-400" />
-                <h3 className="text-xs font-bold tracking-wider uppercase text-slate-300">
-                  Métricas de Funil (CPC & eDoc) - Visão Global de Empresas
-                </h3>
-              </div>
-
-              <CardContent className="p-0">
-                {/* GRID DE MÉTRICAS - MANTIDO EXATAMENTE IGUAL */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[1px] bg-slate-700/50">
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Passaram pelo CPC
-                    </p>
-                    <p className="text-xl font-black text-emerald-400">
-                      {dadosFunilCpc?.total_passado_cpc || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Lido CPC (SEM SERVIÇO)
-                    </p>
-                    <p className="text-xl font-black text-white">
-                      {dadosFunilCpc?.total_passado_cpc_sem_servico || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
-                      CPC + eDoc <br />
-                      (SEM SERVIÇO E DRIVE)
-                    </p>
-                    <p className="text-xl font-black text-slate-300">
-                      {dadosFunilCpc?.edoc_sem_docdrive_sem_serv_cpc_ok || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-purple-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
-                      CPC + eDoc + Serviço <br /> (Total Geral)
-                    </p>
-                    <p className="text-xl font-black text-purple-400">
-                      {dadosFunilCpc?.edoc_com_cpc_edoc_servico || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-red-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
-                      CPC + eDoc + Serviço <br /> (SEM DRIVE)
-                    </p>
-                    <p className="text-xl font-black text-red-500">
-                      {dadosFunilCpc?.edoc_com_cpc_edoc_servico_sem_drive || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-blue-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
-                      CPC + eDoc + Serviço <br /> (COM DRIVE)
-                    </p>
-                    <p className="text-xl font-black text-blue-400">
-                      {dadosFunilCpc?.edoc_com_cpc_edoc_servico_com_drive || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Disp. p/ CPC (SEM SERVICO)
-                    </p>
-                    <p className="text-xl font-black text-amber-400">
-                      {dadosFunilCpc?.disp_cpc_sem_servico || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Disp. p/ CPC + EDOC (LIDO NO EDOC)
-                    </p>
-                    <p className="text-xl font-black text-white">
-                      {dadosFunilCpc?.disp_cpc_com_edoc || 0}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
-                      Disp. CPC (eDoc + Drive)
-                    </p>
-                    <p className="text-xl font-black text-sky-400">
-                      {dadosFunilCpc?.disp_cpc_edoc_e_docdrive || 0}
-                    </p>
-                  </div>
+                <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                    Lido CPC (SEM SERVIÇO)
+                  </p>
+                  <p className="text-xl font-black text-white">
+                    {dadosFunilCpc?.total_passado_cpc_sem_servico || 0}
+                  </p>
                 </div>
 
-                <div className="px-5 py-4 bg-slate-800/40 border-t border-slate-700/50">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Info className="w-3.5 h-3.5 text-slate-400" />
-                    <h4 className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
-                      Legenda de Termos e Siglas
-                    </h4>
-                  </div>
-
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-xs">
-                    <li className="flex items-start gap-2">
-                      <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
-                        1
-                      </span>
-                      <p className="text-slate-400 leading-relaxed">
-                        <strong className="text-slate-200 font-semibold mr-1">
-                          SERVIÇO:
-                        </strong>
-                        Tem cadastro de linhas no banco (seja FORA DO PRAZO,
-                        RENOVAÇÃO, PORTABILIDADE, PRAZO EXCEDIDO ou PRAZO
-                        LIMITADO).
-                      </p>
-                    </li>
-
-                    <li className="flex items-start gap-2">
-                      <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
-                        2
-                      </span>
-                      <p className="text-slate-400 leading-relaxed">
-                        <strong className="text-slate-200 font-semibold mr-1">
-                          CPC:
-                        </strong>
-                        Foi lido na aplicação CPC.
-                      </p>
-                    </li>
-
-                    <li className="flex items-start gap-2">
-                      <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
-                        3
-                      </span>
-                      <p className="text-slate-400 leading-relaxed">
-                        <strong className="text-slate-200 font-semibold mr-1">
-                          EDOC:
-                        </strong>
-                        Foi lido na aplicação EDOC.
-                      </p>
-                    </li>
-
-                    <li className="flex items-start gap-2">
-                      <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
-                        4
-                      </span>
-                      <p className="text-slate-400 leading-relaxed">
-                        <strong className="text-slate-200 font-semibold mr-1">
-                          DRIVE:
-                        </strong>
-                        Possui contrato armazenado no DRIVE ou em outros
-                        repositórios de arquivos.
-                      </p>
-                    </li>
-                  </ul>
+                <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                    CPC + eDoc <br />
+                    (SEM SERVIÇO E DRIVE)
+                  </p>
+                  <p className="text-xl font-black text-slate-300">
+                    {dadosFunilCpc?.edoc_sem_docdrive_sem_serv_cpc_ok || 0}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
 
-        <hr className="w-full max-w-7xl mx-auto border-slate-200" />
-
-        <section className="w-full max-w-7xl mx-auto">
-          <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
-            <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-                <CloudCog className="w-6 h-6 text-blue-600" /> Bases Abertas no
-                PipeRun (Hoje)
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Visualização do volume de Oportunidades no Pipeline (Funil) por
-                Consultor.
-              </p>
-            </div>
-          </div>
-
-          <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                <Users className="w-5 h-5 text-blue-500" /> Oportunidades
-                Compiladas
-              </h2>
-              <Button
-                variant="outline"
-                onClick={() => fetchDadosBolhas(true)}
-                disabled={loadingBolhas}
-                className="gap-2 shadow-sm flex items-center border-slate-200 text-white hover:bg-slate-50 cursor-pointer"
-              >
-                <RotateCw
-                  className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-blue-500" : ""}`}
-                />
-                Atualizar Gráfico Pipe
-              </Button>
-            </div>
-
-            <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 max-h-[600px] overflow-y-auto">
-              {loadingBolhas && dadosPipelineBolhas.length === 0 ? (
-                <div className="w-full h-[300px] flex flex-col items-center justify-center text-slate-500">
-                  <Loader2 className="h-8 w-8 animate-spin mb-2 text-blue-500" />
-                  Calculando oportunidades no PipeRun...
+                <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                  <p className="text-[10px] text-purple-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                    CPC + eDoc + Serviço <br /> (Total Geral)
+                  </p>
+                  <p className="text-xl font-black text-purple-400">
+                    {dadosFunilCpc?.edoc_com_cpc_edoc_servico || 0}
+                  </p>
                 </div>
-              ) : dadosPipelineBolhas.length === 0 ? (
-                <div className="w-full h-[300px] flex items-center justify-center text-slate-500 font-medium">
-                  Nenhum dado encontrado para os consultores atuais no Pipeline.
+
+                <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                  <p className="text-[10px] text-red-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                    CPC + eDoc + Serviço <br /> (SEM DRIVE)
+                  </p>
+                  <p className="text-xl font-black text-red-500">
+                    {dadosFunilCpc?.edoc_com_cpc_edoc_servico_sem_drive || 0}
+                  </p>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {dadosPipelineBolhas.map((entry, index) => {
-                    let cor = "#8884d8";
-                    if (entry.perfil === "RENOVACAO") cor = CORES.renovacao;
-                    if (entry.perfil === "PORTABILIDADE")
-                      cor = CORES.portabilidade;
-                    if (entry.perfil === "CARTEIRA") cor = CORES.carteira_pipe;
-                    if (entry.perfil === "AMBOS") cor = "#a855f7";
 
-                    return (
-                      <div
-                        key={`bolha-${index}`}
-                        className="flex flex-col items-center bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-blue-200 transition-colors"
-                      >
-                        <h3 className="text-sm font-bold text-center mb-2 line-clamp-2 h-10 flex items-center text-slate-700">
-                          {entry.nome}
-                        </h3>
-                        <div className="w-40 h-40">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={[
-                                  { name: "Total", value: entry.total },
-                                  {
-                                    name: "Vazio",
-                                    value: entry.total === 0 ? 1 : 0,
-                                  },
-                                ]}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={50}
-                                outerRadius={70}
-                                dataKey="value"
-                                stroke="none"
-                              >
-                                <Cell fill={cor} />
-                                <Cell fill={CORES.vazio} />
-                              </Pie>
-                              {renderCenterText(entry.total, "Total")}
-                              <RechartsTooltip
-                                formatter={(val: any) =>
-                                  val === 0 && entry.total === 0
-                                    ? [0, "Oportunidades"]
-                                    : [val, "Oportunidades"]
-                                }
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                  <p className="text-[10px] text-blue-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
+                    CPC + eDoc + Serviço <br /> (COM DRIVE)
+                  </p>
+                  <p className="text-xl font-black text-blue-400">
+                    {dadosFunilCpc?.edoc_com_cpc_edoc_servico_com_drive || 0}
+                  </p>
                 </div>
-              )}
-            </div>
-          </Card>
-        </section>
 
-        <hr className="w-full max-w-7xl mx-auto border-slate-200 mt-8 mb-8" />
+                <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                    Disp. p/ CPC (SEM SERVICO)
+                  </p>
+                  <p className="text-xl font-black text-amber-400">
+                    {dadosFunilCpc?.disp_cpc_sem_servico || 0}
+                  </p>
+                </div>
 
-        <section className="w-full max-w-7xl mx-auto">
-          <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
-            <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-                <BarChart2 className="w-6 h-6 text-red-600" /> Análise de Perdas
-                por Período (CRM)
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Filtre por data para visualizar o Total Base enviado ao
-                consultor e a proporção declinada (em Bolhas ou Tabela).
-              </p>
-            </div>
+                <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                    Disp. p/ CPC + EDOC (LIDO NO EDOC)
+                  </p>
+                  <p className="text-xl font-black text-white">
+                    {dadosFunilCpc?.disp_cpc_com_edoc || 0}
+                  </p>
+                </div>
 
-            {dadosPerdas.length > 0 && (
-              <div className="flex bg-slate-100 p-1 rounded-lg">
-                <button
-                  onClick={() => setViewModePerdas("grafico")}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
-                    viewModePerdas === "grafico"
-                      ? "bg-white shadow-sm text-blue-600"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  <LayoutGrid className="w-4 h-4" /> Gráficos
-                </button>
-                <button
-                  onClick={() => setViewModePerdas("tabela")}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
-                    viewModePerdas === "tabela"
-                      ? "bg-white shadow-sm text-blue-600"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  <ListIcon className="w-4 h-4" /> Tabela
-                </button>
-              </div>
-            )}
-          </div>
-
-          <Card className="bg-white border border-slate-200 shadow-sm p-6 mb-6">
-            <div className="flex flex-col md:flex-row items-end gap-4 mb-6 pb-6 border-b border-slate-100">
-              <div className="space-y-1.5 w-full md:w-auto">
-                <label className="text-xs font-bold text-slate-700">
-                  Data Criação (Início)
-                </label>
-                <input
-                  type="date"
-                  value={dataInicioPipe}
-                  onChange={(e) => setDataInicioPipe(e.target.value)}
-                  className="w-full h-10 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              <div className="space-y-1.5 w-full md:w-auto">
-                <label className="text-xs font-bold text-slate-700">
-                  Data Criação (Fim)
-                </label>
-                <input
-                  type="date"
-                  value={dataFimPipe}
-                  onChange={(e) => setDataFimPipe(e.target.value)}
-                  className="w-full h-10 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              <Button
-                onClick={buscarRelatorioPerdasPeriodo}
-                disabled={loadingPerdas}
-                className="h-10 px-6 bg-red-600 hover:bg-red-700 text-white font-bold w-full md:w-auto"
-              >
-                {loadingPerdas ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Search className="w-4 h-4 mr-2" />
-                )}
-                Buscar Perdas
-              </Button>
-            </div>
-
-            {viewModePerdas === "grafico" && (
-              <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 min-h-[300px] max-h-[600px] overflow-y-auto">
-                {loadingPerdas ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-500">
-                    <Loader2 className="h-8 w-8 animate-spin mb-2 text-red-500" />
-                    Calculando perdas e bases no PipeRun...
-                  </div>
-                ) : dadosPerdas.length === 0 ? (
-                  <div className="w-full h-[200px] flex items-center justify-center text-slate-500 font-medium">
-                    Nenhum dado filtrado. Selecione um período e clique em
-                    buscar.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {dadosPerdas.map((row, index) => {
-                      const restouBase = row.totalBase - row.totalDeclinados;
-
-                      const dadosPie = [
-                        {
-                          name: "Restante (Base)",
-                          value: restouBase < 0 ? 0 : restouBase,
-                          fill: CORES.sucesso,
-                        },
-                        {
-                          name: "Declinados",
-                          value: row.totalDeclinados,
-                          fill: CORES.declinio,
-                        },
-                      ];
-                      const fmt = (val: number) =>
-                        new Intl.NumberFormat("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }).format(val);
-
-                      return (
-                        <div
-                          key={`perda-${index}`}
-                          className="flex flex-col items-center bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-red-200 transition-colors"
-                        >
-                          <h3 className="text-sm font-bold text-center mb-1 line-clamp-2 h-10 flex items-center text-slate-800">
-                            {row.nome}
-                          </h3>
-                          <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded mb-3 font-semibold uppercase tracking-wider">
-                            {row.perfil}
-                          </span>
-
-                          <div className="w-40 h-40">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={dadosPie}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={45}
-                                  outerRadius={70}
-                                  dataKey="value"
-                                  stroke="none"
-                                >
-                                  {dadosPie.map((entry, idx) => (
-                                    <Cell
-                                      key={`cell-${idx}`}
-                                      fill={entry.fill}
-                                    />
-                                  ))}
-                                </Pie>
-                                <RechartsTooltip
-                                  formatter={(val: any, name: any) => [
-                                    val,
-                                    name,
-                                  ]}
-                                  contentStyle={{
-                                    borderRadius: "8px",
-                                    border: "none",
-                                    boxShadow:
-                                      "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                                  }}
-                                />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-
-                          <div className="w-full mt-4 space-y-2 text-xs">
-                            <div className="flex justify-between items-center bg-red-50 p-1.5 rounded">
-                              <span className="font-semibold text-red-600">
-                                Declinados:
-                              </span>
-                              <span className="font-bold text-red-600">
-                                {row.totalDeclinados}{" "}
-                                <span className="text-[9px] text-red-400 font-normal">
-                                  ({fmt(row.valorDeclinados)})
-                                </span>
-                              </span>
-                            </div>
-                            <div className="text-center pt-1 border-t border-slate-100 mt-1">
-                              <span
-                                className={`font-bold ${Number(row.taxaPerda) > 50 ? "text-red-600" : "text-amber-500"}`}
-                              >
-                                {row.taxaPerda}% de Perda
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {viewModePerdas === "tabela" && (
-              <div className="w-full overflow-x-auto rounded-lg border border-slate-200 mt-4">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-xs">
-                    <tr>
-                      <th className="px-6 py-4">Consultor</th>
-                      <th className="px-6 py-4 text-center">Perfil</th>
-                      <th className="px-6 py-4 text-center border-l border-slate-200">
-                        Total Base (Qtd)
-                      </th>
-                      <th className="px-6 py-4 text-center text-red-600 border-l border-slate-200">
-                        Declinados (Qtd)
-                      </th>
-                      <th className="px-6 py-4 text-center bg-slate-100">
-                        % Perda
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {dadosPerdas.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={7}
-                          className="px-6 py-8 text-center text-slate-500"
-                        >
-                          {loadingPerdas
-                            ? "Buscando relatórios..."
-                            : "Nenhum dado filtrado. Selecione um período e clique em buscar."}
-                        </td>
-                      </tr>
-                    ) : (
-                      dadosPerdas.map((row, index) => (
-                        <tr
-                          key={index}
-                          className="hover:bg-slate-50 text-black transition-colors"
-                        >
-                          <td className="px-6 py-3 font-semibold text-slate-800">
-                            {row.nome}
-                          </td>
-                          <td className="px-6 py-3 text-center text-xs">
-                            <span className="bg-slate-100 px-2 py-1 rounded">
-                              {row.perfil === "AMBOS"
-                                ? "AMBOS (RENOVACAO/PORTABILIDADE)"
-                                : row.perfil === "CARTEIRA"
-                                  ? "CARTEIRA / RENOVACAO"
-                                  : row.perfil}
-                            </span>
-                          </td>
-                          <td className="px-6 py-3 text-center border-l border-slate-200 font-bold">
-                            {row.totalBase}
-                          </td>
-                          <td className="px-6 py-3 text-center text-red-600 font-bold border-l border-slate-200">
-                            {row.totalDeclinados}
-                          </td>
-                          <td className="px-6 py-3 text-center font-bold bg-slate-50">
-                            <span
-                              className={
-                                Number(row.taxaPerda) > 50
-                                  ? "text-red-600"
-                                  : "text-amber-500"
-                              }
-                            >
-                              {row.taxaPerda}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-        </section>
-
-        <hr className="w-full max-w-7xl mx-auto border-slate-200" />
-
-        <section className="w-full max-w-7xl mx-auto">
-          <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
-            <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-                <History className="w-6 h-6 text-primary" /> Análise de
-                Histórico / Declínios
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Visualização do histórico de atendimento dos consultores. Total
-                Registros: {historicoFiltrado.length}
-              </p>
-            </div>
-          </div>
-
-          <Card className="bg-white border-none shadow-md mb-6">
-            <CardContent className="p-5">
-              <div className="flex flex-col justify-between gap-4 pb-4 mb-5 border-b md:flex-row md:items-center border-slate-100">
-                <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
-                  <Filter className="w-4 h-4 text-primary" /> Filtros
-                  Específicos do Histórico
-                </h2>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    onClick={limparFiltrosHistorico}
-                    variant="outline"
-                    size="sm"
-                    className="transition-colors shadow-sm cursor-pointer text-white"
-                  >
-                    <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
-                    Histórico
-                  </Button>
-                  <Button
-                    onClick={aplicarFiltrosHistorico}
-                    size="sm"
-                    className="px-6 transition-transform shadow-md cursor-pointer hover:scale-105 bg-emerald-400 text-black font-semibold"
-                  >
-                    Aplicar no Histórico
-                  </Button>
-                  <Button
-                    onClick={() => setModalExportacaoAberto("historico")}
-                    size="sm"
-                    className="px-4 transition-colors shadow-md cursor-pointer bg-red-600 hover:bg-red-700 text-white font-bold"
-                  >
-                    <Download className="w-4 h-4 mr-2" /> Exportar Dados do
-                    Histórico
-                  </Button>
+                <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
+                    Disp. CPC (eDoc + Drive)
+                  </p>
+                  <p className="text-xl font-black text-sky-400">
+                    {dadosFunilCpc?.disp_cpc_edoc_e_docdrive || 0}
+                  </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <Users className="w-3.5 h-3.5 text-purple-500" /> Consultor
-                    do Histórico
-                  </label>
-                  <select
-                    value={filtroHistConsultor}
-                    onChange={(e) => setFiltroHistConsultor(e.target.value)}
-                    className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="TODOS">Todos os Consultores</option>
-                    <optgroup label="Consultores do Histórico">
-                      {listaConsultoresHistUnicos.map((c) => (
-                        <option key={`hist_c_${c.seq}`} value={String(c.seq)}>
-                          {c.nome}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
+              <div className="px-5 py-4 bg-slate-800/40 border-t border-slate-700/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Info className="w-3.5 h-3.5 text-slate-400" />
+                  <h4 className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
+                    Legenda de Termos e Siglas
+                  </h4>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <AlertCircle className="w-3.5 h-3.5 text-red-500" /> Motivo
-                    de Declínio
-                  </label>
-                  <select
-                    value={filtroHistMotivo}
-                    onChange={(e) => setFiltroHistMotivo(e.target.value)}
-                    className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="TODOS">Todos os Motivos</option>
-                    <option value="SEM_DECLINIO">
-                      🏆 Sem Declínio (Fechado/Ganho)
-                    </option>
-                    <optgroup label="Motivos Existentes">
-                      {listaMotivosUnicos.map((motivo, i) => (
-                        <option key={`hist_m_${i}`} value={motivo}>
-                          {motivo}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </div>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-xs">
+                  <li className="flex items-start gap-2">
+                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
+                      1
+                    </span>
+                    <p className="text-slate-400 leading-relaxed">
+                      <strong className="text-slate-200 font-semibold mr-1">
+                        SERVIÇO:
+                      </strong>
+                      Tem cadastro de linhas no banco (seja FORA DO PRAZO,
+                      RENOVAÇÃO, PORTABILIDADE, PRAZO EXCEDIDO ou PRAZO
+                      LIMITADO).
+                    </p>
+                  </li>
+
+                  <li className="flex items-start gap-2">
+                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
+                      2
+                    </span>
+                    <p className="text-slate-400 leading-relaxed">
+                      <strong className="text-slate-200 font-semibold mr-1">
+                        CPC:
+                      </strong>
+                      Foi lido na aplicação CPC.
+                    </p>
+                  </li>
+
+                  <li className="flex items-start gap-2">
+                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
+                      3
+                    </span>
+                    <p className="text-slate-400 leading-relaxed">
+                      <strong className="text-slate-200 font-semibold mr-1">
+                        EDOC:
+                      </strong>
+                      Foi lido na aplicação EDOC.
+                    </p>
+                  </li>
+
+                  <li className="flex items-start gap-2">
+                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
+                      4
+                    </span>
+                    <p className="text-slate-400 leading-relaxed">
+                      <strong className="text-slate-200 font-semibold mr-1">
+                        DRIVE:
+                      </strong>
+                      Possui contrato armazenado no DRIVE ou em outros
+                      repositórios de arquivos.
+                    </p>
+                  </li>
+                </ul>
               </div>
             </CardContent>
           </Card>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-white border-none shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
-                  <BarChart2 className="w-4 h-4 text-purple-500" />
-                  Top 10 - Volume por Motivo de Declínio
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dadosGraficoMotivo}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      horizontal={true}
-                      vertical={false}
-                      stroke="#e2e8f0"
-                    />
-                    <XAxis
-                      type="number"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      width={150}
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <RechartsTooltip
-                      cursor={{ fill: "#f1f5f9" }}
-                      contentStyle={{
-                        borderRadius: "8px",
-                        border: "none",
-                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                      }}
-                    />
-                    <Bar
-                      dataKey="value"
-                      fill={CORES.grafico_barras_1}
-                      radius={[0, 4, 4, 0]}
-                      barSize={20}
-                      name="Total de Históricos"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+        <hr className="w-full max-w-7xl mx-auto border-t-7 border-red-700 rounded-full" />
 
-            <Card className="bg-white border-none shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
-                  <Users className="w-4 h-4 text-emerald-500" />
-                  Top 10 - Volume de Histórico por Consultor
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dadosGraficoConsultor}
-                    margin={{ top: 20, right: 30, left: 0, bottom: 60 }} // Aumentei o bottom para os nomes
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      stroke="#e2e8f0"
-                    />
-                    <XAxis
-                      dataKey="name"
-                      fontSize={10}
-                      tickLine={false}
-                      axisLine={false}
-                      interval={0}
-                      angle={-45}
-                      textAnchor="end"
-                      height={70}
-                    />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                    <RechartsTooltip
-                      cursor={{ fill: "#f1f5f9" }}
-                      contentStyle={{
-                        borderRadius: "8px",
-                        border: "none",
-                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                      }}
-                      labelFormatter={(value) => `Consultor: ${value}`}
-                    />
-                    <Bar
-                      dataKey="value"
-                      fill={CORES.grafico_barras_2}
-                      radius={[4, 4, 0, 0]}
-                      barSize={40}
-                      name="Volume de Atendimentos"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
+        <DashCrm
+          loadingBolhas={loadingBolhas}
+          dadosPipelineBolhas={dadosPipelineBolhas}
+          fetchDadosBolhas={fetchDadosBolhas}
+          CORES={CORES}
+          renderCenterText={renderCenterText}
+          dadosPerdas={dadosPerdas}
+          viewModePerdas={viewModePerdas}
+          setViewModePerdas={setViewModePerdas}
+          dataInicioPipe={dataInicioPipe}
+          setDataInicioPipe={setDataInicioPipe}
+          dataFimPipe={dataFimPipe}
+          setDataFimPipe={setDataFimPipe}
+          buscarRelatorioPerdasPeriodo={buscarRelatorioPerdasPeriodo}
+          loadingPerdas={loadingPerdas}
+        />
+
+        <hr className="w-full max-w-7xl mx-auto border-t-7 border-yellow-500 rounded-full opacity-80 my-8" />
+
+        <DashHistorico
+          historicoFiltrado={historicoFiltrado}
+          limparFiltrosHistorico={limparFiltrosHistorico}
+          aplicarFiltrosHistorico={aplicarFiltrosHistorico}
+          setModalExportacaoAberto={setModalExportacaoAberto}
+          filtroHistConsultor={filtroHistConsultor}
+          setFiltroHistConsultor={setFiltroHistConsultor}
+          listaConsultoresHistUnicos={listaConsultoresHistUnicos}
+          filtroHistMotivo={filtroHistMotivo}
+          setFiltroHistMotivo={setFiltroHistMotivo}
+          listaMotivosUnicos={listaMotivosUnicos}
+          dadosGraficoMotivo={dadosGraficoMotivo}
+          dadosGraficoConsultor={dadosGraficoConsultor}
+          CORES={CORES}
+        />
       </main>
     </div>
   );
