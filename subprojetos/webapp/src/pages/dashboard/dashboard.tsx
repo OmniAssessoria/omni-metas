@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import {
   Bell,
-  Loader2,
   Database,
-  Info,
   Download,
   FileSpreadsheet,
   FileText,
@@ -55,14 +53,52 @@ const calcularDiasPassados = (dataString?: string | null): number | null => {
   return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
 };
 
+const calcularMesesAtivosContrato = (
+  dataFimString?: string | null,
+): number | null => {
+  if (!dataFimString) return null;
+  const dataFim = new Date(dataFimString);
+  if (isNaN(dataFim.getTime())) return null;
+  const hoje = new Date();
+  const diffAnos = hoje.getFullYear() - dataFim.getFullYear();
+  const diffMeses = hoje.getMonth() - dataFim.getMonth();
+  return diffAnos * 12 + diffMeses + 24;
+};
+
+// Extrator global para ser reutilizado
+const prepararDados = (lista: any[]) => {
+  return lista.map((item) => {
+    const isExclusivoReal =
+      item.exclusivo === true ||
+      item.exclusivo === "true" ||
+      item.exclusivo === "t" ||
+      item.exclusivo === 1;
+    return {
+      ...item,
+      ddd_predominante: item.ddd_predominante
+        ? String(item.ddd_predominante).trim()
+        : "00",
+      exclusivo: isExclusivoReal,
+    };
+  });
+};
+
 export default function DashboardAnaliticoMultiView() {
-  const [loading, setLoading] = useState<boolean>(false);
+  // ==========================================
+  // ESTADOS DE CARREGAMENTO INDEPENDENTES
+  // ==========================================
+  const [loadingServicos, setLoadingServicos] = useState<boolean>(false);
+  const [loadingCarteira, setLoadingCarteira] = useState<boolean>(false);
+  const [loadingHistorico, setLoadingHistorico] = useState<boolean>(false);
+
   const [notification, setNotification] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
   const [modalExportacaoAberto, setModalExportacaoAberto] = useState<
     "servicos" | "historico" | "carteira" | "crm" | null
   >(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
+
+  // Estados Base (Serviços)
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
     renovacao: [],
     portabilidade: [],
@@ -79,8 +115,12 @@ export default function DashboardAnaliticoMultiView() {
     prazo_limitado: [],
     prazo_excedido: [],
   });
+
+  // Estados Base (Carteira)
   const [carteiraBruta, setCarteiraBruta] = useState<any[]>([]);
   const [carteiraFiltrada, setCarteiraFiltrada] = useState<any[]>([]);
+
+  // Filtros Globais
   const [filtroSituacao, setFiltroSituacao] =
     useState<TipoSituacaoFilter>("TODOS");
   const [filtroCarteira, setFiltroCarteira] =
@@ -104,6 +144,8 @@ export default function DashboardAnaliticoMultiView() {
   const [isLinhasMaxInitialized, setIsLinhasMaxInitialized] = useState(false);
   const [filtroCpcAtivo, setFiltroCpcAtivo] = useState(false);
   const [filtroCpcValor, setFiltroCpcValor] = useState(30);
+
+  // Histórico e Perdas
   const [historicoBruto, setHistoricoBruto] = useState<IHistoricoViewAPI[]>([]);
   const [historicoFiltrado, setHistoricoFiltrado] = useState<
     IHistoricoViewAPI[]
@@ -139,80 +181,43 @@ export default function DashboardAnaliticoMultiView() {
     sucesso: "#10b981",
   };
 
-  const calcularMesesAtivosContrato = (
-    dataFimString?: string | null,
-  ): number | null => {
-    if (!dataFimString) return null;
-    const dataFim = new Date(dataFimString);
-    if (isNaN(dataFim.getTime())) return null;
-    const hoje = new Date();
-    const diffAnos = hoje.getFullYear() - dataFim.getFullYear();
-    const diffMeses = hoje.getMonth() - dataFim.getMonth();
-    return diffAnos * 12 + diffMeses + 24;
-  };
+  // ==========================================
+  // ROTINAS DE FETCH INDEPENDENTES (ISOLADAS)
+  // ==========================================
 
-  const fetchTodasViews = useCallback(async () => {
-    setLoading(true);
+  const fetchServicos = useCallback(async (isManualRefresh = false) => {
+    setLoadingServicos(true);
     try {
-      const [
-        resRenov,
-        resPort,
-        resFora,
-        resLim,
-        resExc,
-        resHist,
-        resFunil,
-        resCarteira,
-      ] = await Promise.all([
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/renovacao",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/portabilidade",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/fora-do-prazo",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/prazo-limitado",
-        ),
-        API.get<IApiResponseView>(
-          "/api/servico-claro/dashboard/indicacao/prazo-excedido",
-        ),
-        API.get<IApiResponseView>("/api/servico-claro/dashboard/historico"),
-        API.get<any>("/api/servico-claro/dashboard/empresas"),
-        API.get<any>("/api/servico-claro/dashboard/empresas-carteira"),
-      ]);
+      const [resRenov, resPort, resFora, resLim, resExc, resFunil] =
+        await Promise.all([
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/renovacao",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/portabilidade",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/fora-do-prazo",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/prazo-limitado",
+          ),
+          API.get<IApiResponseView>(
+            "/api/servico-claro/dashboard/indicacao/prazo-excedido",
+          ),
+          API.get<any>("/api/servico-claro/dashboard/empresas"),
+        ]);
 
-      const prepararDados = (lista: any[]) => {
-        return lista.map((item) => {
-          const isExclusivoReal =
-            item.exclusivo === true ||
-            item.exclusivo === "true" ||
-            item.exclusivo === "t" ||
-            item.exclusivo === 1;
-          return {
-            ...item,
-            ddd_predominante: item.ddd_predominante
-              ? String(item.ddd_predominante).trim()
-              : "00",
-            exclusivo: isExclusivoReal,
-          };
-        });
-      };
-
-      const baseForaPrazoBruta = prepararDados(resFora.data.dados || []);
+      const baseForaPrazoBruta = prepararDados(resFora.data?.dados || []);
       const arrayForaPrazoReal: IServicoViewAPI[] = [];
       const arrayAquecendo: IServicoViewAPI[] = [];
 
       baseForaPrazoBruta.forEach((item) => {
         const mesesAtivos = calcularMesesAtivosContrato(item.dt_fim_contrato);
         let offsetRenovacao = 0;
-        if (["CA", "CC", "CE"].includes(item.classificacao_contrato)) {
+        if (["CA", "CC", "CE"].includes(item.classificacao_contrato))
           offsetRenovacao = 2;
-        }
-        const mesAlvoAquecimento = 15 + offsetRenovacao;
-        if (mesesAtivos !== null && mesesAtivos === mesAlvoAquecimento) {
+        if (mesesAtivos !== null && mesesAtivos === 15 + offsetRenovacao) {
           item.indicacao = "AQUECENDO";
           arrayAquecendo.push(item);
         } else {
@@ -221,13 +226,38 @@ export default function DashboardAnaliticoMultiView() {
       });
 
       const payloadServicos: DadosPorIndicacao = {
-        renovacao: prepararDados(resRenov.data.dados || []),
-        portabilidade: prepararDados(resPort.data.dados || []),
+        renovacao: prepararDados(resRenov.data?.dados || []),
+        portabilidade: prepararDados(resPort.data?.dados || []),
         fora_prazo: arrayForaPrazoReal,
         aquecendo: arrayAquecendo,
-        prazo_limitado: prepararDados(resLim.data.dados || []),
-        prazo_excedido: prepararDados(resExc.data.dados || []),
+        prazo_limitado: prepararDados(resLim.data?.dados || []),
+        prazo_excedido: prepararDados(resExc.data?.dados || []),
       };
+
+      setDadosBrutos(payloadServicos);
+      setDadosFiltrados(payloadServicos);
+      if (resFunil?.data?.dados) setDadosFunilCpc(resFunil.data.dados);
+
+      setUltimaAtualizacao(new Date());
+      if (isManualRefresh) {
+        setNotification("Base de Serviços sincronizada com sucesso!");
+        setTimeout(() => setNotification(null), 3000);
+      }
+    } catch (error) {
+      console.error("[ERRO FETCH SERVIÇOS]:", error);
+      setNotification("Erro ao atualizar base de serviços.");
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setLoadingServicos(false);
+    }
+  }, []);
+
+  const fetchCarteira = useCallback(async (isManualRefresh = false) => {
+    setLoadingCarteira(true);
+    try {
+      const resCarteira = await API.get<any>(
+        "/api/servico-claro/dashboard/empresas-carteira",
+      );
 
       const baseCarteiraTratada = (resCarteira?.data?.dados || []).map(
         (item: any) => {
@@ -236,9 +266,8 @@ export default function DashboardAnaliticoMultiView() {
               item.dt_fim_contrato,
             );
             let offsetRenovacao = 0;
-            if (["CA", "CC", "CE"].includes(item.classificacao_contrato)) {
+            if (["CA", "CC", "CE"].includes(item.classificacao_contrato))
               offsetRenovacao = 2;
-            }
             if (mesesAtivos !== null && mesesAtivos === 15 + offsetRenovacao) {
               item.indicacao = "AQUECENDO";
             }
@@ -254,34 +283,53 @@ export default function DashboardAnaliticoMultiView() {
         },
       );
 
-      const payloadHistorico: IHistoricoViewAPI[] = resHist.data.dados || [];
-
-      setDadosBrutos(payloadServicos);
-      setDadosFiltrados(payloadServicos);
-
       setCarteiraBruta(baseCarteiraTratada);
       setCarteiraFiltrada(baseCarteiraTratada);
+
+      setUltimaAtualizacao(new Date());
+      if (isManualRefresh) {
+        setNotification("Base de Carteira sincronizada com sucesso!");
+        setTimeout(() => setNotification(null), 3000);
+      }
+    } catch (error) {
+      console.error("[ERRO FETCH CARTEIRA]:", error);
+      setNotification("Erro ao atualizar carteira.");
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setLoadingCarteira(false);
+    }
+  }, []);
+
+  const fetchHistorico = useCallback(async (isManualRefresh = false) => {
+    setLoadingHistorico(true);
+    try {
+      const resHist = await API.get<IApiResponseView>(
+        "/api/servico-claro/dashboard/historico",
+      );
+      const payloadHistorico = resHist.data?.dados || [];
 
       setHistoricoBruto(payloadHistorico);
       setHistoricoFiltrado(payloadHistorico);
 
-      if (resFunil?.data?.dados) setDadosFunilCpc(resFunil.data.dados);
-
-      setUltimaAtualizacao(new Date());
-      setNotification("Bases de Serviços e Carteiras sincronizadas!");
-      setTimeout(() => setNotification(null), 4000);
+      if (isManualRefresh) {
+        setNotification("Histórico sincronizado com sucesso!");
+        setTimeout(() => setNotification(null), 3000);
+      }
     } catch (error) {
-      console.error("[ERRO FETCH VIEWS]:", error);
-      setNotification("Erro ao atualizar base de dados completa.");
-      setTimeout(() => setNotification(null), 4000);
+      console.error("[ERRO FETCH HISTORICO]:", error);
+      setNotification("Erro ao atualizar histórico.");
+      setTimeout(() => setNotification(null), 3000);
     } finally {
-      setLoading(false);
+      setLoadingHistorico(false);
     }
   }, []);
 
+  // Busca inicial independente
   useEffect(() => {
-    fetchTodasViews();
-  }, [fetchTodasViews]);
+    fetchServicos();
+    fetchCarteira();
+    fetchHistorico();
+  }, [fetchServicos, fetchCarteira, fetchHistorico]);
 
   const { maxLinhasGlobal, maxDiasCpcGlobal } = useMemo(() => {
     const todosServicos = [
@@ -433,17 +481,13 @@ export default function DashboardAnaliticoMultiView() {
           item.claro_situacao !== filtroSituacao
         )
           return false;
-        // PipeRun CRM
         if (filtroPiperun === "SIM" && item.crm !== true) return false;
         if (filtroPiperun === "NAO" && item.crm === true) return false;
-        // Ativo
         if (filtroAtivo === "SIM" && item.claro_ativo !== true) return false;
         if (filtroAtivo === "NAO" && item.claro_ativo === true) return false;
-        // Exclusivo
         if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
         if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
 
-        // Consultor
         if (filtroConsultor !== "TODOS") {
           if (filtroConsultor === "NAO_ATRIBUIDO") {
             if (item.seq_consultor !== null) return false;
@@ -452,7 +496,6 @@ export default function DashboardAnaliticoMultiView() {
           }
         }
 
-        // Classificação
         if (filtroClassificacao !== "TODOS") {
           if (filtroClassificacao === "SEM_CLASSIFICACAO") {
             if (
@@ -466,14 +509,12 @@ export default function DashboardAnaliticoMultiView() {
           }
         }
 
-        // Data de Fim de Contrato
         if (filtroDataFim !== "") {
           if (!item.dt_fim_contrato) return false;
           const dataFormatada = item.dt_fim_contrato.substring(0, 10);
           if (dataFormatada !== filtroDataFim) return false;
         }
 
-        // Dias de Leitura CPC
         if (filtroCpcAtivo) {
           const diasCpc = calcularDiasPassados(item.dt_leitura_cpc);
           if (diasCpc === null || diasCpc > filtroCpcValor) return false;
@@ -499,7 +540,6 @@ export default function DashboardAnaliticoMultiView() {
           }
         }
 
-        // Região (Extração do DDD pelo 'numero_linha')
         if (filtroDDD !== "TODOS" && item.numero_linha) {
           const dddStr = String(item.numero_linha).substring(0, 2);
           const dddNum = Number(dddStr);
@@ -587,10 +627,8 @@ export default function DashboardAnaliticoMultiView() {
         item.dt_leitura_cpc !== null &&
         item.claro_situacao === null &&
         item.numero_linha === null
-      ) {
+      )
         cancelados_inviavel++;
-      }
-
       if (item.indicacao === "RENOVACAO") renovacao++;
       if (item.indicacao === "PORTABILIDADE") portabilidade++;
       if (item.indicacao === "FORA DO PRAZO") fora_prazo++;
@@ -698,7 +736,6 @@ export default function DashboardAnaliticoMultiView() {
     const element = elementId
       ? document.getElementById(elementId)
       : dashboardRef.current;
-
     if (!element) {
       setNotification(
         "Erro: Não foi possível localizar a área para exportação.",
@@ -707,7 +744,6 @@ export default function DashboardAnaliticoMultiView() {
     }
 
     try {
-      setLoading(true);
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -716,7 +752,6 @@ export default function DashboardAnaliticoMultiView() {
       const image = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.href = image;
-
       const nomeArquivo = fileNamePrefix ? fileNamePrefix : "Analise_Dashboard";
       link.download = `${nomeArquivo}_${new Date().toISOString().slice(0, 10)}.png`;
       link.click();
@@ -730,8 +765,6 @@ export default function DashboardAnaliticoMultiView() {
     } catch (err) {
       console.error("Erro ao exportar imagem:", err);
       setNotification("Erro ao gerar imagem da análise.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -755,7 +788,6 @@ export default function DashboardAnaliticoMultiView() {
   const exportToCSV = () => {
     const data = getDataToExport();
     if (!data || data.length === 0) return alert("Nenhum dado para exportar.");
-
     const keys = Object.keys(data[0]);
     const csvContent = [
       keys.join(";"),
@@ -784,10 +816,8 @@ export default function DashboardAnaliticoMultiView() {
     if (!data || data.length === 0) return alert("Nenhum dado para exportar.");
 
     try {
-      setLoading(true);
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Dados Exportados");
-
       const keys = Object.keys(data[0]);
       worksheet.columns = keys.map((key) => ({
         header: key.toUpperCase(),
@@ -795,7 +825,6 @@ export default function DashboardAnaliticoMultiView() {
         width: 25,
       }));
       data.forEach((item) => worksheet.addRow(item));
-
       worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
       worksheet.getRow(1).fill = {
         type: "pattern",
@@ -808,32 +837,26 @@ export default function DashboardAnaliticoMultiView() {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       saveAs(blob, `${getFileName()}.xlsx`);
-
       setModalExportacaoAberto(null);
       setNotification("Planilha XLSX gerada com sucesso!");
       setTimeout(() => setNotification(null), 3000);
     } catch (error) {
       console.error("Erro ao gerar Excel:", error);
       alert("Houve um erro ao processar o arquivo XLSX.");
-    } finally {
-      setLoading(false);
     }
   };
 
   const exportToPDF = () => {
     const data = getDataToExport();
     if (!data || data.length === 0) return alert("Nenhum dado para exportar.");
-
     const doc = new jsPDF("landscape", "pt", "a4");
     const keys = Object.keys(data[0]);
     const displayKeys = keys.slice(0, 10);
-
     const tableData = data.map((row) =>
       displayKeys.map((k) => String((row as any)[k] || "")),
     );
 
     doc.text(`Relatório Analítico de Base`, 40, 40);
-
     autoTable(doc, {
       head: [displayKeys],
       body: tableData,
@@ -841,7 +864,6 @@ export default function DashboardAnaliticoMultiView() {
       styles: { fontSize: 6, cellPadding: 2 },
       headStyles: { fillColor: [44, 62, 80] },
     });
-
     doc.save(`${getFileName()}.pdf`);
     setModalExportacaoAberto(null);
   };
@@ -862,9 +884,7 @@ export default function DashboardAnaliticoMultiView() {
       try {
         const response = await API.get("/api/consultores");
         const listaConsultores = response.data?.dados ?? [];
-        if (Array.isArray(listaConsultores)) {
-          setConsultoresDB(listaConsultores);
-        }
+        if (Array.isArray(listaConsultores)) setConsultoresDB(listaConsultores);
       } catch (error) {
         console.error("Falha ao buscar consultores do DB:", error);
       }
@@ -890,13 +910,13 @@ export default function DashboardAnaliticoMultiView() {
             ({
               nome: c.nome,
               owner_id: c.codigo_crm,
+              seq: c.codigo_crm || 0,
+              email: "",
               perfil: String(c.perfil_indicacao)
                 .trim()
                 .toUpperCase()
                 .normalize("NFD")
                 .replace(/[\u0300-\u036f]/g, ""),
-              seq: c.codigo_crm || 0,
-              email: "",
             }) as IConsultor,
         );
 
@@ -914,7 +934,6 @@ export default function DashboardAnaliticoMultiView() {
           setTimeout(() => setNotification(null), 5000);
         }
       } catch (error) {
-        console.error("Erro ao compilar as bolhas do PipeRun:", error);
         setNotification("Falha ao atualizar o gráfico do Pipeline.");
         setTimeout(() => setNotification(null), 5000);
       } finally {
@@ -934,11 +953,7 @@ export default function DashboardAnaliticoMultiView() {
       setTimeout(() => setNotification(null), 3000);
       return;
     }
-    if (consultoresDB.length === 0) {
-      setNotification("Aguarde o carregamento dos consultores.");
-      setTimeout(() => setNotification(null), 3000);
-      return;
-    }
+    if (consultoresDB.length === 0) return;
 
     setLoadingPerdas(true);
     try {
@@ -947,13 +962,13 @@ export default function DashboardAnaliticoMultiView() {
           ({
             nome: c.nome,
             owner_id: c.codigo_crm,
+            seq: c.codigo_crm || 0,
+            email: "",
             perfil: String(c.perfil_indicacao)
               .trim()
               .toUpperCase()
               .normalize("NFD")
               .replace(/[\u0300-\u036f]/g, ""),
-            seq: c.codigo_crm || 0,
-            email: "",
           }) as IConsultor,
       );
 
@@ -966,7 +981,6 @@ export default function DashboardAnaliticoMultiView() {
       setNotification("Relatório de Perdas atualizado com sucesso!");
       setTimeout(() => setNotification(null), 3000);
     } catch (error) {
-      console.error("Erro ao buscar perdas:", error);
       setNotification("Falha ao gerar o relatório de perdas.");
       setTimeout(() => setNotification(null), 3000);
     } finally {
@@ -1036,18 +1050,13 @@ export default function DashboardAnaliticoMultiView() {
           </div>
         )}
 
-        {loading && (
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-sm bg-slate-50/80">
-            <Loader2 className="w-12 h-12 mb-4 animate-spin text-primary" />
-            <h2 className="text-xl font-bold text-slate-700">Processando...</h2>
-          </div>
-        )}
+        {/* Agora o componente intercepta os botões de Refresh para chamar as funções isoladas! */}
 
         <DashServicoClaro
           ultimaAtualizacao={ultimaAtualizacao}
           exportToImage={exportToImage}
-          fetchTodasViews={fetchTodasViews}
-          loading={loading}
+          fetchTodasViews={() => fetchServicos(true)} // CHAMA SÓ SERVIÇOS
+          loading={loadingServicos} // MOSTRA LOADING SÓ NELE
           limparFiltros={limparFiltros}
           aplicarFiltrosGlobais={aplicarFiltrosGlobais}
           setModalExportacaoAberto={setModalExportacaoAberto}
@@ -1173,60 +1182,6 @@ export default function DashboardAnaliticoMultiView() {
                   </p>
                 </div>
               </div>
-              <div className="px-5 py-4 bg-slate-800/40 border-t border-slate-700/50">
-                <div className="flex items-center gap-2 mb-3">
-                  <Info className="w-3.5 h-3.5 text-slate-400" />
-                  <h4 className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
-                    Legenda de Termos e Siglas
-                  </h4>
-                </div>
-                <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-xs">
-                  <li className="flex items-start gap-2">
-                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
-                      1
-                    </span>
-                    <p className="text-slate-400 leading-relaxed">
-                      <strong className="text-slate-200 font-semibold mr-1">
-                        SERVIÇO:
-                      </strong>
-                      Tem cadastro de linhas no banco.
-                    </p>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
-                      2
-                    </span>
-                    <p className="text-slate-400 leading-relaxed">
-                      <strong className="text-slate-200 font-semibold mr-1">
-                        CPC:
-                      </strong>
-                      Foi lido na aplicação CPC.
-                    </p>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
-                      3
-                    </span>
-                    <p className="text-slate-400 leading-relaxed">
-                      <strong className="text-slate-200 font-semibold mr-1">
-                        EDOC:
-                      </strong>
-                      Foi lido na aplicação EDOC.
-                    </p>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
-                      4
-                    </span>
-                    <p className="text-slate-400 leading-relaxed">
-                      <strong className="text-slate-200 font-semibold mr-1">
-                        DRIVE:
-                      </strong>
-                      Possui contrato armazenado.
-                    </p>
-                  </li>
-                </ul>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -1236,8 +1191,8 @@ export default function DashboardAnaliticoMultiView() {
         <DashCarteira
           ultimaAtualizacao={ultimaAtualizacao}
           exportToImage={exportToImage}
-          fetchTodasViews={fetchTodasViews}
-          loading={loading}
+          fetchTodasViews={() => fetchCarteira(true)} // CHAMA SÓ CARTEIRA
+          loading={loadingCarteira} // MOSTRA LOADING SÓ NELA
           limparFiltros={limparFiltros}
           aplicarFiltrosGlobais={aplicarFiltrosGlobais}
           setModalExportacaoAberto={setModalExportacaoAberto}
