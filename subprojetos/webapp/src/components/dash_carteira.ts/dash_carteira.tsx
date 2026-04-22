@@ -43,13 +43,11 @@ interface ConsultorSimples {
 
 export interface DashCarteiraProps {
   ultimaAtualizacao: Date | null;
-  // ATUALIZADO: Agora aceita os parâmetros de isolamento
   exportToImage: (elementId: string, fileNamePrefix: string) => void;
   fetchTodasViews: () => void;
   loading: boolean;
   limparFiltros: () => void;
   aplicarFiltrosGlobais: () => void;
-  // ATUALIZADO: Incluindo "carteira" nos tipos permitidos
   setModalExportacaoAberto: (
     val: "servicos" | "historico" | "carteira" | null,
   ) => void;
@@ -80,8 +78,12 @@ export interface DashCarteiraProps {
   setFiltroLinhasRangeMin: (val: number) => void;
   filtroLinhasRangeMax: number;
   setFiltroLinhasRangeMax: (val: number) => void;
+
+  // As propriedades 'Exact' foram mantidas na interface para não quebrar 
+  // caso o componente pai ainda as injete, mas elas não são mais usadas na UI.
   filtroLinhasExact: number;
   setFiltroLinhasExact: (val: number) => void;
+
   maxLinhasGlobal: number;
 
   filtroCpcAtivo: boolean;
@@ -111,7 +113,7 @@ export default function DashCarteira({
   loading,
   limparFiltros,
   aplicarFiltrosGlobais,
-  setModalExportacaoAberto, 
+  setModalExportacaoAberto,
   filtroAtivo,
   setFiltroAtivo,
   filtroExclusivo,
@@ -250,7 +252,6 @@ export default function DashCarteira({
   );
 
   return (
-    // ATUALIZAÇÃO CRÍTICA: O ID "dash-carteira-container" isola esta dash para o print!
     <section id="dash-carteira-container" className="pt-2">
       <div className="flex flex-col items-start justify-between w-full max-w-7xl gap-4 mb-6 mx-auto lg:flex-row lg:items-center">
         <div>
@@ -266,7 +267,6 @@ export default function DashCarteira({
           </p>
         </div>
 
-        {/* NOVA ÁREA DE BOTÕES DE EXPORTAÇÃO SEPARADOS */}
         <div className="flex flex-wrap items-center gap-3">
           <Button
             onClick={() =>
@@ -479,156 +479,74 @@ export default function DashCarteira({
                 )}
               </div>
 
+              {/* BLOCO SUBSTITUÍDO: Refino de Volume de Linhas com Inputs Nativos */}
               <div className="col-span-1 md:col-span-2 xl:col-span-4 border border-emerald-100 bg-emerald-50/30 rounded-lg p-4 space-y-3">
                 <label className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
                   <Briefcase className="w-4 h-4 text-emerald-600" /> Refino de
                   Volume de Linhas da Carteira
                 </label>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div
-                    className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "RANGE" ? "border-emerald-500 bg-white shadow-sm" : "border-slate-200 bg-white/50 opacity-60"}`}
-                  >
-                    <div className="flex items-center justify-between mb-6">
-                      <div>
-                        <p className="font-semibold text-slate-700 text-sm">
-                          Intervalo (Range)
-                        </p>
-                        <p className="text-[10px] text-slate-500">
-                          Ex: De 2 até 7 linhas na carteira
-                        </p>
-                      </div>
-                      <button
-                        onClick={() =>
-                          setTipoFiltroLinha(
-                            tipoFiltroLinha === "RANGE" ? "NONE" : "RANGE",
-                          )
-                        }
-                        className="transition-opacity cursor-pointer text-emerald-600 hover:opacity-80"
-                      >
-                        {tipoFiltroLinha === "RANGE" ? (
-                          <ToggleRight className="w-7 h-7 text-emerald-600" />
-                        ) : (
-                          <ToggleLeft className="w-7 h-7 text-slate-400" />
-                        )}
-                      </button>
+                <div
+                  className={`relative p-5 rounded-xl border-2 transition-all max-w-2xl ${tipoFiltroLinha === "RANGE"
+                      ? "border-emerald-500 bg-white shadow-sm"
+                      : "border-slate-200 bg-white/50 opacity-60"
+                    }`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="font-semibold text-slate-700 text-sm">
+                        Intervalo de Linhas
+                      </p>
+                      <p className="text-[11px] mt-0.5 text-slate-500">
+                        Ex: De 2 até 7 linhas (ou digite 1 até 1 para buscar um valor exato)
+                      </p>
                     </div>
-
-                    <div className="relative pt-6 pb-2">
-                      <div
-                        className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-slate-900 transition-all shadow-md top-0 bg-yellow-400 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
-                        style={{
-                          left: `calc(${(filtroLinhasRangeMin / safeMaxLinhas) * 100}% - 12px)`,
-                        }}
-                      >
-                        {filtroLinhasRangeMin}
-                      </div>
-
-                      <div
-                        className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-white transition-all shadow-md top-0 bg-emerald-500 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
-                        style={{
-                          left: `calc(${(filtroLinhasRangeMax / safeMaxLinhas) * 100}% - 12px)`,
-                        }}
-                      >
-                        {filtroLinhasRangeMax}
-                      </div>
-
-                      <div className="relative h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className={`absolute h-full transition-all ${tipoFiltroLinha === "RANGE" ? "bg-slate-400" : "bg-slate-300"}`}
-                          style={{
-                            left: `${(filtroLinhasRangeMin / safeMaxLinhas) * 100}%`,
-                            right: `${100 - (filtroLinhasRangeMax / safeMaxLinhas) * 100}%`,
-                          }}
-                        />
-                      </div>
-
-                      <input
-                        type="range"
-                        min="0"
-                        max={safeMaxLinhas}
-                        value={filtroLinhasRangeMin}
-                        onChange={(e) =>
-                          setFiltroLinhasRangeMin(
-                            Math.min(
-                              Number(e.target.value),
-                              filtroLinhasRangeMax - 1,
-                            ),
-                          )
-                        }
-                        disabled={tipoFiltroLinha !== "RANGE"}
-                        className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
-                        [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-yellow-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
-                        [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-yellow-400 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:shadow-md [&::-moz-range-track]:bg-transparent [&::-moz-range-track]:border-none
-                        z-30"
-                      />
-
-                      <input
-                        type="range"
-                        min="0"
-                        max={safeMaxLinhas}
-                        value={filtroLinhasRangeMax}
-                        onChange={(e) =>
-                          setFiltroLinhasRangeMax(
-                            Math.max(
-                              Number(e.target.value),
-                              filtroLinhasRangeMin + 1,
-                            ),
-                          )
-                        }
-                        disabled={tipoFiltroLinha !== "RANGE"}
-                        className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
-                        [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
-                        [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-emerald-500 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:shadow-md [&::-moz-range-track]:bg-transparent [&::-moz-range-track]:border-none
-                        z-40"
-                      />
-
-                      <div className="flex justify-between mt-3 text-[10px] text-slate-400 font-medium">
-                        <span>0 Lins</span>
-                        <span>{safeMaxLinhas} Máx</span>
-                      </div>
-                    </div>
+                    <button
+                      onClick={() =>
+                        setTipoFiltroLinha(
+                          tipoFiltroLinha === "RANGE" ? "NONE" : "RANGE",
+                        )
+                      }
+                      className="transition-opacity cursor-pointer text-emerald-600 hover:opacity-80"
+                      title={tipoFiltroLinha === "RANGE" ? "Desativar filtro de linhas" : "Ativar filtro de linhas"}
+                    >
+                      {tipoFiltroLinha === "RANGE" ? (
+                        <ToggleRight className="w-8 h-8 text-emerald-600" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-slate-400" />
+                      )}
+                    </button>
                   </div>
 
-                  <div
-                    className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "EXACT" ? "border-emerald-500 bg-white shadow-sm" : "border-slate-200 bg-white/50 opacity-60"}`}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <p className="font-semibold text-slate-700 text-sm">
-                          Valor Específico
-                        </p>
-                        <p className="text-[10px] text-slate-500">
-                          Ex: Exatamente 5 linhas
-                        </p>
-                      </div>
-                      <button
-                        onClick={() =>
-                          setTipoFiltroLinha(
-                            tipoFiltroLinha === "EXACT" ? "NONE" : "EXACT",
-                          )
-                        }
-                        className="transition-opacity cursor-pointer text-emerald-600 hover:opacity-80"
-                      >
-                        {tipoFiltroLinha === "EXACT" ? (
-                          <ToggleRight className="w-7 h-7 text-emerald-600" />
-                        ) : (
-                          <ToggleLeft className="w-7 h-7 text-slate-400" />
-                        )}
-                      </button>
-                    </div>
-                    <div>
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        De (Mínimo)
+                      </label>
                       <input
                         type="number"
                         min="0"
                         max={safeMaxLinhas}
-                        value={filtroLinhasExact}
-                        onChange={(e) =>
-                          setFiltroLinhasExact(Number(e.target.value))
-                        }
-                        disabled={tipoFiltroLinha !== "EXACT"}
-                        className="w-full h-10 px-4 text-sm font-bold transition-all border shadow-inner outline-none border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                        placeholder="Insira a quantia exata..."
+                        value={filtroLinhasRangeMin}
+                        onChange={(e) => setFiltroLinhasRangeMin(Number(e.target.value))}
+                        disabled={tipoFiltroLinha !== "RANGE"}
+                        className="w-full h-11 px-4 text-sm font-bold transition-all border shadow-inner outline-none border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        placeholder="Mínimo"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Até (Máximo)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={safeMaxLinhas}
+                        value={filtroLinhasRangeMax}
+                        onChange={(e) => setFiltroLinhasRangeMax(Number(e.target.value))}
+                        disabled={tipoFiltroLinha !== "RANGE"}
+                        className="w-full h-11 px-4 text-sm font-bold transition-all border shadow-inner outline-none border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        placeholder="Máximo"
                       />
                     </div>
                   </div>
