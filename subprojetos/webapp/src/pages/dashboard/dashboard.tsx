@@ -60,7 +60,7 @@ export default function DashboardAnaliticoMultiView() {
   const [notification, setNotification] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
   const [modalExportacaoAberto, setModalExportacaoAberto] = useState<
-    "servicos" | "historico" | "carteira" | null
+    "servicos" | "historico" | "carteira" | "crm" | null
   >(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
@@ -694,20 +694,38 @@ export default function DashboardAnaliticoMultiView() {
       .slice(0, 10);
   }, [historicoFiltrado]);
 
-  const exportToImage = async () => {
-    if (!dashboardRef.current) return;
+  const exportToImage = async (elementId?: string, fileNamePrefix?: string) => {
+    const element = elementId
+      ? document.getElementById(elementId)
+      : dashboardRef.current;
+
+    if (!element) {
+      setNotification(
+        "Erro: Não foi possível localizar a área para exportação.",
+      );
+      return;
+    }
+
     try {
       setLoading(true);
-      const canvas = await html2canvas(dashboardRef.current, {
+      const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
+        backgroundColor: "#f8fafc",
       });
       const image = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.href = image;
-      link.download = `Analise_Dashboard_${new Date().toISOString().slice(0, 10)}.png`;
+
+      const nomeArquivo = fileNamePrefix ? fileNamePrefix : "Analise_Dashboard";
+      link.download = `${nomeArquivo}_${new Date().toISOString().slice(0, 10)}.png`;
       link.click();
-      setNotification("Print da análise exportado com sucesso!");
+
+      setNotification(
+        fileNamePrefix
+          ? `Print de ${fileNamePrefix} exportado com sucesso!`
+          : "Print da análise exportado com sucesso!",
+      );
       setTimeout(() => setNotification(null), 3000);
     } catch (err) {
       console.error("Erro ao exportar imagem:", err);
@@ -720,6 +738,7 @@ export default function DashboardAnaliticoMultiView() {
   const getDataToExport = () => {
     if (modalExportacaoAberto === "carteira") return carteiraFiltrada;
     if (modalExportacaoAberto === "servicos") return todosServicosFiltrados;
+    if (modalExportacaoAberto === "crm") return dadosPerdas;
     return historicoFiltrado;
   };
 
@@ -728,6 +747,8 @@ export default function DashboardAnaliticoMultiView() {
     if (modalExportacaoAberto === "carteira") prefix = "Base_Carteira";
     else if (modalExportacaoAberto === "servicos") prefix = "Base_Servicos";
     else if (modalExportacaoAberto === "historico") prefix = "Base_Historico";
+    else if (modalExportacaoAberto === "crm") prefix = "Base_CRM_Perdas";
+
     return `${prefix}_${new Date().toISOString().slice(0, 10)}`;
   };
 
@@ -1275,6 +1296,8 @@ export default function DashboardAnaliticoMultiView() {
           setDataFimPipe={setDataFimPipe}
           buscarRelatorioPerdasPeriodo={buscarRelatorioPerdasPeriodo}
           loadingPerdas={loadingPerdas}
+          exportToImage={exportToImage}
+          setModalExportacaoAberto={setModalExportacaoAberto}
         />
 
         <hr className="w-full max-w-7xl mx-auto border-t-7 border-yellow-500 rounded-full opacity-80 my-8" />
@@ -1293,6 +1316,7 @@ export default function DashboardAnaliticoMultiView() {
           dadosGraficoMotivo={dadosGraficoMotivo}
           dadosGraficoConsultor={dadosGraficoConsultor}
           CORES={CORES}
+          exportToImage={exportToImage}
         />
       </main>
     </div>

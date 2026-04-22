@@ -10,6 +10,8 @@ import {
   LayoutGrid,
   ListIcon,
   Search,
+  Download,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -32,7 +34,7 @@ interface DashCrmProps {
     declinio: string;
     [key: string]: string;
   };
-  renderCenterText: (value: number, label: string) => React.ReactNode; 
+  renderCenterText: (value: number, label: string) => React.ReactNode;
   dadosPerdas: any[];
   viewModePerdas: "grafico" | "tabela";
   setViewModePerdas: (mode: "grafico" | "tabela") => void;
@@ -42,6 +44,12 @@ interface DashCrmProps {
   setDataFimPipe: (data: string) => void;
   buscarRelatorioPerdasPeriodo: () => void;
   loadingPerdas: boolean;
+
+  // NOVAS PROPRIEDADES DE EXPORTAÇÃO
+  exportToImage: (elementId: string, fileNamePrefix: string) => void;
+  setModalExportacaoAberto: (
+    val: "servicos" | "historico" | "carteira" | "crm" | null,
+  ) => void;
 }
 
 export default function DashCrm({
@@ -59,46 +67,72 @@ export default function DashCrm({
   setDataFimPipe,
   buscarRelatorioPerdasPeriodo,
   loadingPerdas,
+  exportToImage,
+  setModalExportacaoAberto,
 }: DashCrmProps) {
   return (
-    <>
-      <section className="w-full max-w-7xl mx-auto">
-        <div className="flex flex-col items-start justify-between w-full gap-4 lg:flex-row lg:items-center">
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-              <CloudCog className="w-6 h-6 text-red-700" /> Bases Abertas no
-              PipeRun (Hoje)
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Visualização do volume de Oportunidades no Pipeline (Funil) por
-              Consultor.
-            </p>
-          </div>
+    // ATUALIZAÇÃO: Container com ID para isolar o print de todo o contexto do CRM
+    <div id="dash-crm-container" className="w-full space-y-8 pt-2">
+      {/* CABEÇALHO UNIFICADO DO CRM COM BOTÕES DE EXPORTAÇÃO */}
+      <div className="w-full max-w-7xl mx-auto flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
+            <CloudCog className="w-7 h-7 text-red-700" /> Pipeline e Perdas
+            (CRM)
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Visualização do volume de Oportunidades no Funil e Análise de Perdas
+            por Consultor.
+          </p>
         </div>
 
-        <Card className="bg-white border border-slate-200 shadow-sm p-6 mt-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={() =>
+              exportToImage("dash-crm-container", "Analise_CRM_PipeRun")
+            }
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-red-50 rounded-xl"
+            title="Salvar Gráficos como Imagem"
+          >
+            <ImageIcon className="w-4 h-4 text-red-600" />
+            Print Gráficos
+          </Button>
+
+          <Button
+            onClick={() => setModalExportacaoAberto("crm")}
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-white transition-all shadow-sm bg-red-600 hover:bg-red-700 rounded-xl"
+            title="Baixar Relatório de Perdas (Excel, PDF, CSV)"
+          >
+            <Download className="w-4 h-4" />
+            Exportar Dados (Perdas)
+          </Button>
+        </div>
+      </div>
+
+      <section className="w-full max-w-7xl mx-auto">
+        <Card className="bg-white border border-slate-200 shadow-sm p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
               <Users className="w-5 h-5 text-red-700" /> Oportunidades
-              Compiladas
+              Compiladas (Bolhas)
             </h2>
             <Button
               variant="outline"
               onClick={() => fetchDadosBolhas(true)}
               disabled={loadingBolhas}
-              className="gap-2 shadow-sm flex items-center border-slate-200 text-white hover:bg-slate-50 cursor-pointer"
+              className="gap-2 shadow-sm flex items-center border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
             >
               <RotateCw
-                className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-blue-500" : ""}`}
+                className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-red-500" : ""}`}
               />
-              Atualizar Gráfico Pipe
+              Atualizar Gráfico
             </Button>
           </div>
 
           <div className="w-full bg-slate-50/50 rounded-lg border border-slate-100 p-6 max-h-[600px] overflow-y-auto">
             {loadingBolhas && dadosPipelineBolhas.length === 0 ? (
               <div className="w-full h-[300px] flex flex-col items-center justify-center text-slate-500">
-                <Loader2 className="h-8 w-8 animate-spin mb-2 text-blue-500" />
+                <Loader2 className="h-8 w-8 animate-spin mb-2 text-red-500" />
                 Calculando oportunidades no PipeRun...
               </div>
             ) : dadosPipelineBolhas.length === 0 ? (
@@ -110,14 +144,15 @@ export default function DashCrm({
                 {dadosPipelineBolhas.map((entry, index) => {
                   let cor = "#8884d8";
                   if (entry.perfil === "RENOVACAO") cor = CORES.renovacao;
-                  if (entry.perfil === "PORTABILIDADE") cor = CORES.portabilidade;
+                  if (entry.perfil === "PORTABILIDADE")
+                    cor = CORES.portabilidade;
                   if (entry.perfil === "CARTEIRA") cor = CORES.carteira_pipe;
                   if (entry.perfil === "AMBOS") cor = "#a855f7";
 
                   return (
                     <div
                       key={`bolha-${index}`}
-                      className="flex flex-col items-center bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-blue-200 transition-colors"
+                      className="flex flex-col items-center bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-red-200 transition-colors"
                     >
                       <h3 className="text-sm font-bold text-center mb-2 line-clamp-2 h-10 flex items-center text-slate-700">
                         {entry.nome}
@@ -166,13 +201,13 @@ export default function DashCrm({
       <section className="w-full max-w-7xl mx-auto">
         <div className="flex flex-col items-start justify-between w-full gap-4 lg:flex-row lg:items-center">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-              <BarChart2 className="w-6 h-6 text-red-600" /> Análise de Perdas
-              por Período (CRM)
-            </h1>
+            <h2 className="text-xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
+              <BarChart2 className="w-6 h-6 text-red-600" /> Relatório de Perdas
+              (Declinados)
+            </h2>
             <p className="mt-1 text-sm text-slate-500 mb-3">
-              Filtre por data para visualizar o Total Base enviado ao
-              consultor e a proporção declinada (em Bolhas ou Tabela).
+              Filtre por data para visualizar o Total Base enviado e a proporção
+              declinada.
             </p>
           </div>
 
@@ -182,7 +217,7 @@ export default function DashCrm({
                 onClick={() => setViewModePerdas("grafico")}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
                   viewModePerdas === "grafico"
-                    ? "bg-white shadow-sm text-blue-600"
+                    ? "bg-white shadow-sm text-red-600"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -192,7 +227,7 @@ export default function DashCrm({
                 onClick={() => setViewModePerdas("tabela")}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all ${
                   viewModePerdas === "tabela"
-                    ? "bg-white shadow-sm text-blue-600"
+                    ? "bg-white shadow-sm text-red-600"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -212,7 +247,7 @@ export default function DashCrm({
                 type="date"
                 value={dataInicioPipe}
                 onChange={(e) => setDataInicioPipe(e.target.value)}
-                className="w-full h-10 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                className="w-full h-10 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-red-500"
               />
             </div>
             <div className="space-y-1.5 w-full md:w-auto">
@@ -223,7 +258,7 @@ export default function DashCrm({
                 type="date"
                 value={dataFimPipe}
                 onChange={(e) => setDataFimPipe(e.target.value)}
-                className="w-full h-10 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                className="w-full h-10 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-red-500"
               />
             </div>
             <Button
@@ -249,8 +284,7 @@ export default function DashCrm({
                 </div>
               ) : dadosPerdas.length === 0 ? (
                 <div className="w-full h-[200px] flex items-center justify-center text-slate-500 font-medium">
-                  Nenhum dado filtrado. Selecione um período e clique em
-                  buscar.
+                  Nenhum dado filtrado. Selecione um período e clique em buscar.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -300,17 +334,11 @@ export default function DashCrm({
                                 stroke="none"
                               >
                                 {dadosPie.map((entry, idx) => (
-                                  <Cell
-                                    key={`cell-${idx}`}
-                                    fill={entry.fill}
-                                  />
+                                  <Cell key={`cell-${idx}`} fill={entry.fill} />
                                 ))}
                               </Pie>
                               <RechartsTooltip
-                                formatter={(val: any, name: any) => [
-                                  val,
-                                  name,
-                                ]}
+                                formatter={(val: any, name: any) => [val, name]}
                                 contentStyle={{
                                   borderRadius: "8px",
                                   border: "none",
@@ -391,9 +419,9 @@ export default function DashCrm({
                         <td className="px-6 py-3 text-center text-xs">
                           <span className="bg-slate-100 px-2 py-1 rounded">
                             {row.perfil === "AMBOS"
-                              ? "AMBOS (RENOVACAO/PORTABILIDADE)"
+                              ? "AMBOS (RENOV/PORTAB)"
                               : row.perfil === "CARTEIRA"
-                                ? "CARTEIRA / RENOVACAO"
+                                ? "CARTEIRA / RENOV"
                                 : row.perfil}
                           </span>
                         </td>
@@ -423,6 +451,6 @@ export default function DashCrm({
           )}
         </Card>
       </section>
-    </>
+    </div>
   );
 }

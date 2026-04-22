@@ -44,14 +44,15 @@ interface ConsultorSimples {
 
 export interface DashServicoClaroProps {
   ultimaAtualizacao: Date | null;
-  exportToImage: () => void;
+  // ATUALIZADO: Aceita os parâmetros para isolar o print
+  exportToImage: (elementId: string, fileNamePrefix: string) => void;
   fetchTodasViews: () => void;
   loading: boolean;
   limparFiltros: () => void;
   aplicarFiltrosGlobais: () => void;
-  setModalExportacaoAberto: (val: "servicos" | "historico" | null) => void;
+  // ATUALIZADO: Tipagem completa dos modais
+  setModalExportacaoAberto: (val: "servicos" | "historico" | "carteira" | "crm" | null) => void;
   
-  // Filtros Globais
   filtroAtivo: TipoAtivoFilter;
   setFiltroAtivo: (val: TipoAtivoFilter) => void;
   filtroExclusivo: "TODOS" | "SIM" | "NAO";
@@ -72,7 +73,6 @@ export interface DashServicoClaroProps {
   filtroClassificacao: TipoClassificacaoFilter;
   setFiltroClassificacao: (val: TipoClassificacaoFilter) => void;
   
-  // Filtros de Linha
   tipoFiltroLinha: TipoFiltroLinha;
   setTipoFiltroLinha: (val: TipoFiltroLinha) => void;
   filtroLinhasRangeMin: number;
@@ -83,14 +83,12 @@ export interface DashServicoClaroProps {
   setFiltroLinhasExact: (val: number) => void;
   maxLinhasGlobal: number;
 
-  // Filtros CPC
   filtroCpcAtivo: boolean;
   setFiltroCpcAtivo: (val: boolean) => void;
   filtroCpcValor: number;
   setFiltroCpcValor: (val: number) => void;
   maxDiasCpcGlobal: number;
 
-  // Totais e Design
   totais: {
     renovacao: number;
     portabilidade: number;
@@ -150,7 +148,6 @@ export default function DashServicoClaro({
   renderCenterText,
 }: DashServicoClaroProps) {
   
-  // Função renderizadora interna (movida do pai para limpar o código)
   const renderMiniGrafico = (titulo: string, valor: number, corGrafico: string) => {
     const isVazio = valor === 0;
     const dataGrafico = [
@@ -195,7 +192,6 @@ export default function DashServicoClaro({
     );
   };
 
-  // Função renderizadora interna do slider
   const renderRangeSlider = (
     titulo: string,
     icone: React.ReactNode,
@@ -251,7 +247,8 @@ export default function DashServicoClaro({
   );
 
   return (
-    <section>
+    // ATUALIZAÇÃO CRÍTICA: ID para isolar o Print
+    <section id="dash-servicos-container" className="pt-2">
       <div className="flex flex-col items-start justify-between w-full max-w-7xl gap-4 mb-6 mx-auto lg:flex-row lg:items-center">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
@@ -265,18 +262,30 @@ export default function DashServicoClaro({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* NOVA ÁREA DE BOTÕES DE EXPORTAÇÃO PADRONIZADA */}
+        <div className="flex flex-wrap items-center gap-3">
           <Button
-            onClick={exportToImage}
-            className="flex items-center gap-2 px-5 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-slate-50 rounded-xl"
+            onClick={() => exportToImage("dash-servicos-container", "Analise_Servicos_Claro")}
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-slate-50 rounded-xl"
+            title="Salvar Gráficos como Imagem"
           >
-            <ImageIcon className="w-4 h-4 text-purple-500" />
-            Exportar Análises (Imagem)
+            <ImageIcon className="w-4 h-4 text-blue-600" />
+            Print Gráficos
           </Button>
+
+          <Button
+            onClick={() => setModalExportacaoAberto("servicos")}
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-white transition-all shadow-sm bg-blue-600 hover:bg-blue-700 rounded-xl"
+            title="Baixar Tabela de Dados (Excel, PDF, CSV)"
+          >
+            <Download className="w-4 h-4" />
+            Exportar Dados
+          </Button>
+
           <Button
             onClick={fetchTodasViews}
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 font-semibold text-white transition-all shadow-md bg-blue-600 hover:bg-blue-700 rounded-xl"
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-white transition-all shadow-md bg-slate-800 hover:bg-slate-900 rounded-xl"
           >
             <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             {loading ? "Buscando..." : "Refresh Dados"}
@@ -296,7 +305,7 @@ export default function DashServicoClaro({
                   onClick={limparFiltros}
                   variant="outline"
                   size="sm"
-                  className="transition-colors shadow-sm cursor-pointer text-white"
+                  className="transition-colors shadow-sm cursor-pointer text-slate-600 hover:text-slate-900 border-slate-300"
                 >
                   <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
                 </Button>
@@ -307,13 +316,7 @@ export default function DashServicoClaro({
                 >
                   Aplicar na Base Atual
                 </Button>
-                <Button
-                  onClick={() => setModalExportacaoAberto("servicos")}
-                  size="sm"
-                  className="px-4 transition-colors shadow-md cursor-pointer bg-red-600 hover:bg-red-700 text-white font-bold"
-                >
-                  <Download className="w-4 h-4 mr-2" /> Exportar Base Serviços
-                </Button>
+                {/* O Botão de exportação de dados foi movido para o Header principal para padronizar */}
               </div>
             </div>
 

@@ -9,6 +9,7 @@ import {
   Users,
   AlertCircle,
   BarChart2,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   BarChart,
@@ -24,7 +25,13 @@ interface DashHistoricoProps {
   historicoFiltrado: any[];
   limparFiltrosHistorico: () => void;
   aplicarFiltrosHistorico: () => void;
-  setModalExportacaoAberto: (modal: "servicos" | "historico" | null) => void;
+
+  // ATUALIZADO: Tipagem completa e inclusão do exportToImage
+  setModalExportacaoAberto: (
+    modal: "servicos" | "historico" | "carteira" | "crm" | null,
+  ) => void;
+  exportToImage: (elementId: string, fileNamePrefix: string) => void;
+
   filtroHistConsultor: string;
   setFiltroHistConsultor: (val: string) => void;
   listaConsultoresHistUnicos: { seq: number | string; nome: string }[];
@@ -45,6 +52,7 @@ export default function DashHistorico({
   limparFiltrosHistorico,
   aplicarFiltrosHistorico,
   setModalExportacaoAberto,
+  exportToImage,
   filtroHistConsultor,
   setFiltroHistConsultor,
   listaConsultoresHistUnicos,
@@ -56,17 +64,47 @@ export default function DashHistorico({
   CORES,
 }: DashHistoricoProps) {
   return (
-    <section className="w-full max-w-7xl mx-auto">
+    // ATUALIZAÇÃO CRÍTICA: ID para isolar o Print de todo o contexto do Histórico
+    <section
+      id="dash-historico-container"
+      className="w-full max-w-7xl mx-auto pt-2"
+    >
+      {/* CABEÇALHO UNIFICADO COM BOTÕES DE EXPORTAÇÃO */}
       <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
-            <History className="w-6 h-6 text-primary" /> Análise de Histórico /
-            Declínios
+            <History className="w-6 h-6 text-purple-600" /> Análise de Histórico
+            / Declínios
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Visualização do histórico de atendimento dos consultores. Total
-            Registros: {historicoFiltrado.length}
+            Registros:{" "}
+            <span className="font-bold text-slate-700">
+              {historicoFiltrado.length}
+            </span>
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={() =>
+              exportToImage("dash-historico-container", "Analise_Historico")
+            }
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-purple-50 rounded-xl"
+            title="Salvar Gráficos como Imagem"
+          >
+            <ImageIcon className="w-4 h-4 text-purple-600" />
+            Print Gráficos
+          </Button>
+
+          <Button
+            onClick={() => setModalExportacaoAberto("historico")}
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-white transition-all shadow-sm bg-purple-600 hover:bg-purple-700 rounded-xl"
+            title="Baixar Base de Histórico (Excel, PDF, CSV)"
+          >
+            <Download className="w-4 h-4" />
+            Exportar Dados
+          </Button>
         </div>
       </div>
 
@@ -74,8 +112,8 @@ export default function DashHistorico({
         <CardContent className="p-5">
           <div className="flex flex-col justify-between gap-4 pb-4 mb-5 border-b md:flex-row md:items-center border-slate-100">
             <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
-              <Filter className="w-4 h-4 text-primary" /> Filtros Específicos do
-              Histórico
+              <Filter className="w-4 h-4 text-purple-600" /> Filtros Específicos
+              do Histórico
             </h2>
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -93,14 +131,7 @@ export default function DashHistorico({
               >
                 Aplicar no Histórico
               </Button>
-              <Button
-                onClick={() => setModalExportacaoAberto("historico")}
-                size="sm"
-                className="px-4 transition-colors shadow-md cursor-pointer bg-red-600 hover:bg-red-700 text-white font-bold"
-              >
-                <Download className="w-4 h-4 mr-2" /> Exportar Dados do
-                Histórico
-              </Button>
+              {/* O botão de exportação foi movido daqui para o cabeçalho principal! */}
             </div>
           </div>
 
@@ -113,7 +144,7 @@ export default function DashHistorico({
               <select
                 value={filtroHistConsultor}
                 onChange={(e) => setFiltroHistConsultor(e.target.value)}
-                className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-purple-500"
               >
                 <option value="TODOS">Todos os Consultores</option>
                 <optgroup label="Consultores do Histórico">
@@ -134,7 +165,7 @@ export default function DashHistorico({
               <select
                 value={filtroHistMotivo}
                 onChange={(e) => setFiltroHistMotivo(e.target.value)}
-                className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-purple-500"
               >
                 <option value="TODOS">Todos os Motivos</option>
                 <option value="SEM_DECLINIO">

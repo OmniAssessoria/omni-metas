@@ -18,6 +18,7 @@ import {
   Image as ImageIcon,
   Database,
   Ban,
+  Download,
 } from "lucide-react";
 import {
   PieChart,
@@ -42,12 +43,16 @@ interface ConsultorSimples {
 
 export interface DashCarteiraProps {
   ultimaAtualizacao: Date | null;
-  exportToImage: () => void;
+  // ATUALIZADO: Agora aceita os parâmetros de isolamento
+  exportToImage: (elementId: string, fileNamePrefix: string) => void;
   fetchTodasViews: () => void;
   loading: boolean;
   limparFiltros: () => void;
   aplicarFiltrosGlobais: () => void;
-  setModalExportacaoAberto: (val: "servicos" | "historico" | null) => void;
+  // ATUALIZADO: Incluindo "carteira" nos tipos permitidos
+  setModalExportacaoAberto: (
+    val: "servicos" | "historico" | "carteira" | null,
+  ) => void;
 
   filtroAtivo: TipoAtivoFilter;
   setFiltroAtivo: (val: TipoAtivoFilter) => void;
@@ -106,6 +111,7 @@ export default function DashCarteira({
   loading,
   limparFiltros,
   aplicarFiltrosGlobais,
+  setModalExportacaoAberto, 
   filtroAtivo,
   setFiltroAtivo,
   filtroExclusivo,
@@ -137,7 +143,6 @@ export default function DashCarteira({
   CORES,
   renderCenterText,
 }: DashCarteiraProps) {
-  // FIX: Garantia matemática de que o slider nunca crashe por divisão por zero
   const safeMaxLinhas = Math.max(maxLinhasGlobal || 0, 1);
 
   const renderMiniGrafico = (
@@ -245,7 +250,8 @@ export default function DashCarteira({
   );
 
   return (
-    <section>
+    // ATUALIZAÇÃO CRÍTICA: O ID "dash-carteira-container" isola esta dash para o print!
+    <section id="dash-carteira-container" className="pt-2">
       <div className="flex flex-col items-start justify-between w-full max-w-7xl gap-4 mb-6 mx-auto lg:flex-row lg:items-center">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-slate-800">
@@ -260,18 +266,32 @@ export default function DashCarteira({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* NOVA ÁREA DE BOTÕES DE EXPORTAÇÃO SEPARADOS */}
+        <div className="flex flex-wrap items-center gap-3">
           <Button
-            onClick={exportToImage}
-            className="flex items-center gap-2 px-5 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-emerald-50 rounded-xl"
+            onClick={() =>
+              exportToImage("dash-carteira-container", "Analise_Carteira")
+            }
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-emerald-50 rounded-xl"
+            title="Salvar Gráficos como Imagem"
           >
             <ImageIcon className="w-4 h-4 text-emerald-600" />
-            Exportar Carteira
+            Print Gráficos
           </Button>
+
+          <Button
+            onClick={() => setModalExportacaoAberto("carteira")}
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-white transition-all shadow-sm bg-emerald-600 hover:bg-emerald-700 rounded-xl"
+            title="Baixar Tabela de Dados (Excel, PDF, CSV)"
+          >
+            <Download className="w-4 h-4" />
+            Exportar Dados
+          </Button>
+
           <Button
             onClick={fetchTodasViews}
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 font-semibold text-white transition-all shadow-md bg-emerald-600 hover:bg-emerald-700 rounded-xl"
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-white transition-all shadow-md bg-slate-800 hover:bg-slate-900 rounded-xl"
           >
             <RefreshCcw
               className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
@@ -294,7 +314,7 @@ export default function DashCarteira({
                   onClick={limparFiltros}
                   variant="outline"
                   size="sm"
-                  className="transition-colors shadow-sm cursor-pointer text-white hover:text-slate-900 border-slate-300"
+                  className="transition-colors shadow-sm cursor-pointer text-slate-600 hover:text-slate-900 border-slate-300"
                 >
                   <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
                 </Button>
@@ -523,7 +543,6 @@ export default function DashCarteira({
                         />
                       </div>
 
-                      {/* FIX: CSS Cross-Browser + Safe Limits (z-30 e regras Firefox/Safari) */}
                       <input
                         type="range"
                         min="0"
@@ -544,7 +563,6 @@ export default function DashCarteira({
                         z-30"
                       />
 
-                      {/* FIX: CSS Cross-Browser + Safe Limits (z-40 para o MAX ficar em cima) */}
                       <input
                         type="range"
                         min="0"
