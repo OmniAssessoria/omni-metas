@@ -48,6 +48,7 @@ export interface DashCarteiraProps {
   limparFiltros: () => void;
   aplicarFiltrosGlobais: () => void;
   setModalExportacaoAberto: (val: "servicos" | "historico" | null) => void;
+
   filtroAtivo: TipoAtivoFilter;
   setFiltroAtivo: (val: TipoAtivoFilter) => void;
   filtroExclusivo: "TODOS" | "SIM" | "NAO";
@@ -67,6 +68,7 @@ export interface DashCarteiraProps {
   setFiltroDataFim: (val: string) => void;
   filtroClassificacao: TipoClassificacaoFilter;
   setFiltroClassificacao: (val: TipoClassificacaoFilter) => void;
+
   tipoFiltroLinha: TipoFiltroLinha;
   setTipoFiltroLinha: (val: TipoFiltroLinha) => void;
   filtroLinhasRangeMin: number;
@@ -135,6 +137,9 @@ export default function DashCarteira({
   CORES,
   renderCenterText,
 }: DashCarteiraProps) {
+  // FIX: Garantia matemática de que o slider nunca crashe por divisão por zero
+  const safeMaxLinhas = Math.max(maxLinhasGlobal || 0, 1);
+
   const renderMiniGrafico = (
     titulo: string,
     valor: number,
@@ -493,7 +498,7 @@ export default function DashCarteira({
                       <div
                         className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-slate-900 transition-all shadow-md top-0 bg-yellow-400 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
                         style={{
-                          left: `calc(${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}% - 12px)`,
+                          left: `calc(${(filtroLinhasRangeMin / safeMaxLinhas) * 100}% - 12px)`,
                         }}
                       >
                         {filtroLinhasRangeMin}
@@ -502,7 +507,7 @@ export default function DashCarteira({
                       <div
                         className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-white transition-all shadow-md top-0 bg-emerald-500 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
                         style={{
-                          left: `calc(${(filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}% - 12px)`,
+                          left: `calc(${(filtroLinhasRangeMax / safeMaxLinhas) * 100}% - 12px)`,
                         }}
                       >
                         {filtroLinhasRangeMax}
@@ -512,16 +517,17 @@ export default function DashCarteira({
                         <div
                           className={`absolute h-full transition-all ${tipoFiltroLinha === "RANGE" ? "bg-slate-400" : "bg-slate-300"}`}
                           style={{
-                            left: `${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}%`,
-                            right: `${100 - (filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}%`,
+                            left: `${(filtroLinhasRangeMin / safeMaxLinhas) * 100}%`,
+                            right: `${100 - (filtroLinhasRangeMax / safeMaxLinhas) * 100}%`,
                           }}
                         />
                       </div>
 
+                      {/* FIX: CSS Cross-Browser + Safe Limits (z-30 e regras Firefox/Safari) */}
                       <input
                         type="range"
                         min="0"
-                        max={maxLinhasGlobal}
+                        max={safeMaxLinhas}
                         value={filtroLinhasRangeMin}
                         onChange={(e) =>
                           setFiltroLinhasRangeMin(
@@ -534,13 +540,15 @@ export default function DashCarteira({
                         disabled={tipoFiltroLinha !== "RANGE"}
                         className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
                         [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-yellow-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
-                        z-20"
+                        [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-yellow-400 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:shadow-md [&::-moz-range-track]:bg-transparent [&::-moz-range-track]:border-none
+                        z-30"
                       />
 
+                      {/* FIX: CSS Cross-Browser + Safe Limits (z-40 para o MAX ficar em cima) */}
                       <input
                         type="range"
                         min="0"
-                        max={maxLinhasGlobal}
+                        max={safeMaxLinhas}
                         value={filtroLinhasRangeMax}
                         onChange={(e) =>
                           setFiltroLinhasRangeMax(
@@ -553,12 +561,13 @@ export default function DashCarteira({
                         disabled={tipoFiltroLinha !== "RANGE"}
                         className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
                         [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
-                        z-30"
+                        [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-emerald-500 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:shadow-md [&::-moz-range-track]:bg-transparent [&::-moz-range-track]:border-none
+                        z-40"
                       />
 
                       <div className="flex justify-between mt-3 text-[10px] text-slate-400 font-medium">
                         <span>0 Lins</span>
-                        <span>{maxLinhasGlobal} Máx</span>
+                        <span>{safeMaxLinhas} Máx</span>
                       </div>
                     </div>
                   </div>
@@ -594,7 +603,7 @@ export default function DashCarteira({
                       <input
                         type="number"
                         min="0"
-                        max={maxLinhasGlobal}
+                        max={safeMaxLinhas}
                         value={filtroLinhasExact}
                         onChange={(e) =>
                           setFiltroLinhasExact(Number(e.target.value))
