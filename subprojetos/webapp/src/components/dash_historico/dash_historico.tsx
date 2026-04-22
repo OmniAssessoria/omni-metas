@@ -1,4 +1,3 @@
-import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +9,7 @@ import {
   AlertCircle,
   BarChart2,
   Image as ImageIcon,
+  RefreshCcw,
 } from "lucide-react";
 import {
   BarChart,
@@ -26,11 +26,13 @@ interface DashHistoricoProps {
   limparFiltrosHistorico: () => void;
   aplicarFiltrosHistorico: () => void;
 
-  // ATUALIZADO: Tipagem completa e inclusão do exportToImage
   setModalExportacaoAberto: (
     modal: "servicos" | "historico" | "carteira" | "crm" | null,
   ) => void;
   exportToImage: (elementId: string, fileNamePrefix: string) => void;
+
+  fetchHistorico: () => void;
+  loading: boolean;
 
   filtroHistConsultor: string;
   setFiltroHistConsultor: (val: string) => void;
@@ -53,6 +55,8 @@ export default function DashHistorico({
   aplicarFiltrosHistorico,
   setModalExportacaoAberto,
   exportToImage,
+  fetchHistorico,
+  loading,
   filtroHistConsultor,
   setFiltroHistConsultor,
   listaConsultoresHistUnicos,
@@ -64,12 +68,10 @@ export default function DashHistorico({
   CORES,
 }: DashHistoricoProps) {
   return (
-    // ATUALIZAÇÃO CRÍTICA: ID para isolar o Print de todo o contexto do Histórico
     <section
       id="dash-historico-container"
       className="w-full max-w-7xl mx-auto pt-2"
     >
-      {/* CABEÇALHO UNIFICADO COM BOTÕES DE EXPORTAÇÃO */}
       <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
@@ -105,6 +107,18 @@ export default function DashHistorico({
             <Download className="w-4 h-4" />
             Exportar Dados
           </Button>
+
+          {/* NOVO BOTÃO DE REFRESH ISOLADO */}
+          <Button
+            onClick={fetchHistorico}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 font-semibold text-white transition-all shadow-md bg-slate-800 hover:bg-slate-900 rounded-xl"
+          >
+            <RefreshCcw
+              className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+            />
+            {loading ? "Buscando..." : "Atualizar Base"}
+          </Button>
         </div>
       </div>
 
@@ -131,7 +145,6 @@ export default function DashHistorico({
               >
                 Aplicar no Histórico
               </Button>
-              {/* O botão de exportação foi movido daqui para o cabeçalho principal! */}
             </div>
           </div>
 

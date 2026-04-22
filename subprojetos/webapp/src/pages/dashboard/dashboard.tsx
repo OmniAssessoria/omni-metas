@@ -1050,13 +1050,12 @@ export default function DashboardAnaliticoMultiView() {
           </div>
         )}
 
-        {/* Agora o componente intercepta os botões de Refresh para chamar as funções isoladas! */}
 
         <DashServicoClaro
           ultimaAtualizacao={ultimaAtualizacao}
           exportToImage={exportToImage}
-          fetchTodasViews={() => fetchServicos(true)} // CHAMA SÓ SERVIÇOS
-          loading={loadingServicos} // MOSTRA LOADING SÓ NELE
+          fetchTodasViews={() => fetchServicos(true)}
+          loading={loadingServicos} 
           limparFiltros={limparFiltros}
           aplicarFiltrosGlobais={aplicarFiltrosGlobais}
           setModalExportacaoAberto={setModalExportacaoAberto}
@@ -1191,8 +1190,8 @@ export default function DashboardAnaliticoMultiView() {
         <DashCarteira
           ultimaAtualizacao={ultimaAtualizacao}
           exportToImage={exportToImage}
-          fetchTodasViews={() => fetchCarteira(true)} // CHAMA SÓ CARTEIRA
-          loading={loadingCarteira} // MOSTRA LOADING SÓ NELA
+          fetchTodasViews={() => fetchCarteira(true)}
+          loading={loadingCarteira}
           limparFiltros={limparFiltros}
           aplicarFiltrosGlobais={aplicarFiltrosGlobais}
           setModalExportacaoAberto={setModalExportacaoAberto}
@@ -1272,6 +1271,8 @@ export default function DashboardAnaliticoMultiView() {
           dadosGraficoConsultor={dadosGraficoConsultor}
           CORES={CORES}
           exportToImage={exportToImage}
+          fetchHistorico={() => fetchHistorico(true)}
+          loading={loadingHistorico}
         />
       </main>
     </div>
