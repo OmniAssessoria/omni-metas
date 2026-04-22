@@ -52,6 +52,8 @@ import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
 import DashCrm from "@/components/dash_crm/dash_crm";
 import DashHistorico from "@/components/dash_historico/dash_historico";
 import DashServicoClaro from "@/components/dash_servico_claro/dash_servico_claro";
+import DashCarteira from "@/components/dash_carteira.ts/dash_carteira";
+
 
 const calcularDiasPassados = (dataString?: string | null): number | null => {
   if (!dataString) return null;
@@ -68,10 +70,14 @@ export default function DashboardAnaliticoMultiView() {
   const [loading, setLoading] = useState<boolean>(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
+
+  // Atualizado para suportar a exportação da nova Carteira
   const [modalExportacaoAberto, setModalExportacaoAberto] = useState<
-    "servicos" | "historico" | null
+    "servicos" | "historico" | "carteira" | null
   >(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
+
+  // Estados Base (Serviços)
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
     renovacao: [],
     portabilidade: [],
@@ -80,7 +86,6 @@ export default function DashboardAnaliticoMultiView() {
     prazo_limitado: [],
     prazo_excedido: [],
   });
-
   const [dadosFiltrados, setDadosFiltrados] = useState<DadosPorIndicacao>({
     renovacao: [],
     portabilidade: [],
@@ -89,6 +94,12 @@ export default function DashboardAnaliticoMultiView() {
     prazo_limitado: [],
     prazo_excedido: [],
   });
+
+  // Novos Estados Base (Carteira - view omni.vw_empresas_carteira)
+  const [carteiraBruta, setCarteiraBruta] = useState<any[]>([]);
+  const [carteiraFiltrada, setCarteiraFiltrada] = useState<any[]>([]);
+
+  // Filtros Globais Compartilhados
   const [filtroSituacao, setFiltroSituacao] =
     useState<TipoSituacaoFilter>("TODOS");
   const [filtroCarteira, setFiltroCarteira] =
@@ -96,11 +107,9 @@ export default function DashboardAnaliticoMultiView() {
   const [filtroPiperun, setFiltroPiperun] =
     useState<TipoPiperunFilter>("AMBOS");
   const [filtroAtivo, setFiltroAtivo] = useState<TipoAtivoFilter>("TODOS");
-
   const [filtroExclusivo, setFiltroExclusivo] = useState<
     "TODOS" | "SIM" | "NAO"
   >("TODOS");
-
   const [filtroDataFim, setFiltroDataFim] = useState<string>("");
   const [filtroDDD, setFiltroDDD] = useState<string>("TODOS");
   const [filtroConsultor, setFiltroConsultor] = useState<string>("TODOS");
@@ -114,6 +123,8 @@ export default function DashboardAnaliticoMultiView() {
   const [isLinhasMaxInitialized, setIsLinhasMaxInitialized] = useState(false);
   const [filtroCpcAtivo, setFiltroCpcAtivo] = useState(false);
   const [filtroCpcValor, setFiltroCpcValor] = useState(30);
+
+  // Histórico e Perdas
   const [historicoBruto, setHistoricoBruto] = useState<IHistoricoViewAPI[]>([]);
   const [historicoFiltrado, setHistoricoFiltrado] = useState<
     IHistoricoViewAPI[]
@@ -155,38 +166,46 @@ export default function DashboardAnaliticoMultiView() {
     if (!dataFimString) return null;
     const dataFim = new Date(dataFimString);
     if (isNaN(dataFim.getTime())) return null;
-
     const hoje = new Date();
-
     const diffAnos = hoje.getFullYear() - dataFim.getFullYear();
     const diffMeses = hoje.getMonth() - dataFim.getMonth();
-
     return diffAnos * 12 + diffMeses + 24;
   };
 
+  // FETCH PRINCIPAL: Busca todas as bases simultaneamente, incluindo a nova CARTEIRA
   const fetchTodasViews = useCallback(async () => {
     setLoading(true);
     try {
-      const [resRenov, resPort, resFora, resLim, resExc, resHist, resFunil] =
-        await Promise.all([
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/renovacao",
-          ),
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/portabilidade",
-          ),
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/fora-do-prazo",
-          ),
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/prazo-limitado",
-          ),
-          API.get<IApiResponseView>(
-            "/api/servico-claro/dashboard/indicacao/prazo-excedido",
-          ),
-          API.get<IApiResponseView>("/api/servico-claro/dashboard/historico"),
-          API.get<any>("/api/servico-claro/dashboard/empresas"),
-        ]);
+      const [
+        resRenov,
+        resPort,
+        resFora,
+        resLim,
+        resExc,
+        resHist,
+        resFunil,
+        resCarteira,
+      ] = await Promise.all([
+        API.get<IApiResponseView>(
+          "/api/servico-claro/dashboard/indicacao/renovacao",
+        ),
+        API.get<IApiResponseView>(
+          "/api/servico-claro/dashboard/indicacao/portabilidade",
+        ),
+        API.get<IApiResponseView>(
+          "/api/servico-claro/dashboard/indicacao/fora-do-prazo",
+        ),
+        API.get<IApiResponseView>(
+          "/api/servico-claro/dashboard/indicacao/prazo-limitado",
+        ),
+        API.get<IApiResponseView>(
+          "/api/servico-claro/dashboard/indicacao/prazo-excedido",
+        ),
+        API.get<IApiResponseView>("/api/servico-claro/dashboard/historico"),
+        API.get<any>("/api/servico-claro/dashboard/empresas"),
+        // Nova Rota da Carteira Injetada Aqui
+        API.get<any>("/api/servico-claro/dashboard/empresas-carteira"),
+      ]);
 
       const prepararDados = (lista: any[]) => {
         return lista.map((item) => {
@@ -205,21 +224,18 @@ export default function DashboardAnaliticoMultiView() {
         });
       };
 
+      // == Processamento de Serviços (Padrão) ==
       const baseForaPrazoBruta = prepararDados(resFora.data.dados || []);
-
       const arrayForaPrazoReal: IServicoViewAPI[] = [];
       const arrayAquecendo: IServicoViewAPI[] = [];
 
       baseForaPrazoBruta.forEach((item) => {
         const mesesAtivos = calcularMesesAtivosContrato(item.dt_fim_contrato);
-
         let offsetRenovacao = 0;
         if (["CA", "CC", "CE"].includes(item.classificacao_contrato)) {
           offsetRenovacao = 2;
         }
-
         const mesAlvoAquecimento = 15 + offsetRenovacao;
-
         if (mesesAtivos !== null && mesesAtivos === mesAlvoAquecimento) {
           item.indicacao = "AQUECENDO";
           arrayAquecendo.push(item);
@@ -237,23 +253,53 @@ export default function DashboardAnaliticoMultiView() {
         prazo_excedido: prepararDados(resExc.data.dados || []),
       };
 
+      // == Processamento da Nova View Carteira ==
+      const baseCarteiraTratada = (resCarteira?.data?.dados || []).map(
+        (item: any) => {
+          // Ajusta a indicação se a empresa estiver AQUECENDO (Mesma regra matemática)
+          if (item.indicacao === "FORA DO PRAZO") {
+            const mesesAtivos = calcularMesesAtivosContrato(
+              item.dt_fim_contrato,
+            );
+            let offsetRenovacao = 0;
+            if (["CA", "CC", "CE"].includes(item.classificacao_contrato)) {
+              offsetRenovacao = 2;
+            }
+            if (mesesAtivos !== null && mesesAtivos === 15 + offsetRenovacao) {
+              item.indicacao = "AQUECENDO";
+            }
+          }
+          return {
+            ...item,
+            exclusivo:
+              item.exclusivo === true ||
+              item.exclusivo === "true" ||
+              item.exclusivo === "t" ||
+              item.exclusivo === 1,
+          };
+        },
+      );
+
       const payloadHistorico: IHistoricoViewAPI[] = resHist.data.dados || [];
 
+      // Setando States
       setDadosBrutos(payloadServicos);
       setDadosFiltrados(payloadServicos);
+
+      setCarteiraBruta(baseCarteiraTratada);
+      setCarteiraFiltrada(baseCarteiraTratada);
+
       setHistoricoBruto(payloadHistorico);
       setHistoricoFiltrado(payloadHistorico);
 
-      if (resFunil?.data?.dados) {
-        setDadosFunilCpc(resFunil.data.dados);
-      }
+      if (resFunil?.data?.dados) setDadosFunilCpc(resFunil.data.dados);
 
       setUltimaAtualizacao(new Date());
-      setNotification("Bases atualizadas, Aquecimentos calculados!");
+      setNotification("Bases de Serviços e Carteiras sincronizadas!");
       setTimeout(() => setNotification(null), 4000);
     } catch (error) {
       console.error("[ERRO FETCH VIEWS]:", error);
-      setNotification("Erro ao atualizar base de dados.");
+      setNotification("Erro ao atualizar base de dados completa.");
       setTimeout(() => setNotification(null), 4000);
     } finally {
       setLoading(false);
@@ -312,8 +358,10 @@ export default function DashboardAnaliticoMultiView() {
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [dadosBrutos]);
 
+  // APLICAR FILTROS EM SERVIÇOS E NA CARTEIRA AO MESMO TEMPO
   const aplicarFiltrosGlobais = () => {
-    const aplicarRegras = (array: IServicoViewAPI[]) => {
+    // 1. Regras para os Serviços (Mantidas Integralmente)
+    const aplicarRegrasServicos = (array: IServicoViewAPI[]) => {
       return array.filter((item) => {
         if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao)
           return false;
@@ -342,14 +390,10 @@ export default function DashboardAnaliticoMultiView() {
             if (
               item.ddd_predominante === "11" &&
               item.indicacao === "RENOVACAO"
-            ) {
+            )
               return false;
-            }
-
             const dddNum = Number(item.ddd_predominante);
-            if (dddNum < 11 || dddNum > 19) {
-              return false;
-            }
+            if (dddNum < 11 || dddNum > 19) return false;
           } else if (filtroDDD === "FORA_SP") {
             const dddNum = Number(item.ddd_predominante);
             if (dddNum >= 11 && dddNum <= 19) return false;
@@ -400,14 +444,95 @@ export default function DashboardAnaliticoMultiView() {
       });
     };
 
+    // 2. Novas Regras de Filtragem para a CARTEIRA (Mapeando View Carteira)
+    const aplicarRegrasCarteira = (array: any[]) => {
+      return array.filter((item) => {
+        // Situação
+        if (
+          filtroSituacao !== "TODOS" &&
+          item.claro_situacao !== filtroSituacao
+        )
+          return false;
+
+        // PipeRun CRM (Coluna 'crm' boolean na view)
+        if (filtroPiperun === "SIM" && item.crm !== true) return false;
+        if (filtroPiperun === "NAO" && item.crm === true) return false;
+
+        // Ativo (Coluna 'claro_ativo' na view)
+        if (filtroAtivo === "SIM" && item.claro_ativo !== true) return false;
+        if (filtroAtivo === "NAO" && item.claro_ativo === true) return false;
+
+        // Exclusivo
+        if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
+        if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
+
+        // Consultor
+        if (filtroConsultor !== "TODOS") {
+          if (filtroConsultor === "NAO_ATRIBUIDO") {
+            if (item.seq_consultor !== null) return false;
+          } else {
+            if (String(item.seq_consultor) !== filtroConsultor) return false;
+          }
+        }
+
+        // Classificação
+        if (filtroClassificacao !== "TODOS") {
+          if (filtroClassificacao === "SEM_CLASSIFICACAO") {
+            if (
+              item.classificacao_contrato !== null &&
+              item.classificacao_contrato?.trim() !== ""
+            )
+              return false;
+          } else {
+            if (item.classificacao_contrato !== filtroClassificacao)
+              return false;
+          }
+        }
+
+        // Data de Fim de Contrato
+        if (filtroDataFim !== "") {
+          if (!item.dt_fim_contrato) return false;
+          const dataFormatada = item.dt_fim_contrato.substring(0, 10);
+          if (dataFormatada !== filtroDataFim) return false;
+        }
+
+        // Dias de Leitura CPC (Na view a coluna é 'dt_leitura_cpc')
+        if (filtroCpcAtivo) {
+          const diasCpc = calcularDiasPassados(item.dt_leitura_cpc);
+          if (diasCpc === null || diasCpc > filtroCpcValor) return false;
+        }
+
+        // Região (Extração do DDD pelo 'numero_linha')
+        if (filtroDDD !== "TODOS" && item.numero_linha) {
+          const dddStr = String(item.numero_linha).substring(0, 2);
+          const dddNum = Number(dddStr);
+
+          if (filtroDDD === "FORA_SP") {
+            if (dddNum >= 11 && dddNum <= 19) return false;
+          } else if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
+            if (dddStr === "11" && item.indicacao === "RENOVACAO") return false;
+          } else if (filtroDDD === "EXCLUSO_11_RENOVACAO_E_FORA_ESTADO") {
+            if (dddStr === "11" && item.indicacao === "RENOVACAO") return false;
+            if (dddNum < 11 || dddNum > 19) return false;
+          } else {
+            if (dddStr !== filtroDDD) return false;
+          }
+        }
+
+        return true;
+      });
+    };
+
     setDadosFiltrados({
-      renovacao: aplicarRegras(dadosBrutos.renovacao),
-      portabilidade: aplicarRegras(dadosBrutos.portabilidade),
-      fora_prazo: aplicarRegras(dadosBrutos.fora_prazo),
-      aquecendo: aplicarRegras(dadosBrutos.aquecendo),
-      prazo_limitado: aplicarRegras(dadosBrutos.prazo_limitado),
-      prazo_excedido: aplicarRegras(dadosBrutos.prazo_excedido),
+      renovacao: aplicarRegrasServicos(dadosBrutos.renovacao),
+      portabilidade: aplicarRegrasServicos(dadosBrutos.portabilidade),
+      fora_prazo: aplicarRegrasServicos(dadosBrutos.fora_prazo),
+      aquecendo: aplicarRegrasServicos(dadosBrutos.aquecendo),
+      prazo_limitado: aplicarRegrasServicos(dadosBrutos.prazo_limitado),
+      prazo_excedido: aplicarRegrasServicos(dadosBrutos.prazo_excedido),
     });
+
+    setCarteiraFiltrada(aplicarRegrasCarteira(carteiraBruta));
   };
 
   const limparFiltros = () => {
@@ -428,7 +553,10 @@ export default function DashboardAnaliticoMultiView() {
 
     setFiltroCpcAtivo(false);
     setFiltroCpcValor(maxDiasCpcGlobal);
+
+    // Reseta ambas as bases
     setDadosFiltrados(dadosBrutos);
+    setCarteiraFiltrada(carteiraBruta);
   };
 
   const totais = useMemo(() => {
@@ -448,6 +576,46 @@ export default function DashboardAnaliticoMultiView() {
       geral: tr + tp + tf + ta + tl + te,
     };
   }, [dadosFiltrados]);
+
+  // CÁLCULO DAS MÉTRICAS DE CARTEIRA (INCLUINDO CANCELADOS PRETO)
+  const totaisCarteira = useMemo(() => {
+    let renovacao = 0,
+      portabilidade = 0,
+      fora_prazo = 0,
+      aquecendo = 0,
+      prazo_limitado = 0,
+      prazo_excedido = 0,
+      cancelados_inviavel = 0;
+
+    carteiraFiltrada.forEach((item) => {
+      // REGRA MATEMÁTICA: Passaram no CPC e não retornou serviços ou linhas
+      if (
+        item.dt_leitura_cpc !== null &&
+        item.claro_situacao === null &&
+        item.numero_linha === null
+      ) {
+        cancelados_inviavel++;
+      }
+
+      if (item.indicacao === "RENOVACAO") renovacao++;
+      if (item.indicacao === "PORTABILIDADE") portabilidade++;
+      if (item.indicacao === "FORA DO PRAZO") fora_prazo++;
+      if (item.indicacao === "AQUECENDO") aquecendo++;
+      if (item.indicacao === "PRAZO LIMITADO") prazo_limitado++;
+      if (item.indicacao === "PRAZO EXCEDIDO") prazo_excedido++;
+    });
+
+    return {
+      renovacao,
+      portabilidade,
+      fora_prazo,
+      aquecendo,
+      prazo_limitado,
+      prazo_excedido,
+      cancelados_inviavel, // A NOVA MÉTRICA DE CARTEIRA
+      geral: carteiraFiltrada.length,
+    };
+  }, [carteiraFiltrada]);
 
   const todosServicosFiltrados = useMemo(() => {
     return [
@@ -520,18 +688,16 @@ export default function DashboardAnaliticoMultiView() {
 
   const dadosGraficoConsultor = useMemo(() => {
     const map = new Map<string, number>();
-
     historicoFiltrado.forEach((h) => {
       if (h.consultor_nome && h.consultor_nome.trim() !== "") {
         const nome = h.consultor_nome;
         map.set(nome, (map.get(nome) || 0) + 1);
       }
     });
-
     return Array.from(map.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 10); // Mantém o Top 10
+      .slice(0, 10);
   }, [historicoFiltrado]);
 
   const exportToImage = async () => {
@@ -558,14 +724,16 @@ export default function DashboardAnaliticoMultiView() {
   };
 
   const getDataToExport = () => {
-    return modalExportacaoAberto === "servicos"
-      ? todosServicosFiltrados
-      : historicoFiltrado;
+    if (modalExportacaoAberto === "carteira") return carteiraFiltrada;
+    if (modalExportacaoAberto === "servicos") return todosServicosFiltrados;
+    return historicoFiltrado;
   };
 
   const getFileName = () => {
-    const prefix =
-      modalExportacaoAberto === "servicos" ? "Base_Servicos" : "Base_Historico";
+    let prefix = "Base_Geral";
+    if (modalExportacaoAberto === "carteira") prefix = "Base_Carteira";
+    else if (modalExportacaoAberto === "servicos") prefix = "Base_Servicos";
+    else if (modalExportacaoAberto === "historico") prefix = "Base_Historico";
     return `${prefix}_${new Date().toISOString().slice(0, 10)}`;
   };
 
@@ -578,7 +746,10 @@ export default function DashboardAnaliticoMultiView() {
       keys.join(";"),
       ...data.map((row) =>
         keys
-          .map((k) => `"${(row as any)[k] !== null ? (row as any)[k] : ""}"`)
+          .map(
+            (k) =>
+              `"${(row as any)[k] !== null && (row as any)[k] !== undefined ? (row as any)[k] : ""}"`,
+          )
           .join(";"),
       ),
     ].join("\n");
@@ -603,16 +774,12 @@ export default function DashboardAnaliticoMultiView() {
       const worksheet = workbook.addWorksheet("Dados Exportados");
 
       const keys = Object.keys(data[0]);
-
       worksheet.columns = keys.map((key) => ({
         header: key.toUpperCase(),
         key: key,
         width: 25,
       }));
-
-      data.forEach((item) => {
-        worksheet.addRow(item);
-      });
+      data.forEach((item) => worksheet.addRow(item));
 
       worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
       worksheet.getRow(1).fill = {
@@ -650,11 +817,7 @@ export default function DashboardAnaliticoMultiView() {
       displayKeys.map((k) => String((row as any)[k] || "")),
     );
 
-    doc.text(
-      `Relatório de ${modalExportacaoAberto === "servicos" ? "Serviços" : "Histórico"}`,
-      40,
-      40,
-    );
+    doc.text(`Relatório Analítico de Base`, 40, 40);
 
     autoTable(doc, {
       head: [displayKeys],
@@ -679,108 +842,6 @@ export default function DashboardAnaliticoMultiView() {
     </text>
   );
 
-  const renderMiniGrafico = (
-    titulo: string,
-    valor: number,
-    corGrafico: string,
-  ) => {
-    const isVazio = valor === 0;
-    const dataGrafico = [
-      {
-        name: titulo,
-        value: isVazio ? 1 : valor,
-        fill: isVazio ? CORES.vazio : corGrafico,
-      },
-    ];
-    return (
-      <div className="flex flex-col items-center p-4 transition-shadow bg-white border shadow-sm rounded-xl border-slate-100 hover:shadow-md">
-        <h3 className="flex items-center justify-center h-10 mb-2 text-sm font-bold tracking-wide text-center uppercase text-slate-700">
-          {titulo}
-        </h3>
-        <div className="w-40 h-40">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={dataGrafico}
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={70}
-                dataKey="value"
-                stroke="none"
-              >
-                <Cell fill={dataGrafico[0].fill} />
-              </Pie>
-              {renderCenterText(valor, "Serviços")}
-              <RechartsTooltip
-                formatter={() => (isVazio ? [0, titulo] : [valor, titulo])}
-                contentStyle={{
-                  borderRadius: "8px",
-                  border: "none",
-                  boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    );
-  };
-
-  const renderRangeSlider = (
-    titulo: string,
-    icone: React.ReactNode,
-    ativo: boolean,
-    setAtivo: (v: boolean) => void,
-    valor: number,
-    setValor: (v: number) => void,
-    maximo: number,
-    sufixoVal: string = "",
-    minLabel: string = "0",
-    maxLabel: string = "Máx",
-  ) => (
-    <div className="space-y-1.5 px-1">
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-          {icone} {titulo}
-        </label>
-        <button
-          onClick={() => setAtivo(!ativo)}
-          className="transition-opacity cursor-pointer text-primary hover:opacity-80"
-        >
-          {ativo ? (
-            <ToggleRight className="w-6 h-6 text-emerald-500" />
-          ) : (
-            <ToggleLeft className="w-6 h-6 text-slate-400" />
-          )}
-        </button>
-      </div>
-      <div
-        className={`relative pt-3 pb-1 transition-opacity duration-300 ${ativo ? "opacity-100" : "opacity-40 pointer-events-none"}`}
-      >
-        <div
-          className="absolute px-1.5 py-0.5 text-[10px] text-white transition-all shadow-lg top-[-4px] bg-slate-800 rounded z-10 whitespace-nowrap"
-          style={{ left: `calc(${(valor / (maximo || 1)) * 100}% - 14px)` }}
-        >
-          {valor}
-          {sufixoVal}
-        </div>
-        <input
-          type="range"
-          min="0"
-          max={maximo}
-          value={valor}
-          onChange={(e) => setValor(Number(e.target.value))}
-          className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-slate-200 accent-primary relative z-0"
-        />
-        <div className="flex justify-between mt-1 text-[10px] text-slate-400">
-          <span>{minLabel}</span>
-          <span>{maxLabel}</span>
-        </div>
-      </div>
-    </div>
-  );
-
   useEffect(() => {
     async function loadConsultores() {
       try {
@@ -799,7 +860,6 @@ export default function DashboardAnaliticoMultiView() {
   const fetchDadosBolhas = useCallback(
     async (isManualRefresh = false) => {
       if (consultoresDB.length === 0 && !isManualRefresh) return;
-
       setLoadingBolhas(true);
       try {
         if (!isManualRefresh) {
@@ -810,7 +870,6 @@ export default function DashboardAnaliticoMultiView() {
             return;
           }
         }
-
         const payloadConsultoresFormatado: IConsultor[] = consultoresDB.map(
           (c) =>
             ({
@@ -829,7 +888,6 @@ export default function DashboardAnaliticoMultiView() {
         const dadosMapeados = await compilarOportunidadesDinamico(
           payloadConsultoresFormatado,
         );
-
         setDadosPipelineBolhas(dadosMapeados);
         sessionStorage.setItem(
           "cache_bolhas_piperun",
@@ -852,9 +910,7 @@ export default function DashboardAnaliticoMultiView() {
   );
 
   useEffect(() => {
-    if (consultoresDB.length > 0) {
-      fetchDadosBolhas();
-    }
+    if (consultoresDB.length > 0) fetchDadosBolhas();
   }, [consultoresDB, fetchDadosBolhas]);
 
   const buscarRelatorioPerdasPeriodo = async () => {
@@ -863,7 +919,6 @@ export default function DashboardAnaliticoMultiView() {
       setTimeout(() => setNotification(null), 3000);
       return;
     }
-
     if (consultoresDB.length === 0) {
       setNotification("Aguarde o carregamento dos consultores.");
       setTimeout(() => setNotification(null), 3000);
@@ -892,7 +947,6 @@ export default function DashboardAnaliticoMultiView() {
         dataInicioPipe,
         dataFimPipe,
       );
-
       setDadosPerdas(relatorio);
       setNotification("Relatório de Perdas atualizado com sucesso!");
       setTimeout(() => setNotification(null), 3000);
@@ -921,10 +975,7 @@ export default function DashboardAnaliticoMultiView() {
               <div className="flex justify-between items-center mb-6 border-b pb-3">
                 <h3 className="font-bold text-lg flex items-center gap-2 text-slate-800">
                   <Download className="w-5 h-5 text-primary" />
-                  Exportar{" "}
-                  {modalExportacaoAberto === "servicos"
-                    ? "Serviços"
-                    : "Histórico"}
+                  Exportar Dados ({modalExportacaoAberto.toUpperCase()})
                 </h3>
                 <button
                   onClick={() => setModalExportacaoAberto(null)}
@@ -962,12 +1013,14 @@ export default function DashboardAnaliticoMultiView() {
             </div>
           </div>
         )}
+
         {notification && (
           <div className="fixed z-50 flex items-center gap-3 px-6 py-4 text-white shadow-2xl top-6 right-6 bg-slate-800 rounded-xl animate-in slide-in-from-right-8 duration-300">
             <Bell className="w-5 h-5 text-emerald-400" />
             <p className="font-medium">{notification}</p>
           </div>
         )}
+
         {loading && (
           <div className="absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-sm bg-slate-50/80">
             <Loader2 className="w-12 h-12 mb-4 animate-spin text-primary" />
@@ -1020,6 +1073,7 @@ export default function DashboardAnaliticoMultiView() {
           CORES={CORES}
           renderCenterText={renderCenterText}
         />
+
         <div className="w-full max-w-7xl mx-auto space-y-6">
           <Card className="mt-4 text-slate-200 border-none shadow-lg bg-slate-900 overflow-hidden">
             <div className="flex items-center gap-2 px-5 py-3 border-b bg-slate-800/80 border-slate-700/50">
@@ -1028,7 +1082,6 @@ export default function DashboardAnaliticoMultiView() {
                 Métricas de Funil (CPC & eDoc) - Visão Global de Empresas
               </h3>
             </div>
-
             <CardContent className="p-0">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[1px] bg-slate-700/50">
                 <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
@@ -1039,7 +1092,6 @@ export default function DashboardAnaliticoMultiView() {
                     {dadosFunilCpc?.total_passado_cpc || 0}
                   </p>
                 </div>
-
                 <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
                     Lido CPC (SEM SERVIÇO)
@@ -1048,7 +1100,6 @@ export default function DashboardAnaliticoMultiView() {
                     {dadosFunilCpc?.total_passado_cpc_sem_servico || 0}
                   </p>
                 </div>
-
                 <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
                     CPC + eDoc <br />
@@ -1058,7 +1109,6 @@ export default function DashboardAnaliticoMultiView() {
                     {dadosFunilCpc?.edoc_sem_docdrive_sem_serv_cpc_ok || 0}
                   </p>
                 </div>
-
                 <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                   <p className="text-[10px] text-purple-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
                     CPC + eDoc + Serviço <br /> (Total Geral)
@@ -1067,7 +1117,6 @@ export default function DashboardAnaliticoMultiView() {
                     {dadosFunilCpc?.edoc_com_cpc_edoc_servico || 0}
                   </p>
                 </div>
-
                 <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                   <p className="text-[10px] text-red-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
                     CPC + eDoc + Serviço <br /> (SEM DRIVE)
@@ -1076,7 +1125,6 @@ export default function DashboardAnaliticoMultiView() {
                     {dadosFunilCpc?.edoc_com_cpc_edoc_servico_sem_drive || 0}
                   </p>
                 </div>
-
                 <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                   <p className="text-[10px] text-blue-300 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center leading-tight">
                     CPC + eDoc + Serviço <br /> (COM DRIVE)
@@ -1085,7 +1133,6 @@ export default function DashboardAnaliticoMultiView() {
                     {dadosFunilCpc?.edoc_com_cpc_edoc_servico_com_drive || 0}
                   </p>
                 </div>
-
                 <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
                     Disp. p/ CPC (SEM SERVICO)
@@ -1094,7 +1141,6 @@ export default function DashboardAnaliticoMultiView() {
                     {dadosFunilCpc?.disp_cpc_sem_servico || 0}
                   </p>
                 </div>
-
                 <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
                     Disp. p/ CPC + EDOC (LIDO NO EDOC)
@@ -1103,7 +1149,6 @@ export default function DashboardAnaliticoMultiView() {
                     {dadosFunilCpc?.disp_cpc_com_edoc || 0}
                   </p>
                 </div>
-
                 <div className="flex flex-col items-center justify-center p-4 text-center transition-colors bg-slate-900 hover:bg-slate-800">
                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 line-clamp-2 h-7 flex items-center text-center">
                     Disp. CPC (eDoc + Drive)
@@ -1113,7 +1158,6 @@ export default function DashboardAnaliticoMultiView() {
                   </p>
                 </div>
               </div>
-
               <div className="px-5 py-4 bg-slate-800/40 border-t border-slate-700/50">
                 <div className="flex items-center gap-2 mb-3">
                   <Info className="w-3.5 h-3.5 text-slate-400" />
@@ -1121,7 +1165,6 @@ export default function DashboardAnaliticoMultiView() {
                     Legenda de Termos e Siglas
                   </h4>
                 </div>
-
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-xs">
                   <li className="flex items-start gap-2">
                     <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
@@ -1131,12 +1174,9 @@ export default function DashboardAnaliticoMultiView() {
                       <strong className="text-slate-200 font-semibold mr-1">
                         SERVIÇO:
                       </strong>
-                      Tem cadastro de linhas no banco (seja FORA DO PRAZO,
-                      RENOVAÇÃO, PORTABILIDADE, PRAZO EXCEDIDO ou PRAZO
-                      LIMITADO).
+                      Tem cadastro de linhas no banco.
                     </p>
                   </li>
-
                   <li className="flex items-start gap-2">
                     <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
                       2
@@ -1148,7 +1188,6 @@ export default function DashboardAnaliticoMultiView() {
                       Foi lido na aplicação CPC.
                     </p>
                   </li>
-
                   <li className="flex items-start gap-2">
                     <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
                       3
@@ -1160,7 +1199,6 @@ export default function DashboardAnaliticoMultiView() {
                       Foi lido na aplicação EDOC.
                     </p>
                   </li>
-
                   <li className="flex items-start gap-2">
                     <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">
                       4
@@ -1169,8 +1207,7 @@ export default function DashboardAnaliticoMultiView() {
                       <strong className="text-slate-200 font-semibold mr-1">
                         DRIVE:
                       </strong>
-                      Possui contrato armazenado no DRIVE ou em outros
-                      repositórios de arquivos.
+                      Possui contrato armazenado.
                     </p>
                   </li>
                 </ul>
@@ -1178,6 +1215,54 @@ export default function DashboardAnaliticoMultiView() {
             </CardContent>
           </Card>
         </div>
+
+        <hr className="w-full max-w-7xl mx-auto border-t-[6px] border-emerald-500 rounded-full opacity-80 my-8" />
+
+        <DashCarteira
+          ultimaAtualizacao={ultimaAtualizacao}
+          exportToImage={exportToImage}
+          fetchTodasViews={fetchTodasViews}
+          loading={loading}
+          limparFiltros={limparFiltros}
+          aplicarFiltrosGlobais={aplicarFiltrosGlobais}
+          setModalExportacaoAberto={setModalExportacaoAberto}
+          filtroAtivo={filtroAtivo}
+          setFiltroAtivo={setFiltroAtivo}
+          filtroExclusivo={filtroExclusivo}
+          setFiltroExclusivo={setFiltroExclusivo}
+          filtroDDD={filtroDDD}
+          setFiltroDDD={setFiltroDDD}
+          filtroConsultor={filtroConsultor}
+          setFiltroConsultor={setFiltroConsultor}
+          listaConsultoresUnicos={listaConsultoresUnicos}
+          filtroSituacao={filtroSituacao}
+          setFiltroSituacao={setFiltroSituacao}
+          filtroCarteira={filtroCarteira}
+          setFiltroCarteira={setFiltroCarteira}
+          filtroPiperun={filtroPiperun}
+          setFiltroPiperun={setFiltroPiperun}
+          filtroDataFim={filtroDataFim}
+          setFiltroDataFim={setFiltroDataFim}
+          filtroClassificacao={filtroClassificacao}
+          setFiltroClassificacao={setFiltroClassificacao}
+          tipoFiltroLinha={tipoFiltroLinha}
+          setTipoFiltroLinha={setTipoFiltroLinha}
+          filtroLinhasRangeMin={filtroLinhasRangeMin}
+          setFiltroLinhasRangeMin={setFiltroLinhasRangeMin}
+          filtroLinhasRangeMax={filtroLinhasRangeMax}
+          setFiltroLinhasRangeMax={setFiltroLinhasRangeMax}
+          filtroLinhasExact={filtroLinhasExact}
+          setFiltroLinhasExact={setFiltroLinhasExact}
+          maxLinhasGlobal={maxLinhasGlobal}
+          filtroCpcAtivo={filtroCpcAtivo}
+          setFiltroCpcAtivo={setFiltroCpcAtivo}
+          filtroCpcValor={filtroCpcValor}
+          setFiltroCpcValor={setFiltroCpcValor}
+          maxDiasCpcGlobal={maxDiasCpcGlobal}
+          totais={totaisCarteira}
+          CORES={CORES}
+          renderCenterText={renderCenterText}
+        />
 
         <hr className="w-full max-w-7xl mx-auto border-t-7 border-red-700 rounded-full" />
 

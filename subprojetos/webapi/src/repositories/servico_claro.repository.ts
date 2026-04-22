@@ -16,6 +16,20 @@ export default class ServicoClaroRepository {
     }
   }
 
+  async buscarDashboardEmpresasCarteira() {
+    const query = `SELECT * FROM omni.vw_empresas_carteira;`;
+    try {
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar dados da view (vw_empresas_carteira):",
+        error,
+      );
+      throw error;
+    }
+  }
+
   async buscarSeqEmpresaPorCnpj(cnpj: string) {
     const query = `SELECT seq_empresa FROM omni.empresa WHERE cnpj = $1;`;
     try {

@@ -25,6 +25,8 @@ class ServicoClaroController {
       this.buscarDashboardPorIndicacao.bind(this);
     this.buscarDashboardEmpresasInfo =
       this.buscarDashboardEmpresasInfo.bind(this);
+    this.buscarDashboardEmpresasCarteiraInfo =
+      this.buscarDashboardEmpresasCarteiraInfo.bind(this);
     this.gerarLayoutImagemLinhas = this.gerarLayoutImagemLinhas.bind(this);
     this.gerarLayoutImagemProposta = this.gerarLayoutImagemProposta.bind(this);
   }
@@ -279,6 +281,34 @@ class ServicoClaroController {
     }
   }
 
+  async buscarDashboardEmpresasCarteiraInfo(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const dadosCarteira =
+        await this.servicoClaroService.obterDashboardEmpresasCarteiraInfo();
+
+      res.status(200).json({
+        status: true,
+        mensagem: "Dashboard de Empresas em Carteira carregado com sucesso.",
+        total_registros: dadosCarteira.length,
+        dados: dadosCarteira,
+      });
+    } catch (error: any) {
+      console.error(
+        `[API GET ERROR] Falha ao buscar Dashboard Empresas Carteira:`,
+        error.message,
+      );
+      res.status(500).json({
+        status: false,
+        mensagem:
+          "Erro interno ao buscar as informações das empresas encarteiradas.",
+        detalhes: error.message,
+      });
+    }
+  }
+
   async gerarLayoutImagemLinhas(req: Request, res: Response): Promise<void> {
     try {
       const { seq_empresa, razao, cnpj } = req.body;
@@ -288,13 +318,11 @@ class ServicoClaroController {
       );
 
       if (!seq_empresa || isNaN(Number(seq_empresa))) {
-        res
-          .status(400)
-          .json({
-            status: false,
-            mensagem:
-              "O parâmetro seq_empresa é obrigatório e deve ser numérico.",
-          });
+        res.status(400).json({
+          status: false,
+          mensagem:
+            "O parâmetro seq_empresa é obrigatório e deve ser numérico.",
+        });
         return;
       }
 
@@ -325,7 +353,7 @@ class ServicoClaroController {
       });
     }
   }
-  
+
   async gerarLayoutImagemProposta(req: Request, res: Response): Promise<void> {
     try {
       const { seq_empresa, razao, cnpj } = req.body;
@@ -335,13 +363,11 @@ class ServicoClaroController {
       );
 
       if (!seq_empresa || isNaN(Number(seq_empresa))) {
-        res
-          .status(400)
-          .json({
-            status: false,
-            mensagem:
-              "O parâmetro seq_empresa é obrigatório e deve ser numérico.",
-          });
+        res.status(400).json({
+          status: false,
+          mensagem:
+            "O parâmetro seq_empresa é obrigatório e deve ser numérico.",
+        });
         return;
       }
 

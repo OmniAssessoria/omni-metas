@@ -30,6 +30,11 @@ class ServicoClaroService {
     return dados;
   }
 
+  async obterDashboardEmpresasCarteiraInfo() {
+    const dados = await this.repository.buscarDashboardEmpresasCarteira();
+    return dados && dados.length > 0 ? dados : [];
+  }
+
   async listarPortabilidadesPendentes() {
     const dados = await this.repository.buscarServicosClaroPipePortabilidade();
     return dados && dados.length > 0 ? dados : [];
