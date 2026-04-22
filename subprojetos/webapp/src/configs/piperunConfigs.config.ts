@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
+const TOKEN_PIPERUN = "cbfdb0becb96556b9d76f8bbf7f5efd6";
 
 const apiPipeRunRest = axios.create({
   baseURL: "https://api.pipe.run/v1",

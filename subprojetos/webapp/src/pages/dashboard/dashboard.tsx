@@ -2,11 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
-
 import {
   Bell,
-  ToggleLeft,
-  ToggleRight,
   Loader2,
   Database,
   Info,
@@ -16,13 +13,6 @@ import {
   FileCode2,
   X,
 } from "lucide-react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-} from "recharts";
 import API from "@/services/api";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
@@ -54,7 +44,6 @@ import DashHistorico from "@/components/dash_historico/dash_historico";
 import DashServicoClaro from "@/components/dash_servico_claro/dash_servico_claro";
 import DashCarteira from "@/components/dash_carteira.ts/dash_carteira";
 
-
 const calcularDiasPassados = (dataString?: string | null): number | null => {
   if (!dataString) return null;
   const dataBase = new Date(dataString);
@@ -70,14 +59,10 @@ export default function DashboardAnaliticoMultiView() {
   const [loading, setLoading] = useState<boolean>(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
-
-  // Atualizado para suportar a exportação da nova Carteira
   const [modalExportacaoAberto, setModalExportacaoAberto] = useState<
     "servicos" | "historico" | "carteira" | null
   >(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
-
-  // Estados Base (Serviços)
   const [dadosBrutos, setDadosBrutos] = useState<DadosPorIndicacao>({
     renovacao: [],
     portabilidade: [],
@@ -94,12 +79,8 @@ export default function DashboardAnaliticoMultiView() {
     prazo_limitado: [],
     prazo_excedido: [],
   });
-
-  // Novos Estados Base (Carteira - view omni.vw_empresas_carteira)
   const [carteiraBruta, setCarteiraBruta] = useState<any[]>([]);
   const [carteiraFiltrada, setCarteiraFiltrada] = useState<any[]>([]);
-
-  // Filtros Globais Compartilhados
   const [filtroSituacao, setFiltroSituacao] =
     useState<TipoSituacaoFilter>("TODOS");
   const [filtroCarteira, setFiltroCarteira] =
@@ -123,8 +104,6 @@ export default function DashboardAnaliticoMultiView() {
   const [isLinhasMaxInitialized, setIsLinhasMaxInitialized] = useState(false);
   const [filtroCpcAtivo, setFiltroCpcAtivo] = useState(false);
   const [filtroCpcValor, setFiltroCpcValor] = useState(30);
-
-  // Histórico e Perdas
   const [historicoBruto, setHistoricoBruto] = useState<IHistoricoViewAPI[]>([]);
   const [historicoFiltrado, setHistoricoFiltrado] = useState<
     IHistoricoViewAPI[]
@@ -172,7 +151,6 @@ export default function DashboardAnaliticoMultiView() {
     return diffAnos * 12 + diffMeses + 24;
   };
 
-  // FETCH PRINCIPAL: Busca todas as bases simultaneamente, incluindo a nova CARTEIRA
   const fetchTodasViews = useCallback(async () => {
     setLoading(true);
     try {
@@ -203,7 +181,6 @@ export default function DashboardAnaliticoMultiView() {
         ),
         API.get<IApiResponseView>("/api/servico-claro/dashboard/historico"),
         API.get<any>("/api/servico-claro/dashboard/empresas"),
-        // Nova Rota da Carteira Injetada Aqui
         API.get<any>("/api/servico-claro/dashboard/empresas-carteira"),
       ]);
 
@@ -224,7 +201,6 @@ export default function DashboardAnaliticoMultiView() {
         });
       };
 
-      // == Processamento de Serviços (Padrão) ==
       const baseForaPrazoBruta = prepararDados(resFora.data.dados || []);
       const arrayForaPrazoReal: IServicoViewAPI[] = [];
       const arrayAquecendo: IServicoViewAPI[] = [];
@@ -253,10 +229,8 @@ export default function DashboardAnaliticoMultiView() {
         prazo_excedido: prepararDados(resExc.data.dados || []),
       };
 
-      // == Processamento da Nova View Carteira ==
       const baseCarteiraTratada = (resCarteira?.data?.dados || []).map(
         (item: any) => {
-          // Ajusta a indicação se a empresa estiver AQUECENDO (Mesma regra matemática)
           if (item.indicacao === "FORA DO PRAZO") {
             const mesesAtivos = calcularMesesAtivosContrato(
               item.dt_fim_contrato,
@@ -282,7 +256,6 @@ export default function DashboardAnaliticoMultiView() {
 
       const payloadHistorico: IHistoricoViewAPI[] = resHist.data.dados || [];
 
-      // Setando States
       setDadosBrutos(payloadServicos);
       setDadosFiltrados(payloadServicos);
 
@@ -317,20 +290,31 @@ export default function DashboardAnaliticoMultiView() {
       ...dadosBrutos.fora_prazo,
       ...dadosBrutos.prazo_limitado,
       ...dadosBrutos.prazo_excedido,
+      ...carteiraBruta,
     ];
+
     let maxLinhas = 0;
     let maxCpc = 0;
+
     todosServicos.forEach((item) => {
-      const linhas = Number(item.qtd_linhas_total) || 0;
+      const linhas = Math.max(
+        Number(item.qtd_linhas_total || 0),
+        Number(item.qtd_servico_claro || 0),
+      );
+
       if (linhas > maxLinhas) maxLinhas = linhas;
-      const diasCpc = calcularDiasPassados(item.dt_leitura_cpc_empresa);
+
+      const dataLeituraCpc = item.dt_leitura_cpc_empresa || item.dt_leitura_cpc;
+      const diasCpc = calcularDiasPassados(dataLeituraCpc);
+
       if (diasCpc !== null && diasCpc > maxCpc) maxCpc = diasCpc;
     });
+
     return {
       maxLinhasGlobal: maxLinhas || 100,
       maxDiasCpcGlobal: maxCpc || 30,
     };
-  }, [dadosBrutos]);
+  }, [dadosBrutos, carteiraBruta]);
 
   useEffect(() => {
     if (maxLinhasGlobal > 0 && !isLinhasMaxInitialized) {
@@ -358,9 +342,7 @@ export default function DashboardAnaliticoMultiView() {
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [dadosBrutos]);
 
-  // APLICAR FILTROS EM SERVIÇOS E NA CARTEIRA AO MESMO TEMPO
   const aplicarFiltrosGlobais = () => {
-    // 1. Regras para os Serviços (Mantidas Integralmente)
     const aplicarRegrasServicos = (array: IServicoViewAPI[]) => {
       return array.filter((item) => {
         if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao)
@@ -444,24 +426,19 @@ export default function DashboardAnaliticoMultiView() {
       });
     };
 
-    // 2. Novas Regras de Filtragem para a CARTEIRA (Mapeando View Carteira)
     const aplicarRegrasCarteira = (array: any[]) => {
       return array.filter((item) => {
-        // Situação
         if (
           filtroSituacao !== "TODOS" &&
           item.claro_situacao !== filtroSituacao
         )
           return false;
-
-        // PipeRun CRM (Coluna 'crm' boolean na view)
+        // PipeRun CRM
         if (filtroPiperun === "SIM" && item.crm !== true) return false;
         if (filtroPiperun === "NAO" && item.crm === true) return false;
-
-        // Ativo (Coluna 'claro_ativo' na view)
+        // Ativo
         if (filtroAtivo === "SIM" && item.claro_ativo !== true) return false;
         if (filtroAtivo === "NAO" && item.claro_ativo === true) return false;
-
         // Exclusivo
         if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
         if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
@@ -496,10 +473,30 @@ export default function DashboardAnaliticoMultiView() {
           if (dataFormatada !== filtroDataFim) return false;
         }
 
-        // Dias de Leitura CPC (Na view a coluna é 'dt_leitura_cpc')
+        // Dias de Leitura CPC
         if (filtroCpcAtivo) {
           const diasCpc = calcularDiasPassados(item.dt_leitura_cpc);
           if (diasCpc === null || diasCpc > filtroCpcValor) return false;
+        }
+
+        if (tipoFiltroLinha !== "NONE") {
+          const qtdeLinhasAvaliada = Math.max(
+            Number(item.qtd_linhas_total || 0),
+            Number(item.qtd_servico_claro || 0),
+          );
+
+          if (tipoFiltroLinha === "RANGE") {
+            if (
+              qtdeLinhasAvaliada < filtroLinhasRangeMin ||
+              qtdeLinhasAvaliada > filtroLinhasRangeMax
+            ) {
+              return false;
+            }
+          } else if (tipoFiltroLinha === "EXACT") {
+            if (qtdeLinhasAvaliada !== filtroLinhasExact) {
+              return false;
+            }
+          }
         }
 
         // Região (Extração do DDD pelo 'numero_linha')
@@ -554,7 +551,6 @@ export default function DashboardAnaliticoMultiView() {
     setFiltroCpcAtivo(false);
     setFiltroCpcValor(maxDiasCpcGlobal);
 
-    // Reseta ambas as bases
     setDadosFiltrados(dadosBrutos);
     setCarteiraFiltrada(carteiraBruta);
   };
@@ -577,7 +573,6 @@ export default function DashboardAnaliticoMultiView() {
     };
   }, [dadosFiltrados]);
 
-  // CÁLCULO DAS MÉTRICAS DE CARTEIRA (INCLUINDO CANCELADOS PRETO)
   const totaisCarteira = useMemo(() => {
     let renovacao = 0,
       portabilidade = 0,
@@ -588,7 +583,6 @@ export default function DashboardAnaliticoMultiView() {
       cancelados_inviavel = 0;
 
     carteiraFiltrada.forEach((item) => {
-      // REGRA MATEMÁTICA: Passaram no CPC e não retornou serviços ou linhas
       if (
         item.dt_leitura_cpc !== null &&
         item.claro_situacao === null &&
@@ -612,7 +606,7 @@ export default function DashboardAnaliticoMultiView() {
       aquecendo,
       prazo_limitado,
       prazo_excedido,
-      cancelados_inviavel, // A NOVA MÉTRICA DE CARTEIRA
+      cancelados_inviavel,
       geral: carteiraFiltrada.length,
     };
   }, [carteiraFiltrada]);

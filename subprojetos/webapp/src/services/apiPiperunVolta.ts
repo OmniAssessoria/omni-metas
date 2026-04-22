@@ -1,9 +1,9 @@
+import { TOKEN_PIPERUN } from "@/configs/piperunConfigs.config";
 import axios from "axios";
 
 // ============================================================================
 // CONFIGURAÇÕES E CONSTANTES
 // ============================================================================
-const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
 
 const PIPELINE_GANHOS = 95219;
 const STAGE_GANHOS = 607025;

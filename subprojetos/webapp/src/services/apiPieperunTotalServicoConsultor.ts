@@ -1,7 +1,6 @@
 import axios from "axios";
 import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
-
-const TOKEN_PIPERUN = "3dfa1682a3832478cb29a7b9a4c86233";
+import { TOKEN_PIPERUN } from "@/configs/piperunConfigs.config";
 
 const apiPipeRunRest = axios.create({
   baseURL: "https://api.pipe.run/v1",

@@ -48,7 +48,6 @@ export interface DashCarteiraProps {
   limparFiltros: () => void;
   aplicarFiltrosGlobais: () => void;
   setModalExportacaoAberto: (val: "servicos" | "historico" | null) => void;
-
   filtroAtivo: TipoAtivoFilter;
   setFiltroAtivo: (val: TipoAtivoFilter) => void;
   filtroExclusivo: "TODOS" | "SIM" | "NAO";
@@ -68,7 +67,6 @@ export interface DashCarteiraProps {
   setFiltroDataFim: (val: string) => void;
   filtroClassificacao: TipoClassificacaoFilter;
   setFiltroClassificacao: (val: TipoClassificacaoFilter) => void;
-
   tipoFiltroLinha: TipoFiltroLinha;
   setTipoFiltroLinha: (val: TipoFiltroLinha) => void;
   filtroLinhasRangeMin: number;
@@ -92,7 +90,7 @@ export interface DashCarteiraProps {
     aquecendo: number;
     prazo_limitado: number;
     prazo_excedido: number;
-    cancelados_inviavel: number; 
+    cancelados_inviavel: number;
     geral: number;
   };
   CORES: any;
@@ -117,8 +115,6 @@ export default function DashCarteira({
   listaConsultoresUnicos,
   filtroSituacao,
   setFiltroSituacao,
-  filtroCarteira,
-  setFiltroCarteira,
   filtroPiperun,
   setFiltroPiperun,
   tipoFiltroLinha,
@@ -139,8 +135,12 @@ export default function DashCarteira({
   CORES,
   renderCenterText,
 }: DashCarteiraProps) {
-  
-  const renderMiniGrafico = (titulo: string, valor: number, corGrafico: string, customIcon?: React.ReactNode) => {
+  const renderMiniGrafico = (
+    titulo: string,
+    valor: number,
+    corGrafico: string,
+    customIcon?: React.ReactNode,
+  ) => {
     const isVazio = valor === 0;
     const dataGrafico = [
       {
@@ -244,7 +244,8 @@ export default function DashCarteira({
       <div className="flex flex-col items-start justify-between w-full max-w-7xl gap-4 mb-6 mx-auto lg:flex-row lg:items-center">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-slate-800">
-            <Wallet className="w-7 h-7 text-emerald-600" /> Visão Consolidada da Carteira
+            <Wallet className="w-7 h-7 text-emerald-600" /> Visão Consolidada da
+            Carteira
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Última atualização:{" "}
@@ -267,7 +268,9 @@ export default function DashCarteira({
             disabled={loading}
             className="flex items-center gap-2 px-6 py-2 font-semibold text-white transition-all shadow-md bg-emerald-600 hover:bg-emerald-700 rounded-xl"
           >
-            <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCcw
+              className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+            />
             {loading ? "Buscando..." : "Atualizar Base"}
           </Button>
         </div>
@@ -278,14 +281,15 @@ export default function DashCarteira({
           <CardContent className="p-5">
             <div className="flex flex-col justify-between gap-4 pb-4 mb-5 border-b md:flex-row md:items-center border-slate-100">
               <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
-                <Filter className="w-4 h-4 text-emerald-600" /> Refinamento de Carteira
+                <Filter className="w-4 h-4 text-emerald-600" /> Refinamento de
+                Carteira
               </h2>
               <div className="flex flex-wrap items-center gap-3">
                 <Button
                   onClick={limparFiltros}
                   variant="outline"
                   size="sm"
-                  className="transition-colors shadow-sm cursor-pointer text-slate-600 hover:text-slate-900 border-slate-300"
+                  className="transition-colors shadow-sm cursor-pointer text-white hover:text-slate-900 border-slate-300"
                 >
                   <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
                 </Button>
@@ -300,29 +304,16 @@ export default function DashCarteira({
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-              {/* O filtro "Atrib. de Carteira" foi mantido estruturalmente, mas você pode ocultá-lo se essa view já for 100% de carteira */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Wallet className="w-3.5 h-3.5 text-emerald-600" /> Tipo de Carteira
-                </label>
-                <select
-                  value={filtroCarteira}
-                  onChange={(e) => setFiltroCarteira(e.target.value as TipoCarteiraFilter)}
-                  className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-emerald-50/50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="AMBOS">Todos (Com e Sem)</option>
-                  <option value="COM_CARTEIRA">Encarteirado</option>
-                  <option value="SEM_CARTEIRA">Sem Carteira (Se aplicável)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Power className="w-3.5 h-3.5 text-orange-500" /> Serviço Ativo?
+                  <Power className="w-3.5 h-3.5 text-orange-500" /> Serviço
+                  Ativo?
                 </label>
                 <select
                   value={filtroAtivo}
-                  onChange={(e) => setFiltroAtivo(e.target.value as TipoAtivoFilter)}
+                  onChange={(e) =>
+                    setFiltroAtivo(e.target.value as TipoAtivoFilter)
+                  }
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="TODOS">Todos (Ativos e Inativos)</option>
@@ -333,11 +324,16 @@ export default function DashCarteira({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Target className="w-3.5 h-3.5 text-yellow-500" /> Serviço Exclusivo
+                  <Target className="w-3.5 h-3.5 text-yellow-500" /> Serviço
+                  Exclusivo
                 </label>
                 <select
                   value={filtroExclusivo}
-                  onChange={(e) => setFiltroExclusivo(e.target.value as "TODOS" | "SIM" | "NAO")}
+                  onChange={(e) =>
+                    setFiltroExclusivo(
+                      e.target.value as "TODOS" | "SIM" | "NAO",
+                    )
+                  }
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="TODOS">Ambos (Sim e Não)</option>
@@ -348,7 +344,8 @@ export default function DashCarteira({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Users className="w-3.5 h-3.5 text-purple-500" /> Consultor Atribuído
+                  <Users className="w-3.5 h-3.5 text-purple-500" /> Consultor
+                  Atribuído
                 </label>
                 <select
                   value={filtroConsultor}
@@ -369,7 +366,8 @@ export default function DashCarteira({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <span className="font-extrabold text-blue-500">📞</span> Região (DDD)
+                  <span className="font-extrabold text-blue-500">📞</span>{" "}
+                  Região (DDD)
                 </label>
                 <select
                   value={filtroDDD}
@@ -378,13 +376,25 @@ export default function DashCarteira({
                 >
                   <option value="TODOS">Todos os DDDs</option>
                   <optgroup label="Filtros Inteligentes">
-                    <option value="EXCLUSO_11_RENOVACAO_E_FORA_ESTADO">Todos (Sem 11 p/ Renovação e Fora do Estado)</option>
-                    <option value="EXCLUSO_11_RENOVACAO">Todos (Excluso 11 Renovação)</option>
+                    <option value="EXCLUSO_11_RENOVACAO_E_FORA_ESTADO">
+                      Todos (Sem 11 p/ Renovação e Fora do Estado)
+                    </option>
+                    <option value="EXCLUSO_11_RENOVACAO">
+                      Todos (Excluso 11 Renovação)
+                    </option>
                     <option value="FORA_SP">DDDs Fora de São Paulo</option>
                   </optgroup>
                   <optgroup label="São Paulo">
                     <option value="11">11 - São Paulo/Metropol.</option>
                     <option value="12">12 - Vale do Paraíba</option>
+                    <option value="13">13 - Baixada Santista</option>
+                    <option value="14">14 - Bauru/Marília</option>
+                    <option value="15">15 - Sorocaba/Itapetininga</option>
+                    <option value="16">16 - Ribeirão Preto/Franca</option>
+                    <option value="17">17 - São José do Rio Preto</option>
+                    <option value="18">
+                      18 - Presidente Prudente/Araçatuba
+                    </option>
                     <option value="19">19 - Campinas e Região</option>
                   </optgroup>
                 </select>
@@ -392,11 +402,14 @@ export default function DashCarteira({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <AlertCircle className="w-3.5 h-3.5 text-sky-500" /> Situação do Atend.
+                  <AlertCircle className="w-3.5 h-3.5 text-sky-500" /> Situação
+                  do Atend.
                 </label>
                 <select
                   value={filtroSituacao}
-                  onChange={(e) => setFiltroSituacao(e.target.value as TipoSituacaoFilter)}
+                  onChange={(e) =>
+                    setFiltroSituacao(e.target.value as TipoSituacaoFilter)
+                  }
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="TODOS">Todas as Situações</option>
@@ -410,11 +423,14 @@ export default function DashCarteira({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <CloudCog className="w-3.5 h-3.5 text-indigo-500" /> PipeRun (CRM)
+                  <CloudCog className="w-3.5 h-3.5 text-indigo-500" /> PipeRun
+                  (CRM)
                 </label>
                 <select
                   value={filtroPiperun}
-                  onChange={(e) => setFiltroPiperun(e.target.value as TipoPiperunFilter)}
+                  onChange={(e) =>
+                    setFiltroPiperun(e.target.value as TipoPiperunFilter)
+                  }
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="AMBOS">Ambos (Dentro e Fora)</option>
@@ -438,21 +454,31 @@ export default function DashCarteira({
                 )}
               </div>
 
-              {/* Filtro Complexo de Linhas Específico para a Carteira */}
               <div className="col-span-1 md:col-span-2 xl:col-span-4 border border-emerald-100 bg-emerald-50/30 rounded-lg p-4 space-y-3">
                 <label className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                  <Briefcase className="w-4 h-4 text-emerald-600" /> Refino de Volume de Linhas da Carteira
+                  <Briefcase className="w-4 h-4 text-emerald-600" /> Refino de
+                  Volume de Linhas da Carteira
                 </label>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "RANGE" ? "border-emerald-500 bg-white shadow-sm" : "border-slate-200 bg-white/50 opacity-60"}`}>
+                  <div
+                    className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "RANGE" ? "border-emerald-500 bg-white shadow-sm" : "border-slate-200 bg-white/50 opacity-60"}`}
+                  >
                     <div className="flex items-center justify-between mb-6">
                       <div>
-                        <p className="font-semibold text-slate-700 text-sm">Intervalo (Range)</p>
-                        <p className="text-[10px] text-slate-500">Ex: De 2 até 7 linhas na carteira</p>
+                        <p className="font-semibold text-slate-700 text-sm">
+                          Intervalo (Range)
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          Ex: De 2 até 7 linhas na carteira
+                        </p>
                       </div>
                       <button
-                        onClick={() => setTipoFiltroLinha(tipoFiltroLinha === "RANGE" ? "NONE" : "RANGE")}
+                        onClick={() =>
+                          setTipoFiltroLinha(
+                            tipoFiltroLinha === "RANGE" ? "NONE" : "RANGE",
+                          )
+                        }
                         className="transition-opacity cursor-pointer text-emerald-600 hover:opacity-80"
                       >
                         {tipoFiltroLinha === "RANGE" ? (
@@ -466,14 +492,18 @@ export default function DashCarteira({
                     <div className="relative pt-6 pb-2">
                       <div
                         className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-slate-900 transition-all shadow-md top-0 bg-yellow-400 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
-                        style={{ left: `calc(${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}% - 12px)` }}
+                        style={{
+                          left: `calc(${(filtroLinhasRangeMin / (maxLinhasGlobal || 1)) * 100}% - 12px)`,
+                        }}
                       >
                         {filtroLinhasRangeMin}
                       </div>
 
                       <div
                         className={`absolute px-1.5 py-0.5 text-[10px] font-bold text-white transition-all shadow-md top-0 bg-emerald-500 rounded z-10 whitespace-nowrap ${tipoFiltroLinha !== "RANGE" ? "grayscale opacity-50" : ""}`}
-                        style={{ left: `calc(${(filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}% - 12px)` }}
+                        style={{
+                          left: `calc(${(filtroLinhasRangeMax / (maxLinhasGlobal || 1)) * 100}% - 12px)`,
+                        }}
                       >
                         {filtroLinhasRangeMax}
                       </div>
@@ -493,7 +523,14 @@ export default function DashCarteira({
                         min="0"
                         max={maxLinhasGlobal}
                         value={filtroLinhasRangeMin}
-                        onChange={(e) => setFiltroLinhasRangeMin(Math.min(Number(e.target.value), filtroLinhasRangeMax - 1))}
+                        onChange={(e) =>
+                          setFiltroLinhasRangeMin(
+                            Math.min(
+                              Number(e.target.value),
+                              filtroLinhasRangeMax - 1,
+                            ),
+                          )
+                        }
                         disabled={tipoFiltroLinha !== "RANGE"}
                         className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
                         [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-yellow-400 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
@@ -505,7 +542,14 @@ export default function DashCarteira({
                         min="0"
                         max={maxLinhasGlobal}
                         value={filtroLinhasRangeMax}
-                        onChange={(e) => setFiltroLinhasRangeMax(Math.max(Number(e.target.value), filtroLinhasRangeMin + 1))}
+                        onChange={(e) =>
+                          setFiltroLinhasRangeMax(
+                            Math.max(
+                              Number(e.target.value),
+                              filtroLinhasRangeMin + 1,
+                            ),
+                          )
+                        }
                         disabled={tipoFiltroLinha !== "RANGE"}
                         className="absolute top-6 w-full h-2 appearance-none bg-transparent pointer-events-none 
                         [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md
@@ -519,14 +563,24 @@ export default function DashCarteira({
                     </div>
                   </div>
 
-                  <div className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "EXACT" ? "border-emerald-500 bg-white shadow-sm" : "border-slate-200 bg-white/50 opacity-60"}`}>
+                  <div
+                    className={`relative p-4 rounded-xl border-2 transition-all ${tipoFiltroLinha === "EXACT" ? "border-emerald-500 bg-white shadow-sm" : "border-slate-200 bg-white/50 opacity-60"}`}
+                  >
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <p className="font-semibold text-slate-700 text-sm">Valor Específico</p>
-                        <p className="text-[10px] text-slate-500">Ex: Exatamente 5 linhas</p>
+                        <p className="font-semibold text-slate-700 text-sm">
+                          Valor Específico
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          Ex: Exatamente 5 linhas
+                        </p>
                       </div>
                       <button
-                        onClick={() => setTipoFiltroLinha(tipoFiltroLinha === "EXACT" ? "NONE" : "EXACT")}
+                        onClick={() =>
+                          setTipoFiltroLinha(
+                            tipoFiltroLinha === "EXACT" ? "NONE" : "EXACT",
+                          )
+                        }
                         className="transition-opacity cursor-pointer text-emerald-600 hover:opacity-80"
                       >
                         {tipoFiltroLinha === "EXACT" ? (
@@ -542,7 +596,9 @@ export default function DashCarteira({
                         min="0"
                         max={maxLinhasGlobal}
                         value={filtroLinhasExact}
-                        onChange={(e) => setFiltroLinhasExact(Number(e.target.value))}
+                        onChange={(e) =>
+                          setFiltroLinhasExact(Number(e.target.value))
+                        }
                         disabled={tipoFiltroLinha !== "EXACT"}
                         className="w-full h-10 px-4 text-sm font-bold transition-all border shadow-inner outline-none border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                         placeholder="Insira a quantia exata..."
@@ -558,24 +614,41 @@ export default function DashCarteira({
         <div className="mt-4">
           <div>
             <h2 className="flex items-center gap-2 mb-4 text-lg font-bold text-slate-800">
-              <PieChart className="w-5 h-5 text-emerald-600" /> Distribuição da Carteira
+              <PieChart className="w-5 h-5 text-emerald-600" /> Distribuição da
+              Carteira
             </h2>
           </div>
-          
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
             {renderMiniGrafico(
-              "Cancelados/Inviável", 
-              totais.cancelados_inviavel, 
-              "#1e293b", 
-              <Ban className="w-4 h-4 text-slate-800" />
+              "Cancelados/Inviável",
+              totais.cancelados_inviavel,
+              "#1e293b",
+              <Ban className="w-4 h-4 text-slate-800" />,
             )}
-            
-            {renderMiniGrafico("Fora do Prazo", totais.fora_prazo, CORES.fora_prazo)}
+
+            {renderMiniGrafico(
+              "Fora do Prazo",
+              totais.fora_prazo,
+              CORES.fora_prazo,
+            )}
             {renderMiniGrafico("Aquecendo", totais.aquecendo, CORES.aquecendo)}
             {renderMiniGrafico("Renovação", totais.renovacao, CORES.renovacao)}
-            {renderMiniGrafico("Portabilidade", totais.portabilidade, CORES.portabilidade)}
-            {renderMiniGrafico("Prazo Excedido", totais.prazo_excedido, CORES.prazo_excedido)}
-            {renderMiniGrafico("Prazo Limitado", totais.prazo_limitado, CORES.prazo_limitado)}
+            {renderMiniGrafico(
+              "Portabilidade",
+              totais.portabilidade,
+              CORES.portabilidade,
+            )}
+            {renderMiniGrafico(
+              "Prazo Excedido",
+              totais.prazo_excedido,
+              CORES.prazo_excedido,
+            )}
+            {renderMiniGrafico(
+              "Prazo Limitado",
+              totais.prazo_limitado,
+              CORES.prazo_limitado,
+            )}
           </div>
         </div>
 
@@ -594,7 +667,9 @@ export default function DashCarteira({
             </div>
             <div className="flex gap-6 text-sm">
               <div className="text-right">
-                <p className="mb-0.5 text-emerald-300 font-medium">Potencial Renovação</p>
+                <p className="mb-0.5 text-emerald-300 font-medium">
+                  Potencial Renovação
+                </p>
                 <p className="flex items-center justify-end gap-2 font-bold text-white">
                   Empresas{" "}
                   <span className="px-2 py-0.5 text-emerald-900 rounded bg-emerald-300 shadow-inner">
@@ -603,7 +678,9 @@ export default function DashCarteira({
                 </p>
               </div>
               <div className="text-right">
-                <p className="mb-0.5 text-emerald-300 font-medium">Potencial Portabilidade</p>
+                <p className="mb-0.5 text-emerald-300 font-medium">
+                  Potencial Portabilidade
+                </p>
                 <p className="flex items-center justify-end gap-2 font-bold text-white">
                   Empresas{" "}
                   <span className="px-2 py-0.5 text-emerald-900 rounded bg-emerald-300 shadow-inner">
