@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
+import * as htmlToImage from "html-to-image";
 import {
   Bell,
   Database,
@@ -721,6 +722,7 @@ export default function DashboardAnaliticoMultiView() {
     const element = elementId
       ? document.getElementById(elementId)
       : dashboardRef.current;
+
     if (!element) {
       setNotification(
         "Erro: Não foi possível localizar a área para exportação.",
@@ -729,26 +731,34 @@ export default function DashboardAnaliticoMultiView() {
     }
 
     try {
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
+      const nodeWidth = element.offsetWidth;
+      const nodeHeight = element.offsetHeight;
+
+      const dataUrl = await htmlToImage.toPng(element, {
+        quality: 1,
         backgroundColor: "#f8fafc",
+        pixelRatio: 2,
+        width: nodeWidth,
+        height: nodeHeight,
+        style: {
+          overflow: "hidden",
+        },
       });
-      const image = canvas.toDataURL("image/png");
+
       const link = document.createElement("a");
-      link.href = image;
       const nomeArquivo = fileNamePrefix ? fileNamePrefix : "Analise_Dashboard";
       link.download = `${nomeArquivo}_${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = dataUrl;
       link.click();
 
       setNotification(
         fileNamePrefix
-          ? `Print de ${fileNamePrefix} exportado com sucesso!`
+          ? `Print exportado com sucesso!`
           : "Print da análise exportado com sucesso!",
       );
       setTimeout(() => setNotification(null), 3000);
     } catch (err) {
-      console.error("Erro ao exportar imagem:", err);
+      console.error("Erro ao exportar imagem nativa:", err);
       setNotification("Erro ao gerar imagem da análise.");
     }
   };

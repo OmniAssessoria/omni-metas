@@ -68,10 +68,8 @@ export default function DashHistorico({
   CORES,
 }: DashHistoricoProps) {
   return (
-    <section
-      id="dash-historico-container"
-      className="w-full max-w-7xl mx-auto pt-2"
-    >
+    // REMOVIDO o id="dash-historico-container" daqui para não printar a tela toda
+    <section className="w-full max-w-7xl mx-auto pt-2">
       <div className="flex flex-col items-start justify-between w-full gap-4 mb-6 lg:flex-row lg:items-center">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
@@ -89,11 +87,12 @@ export default function DashHistorico({
 
         <div className="flex flex-wrap items-center gap-3">
           <Button
+            // ATUALIZADO: Aponta exclusivamente para a div dos gráficos
             onClick={() =>
-              exportToImage("dash-historico-container", "Analise_Historico")
+              exportToImage("graficos-historico-export", "Graficos_Historico")
             }
             className="flex items-center gap-2 px-4 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-purple-50 rounded-xl"
-            title="Salvar Gráficos como Imagem"
+            title="Salvar Somente os Gráficos como Imagem"
           >
             <ImageIcon className="w-4 h-4 text-purple-600" />
             Print Gráficos
@@ -108,7 +107,6 @@ export default function DashHistorico({
             Exportar Dados
           </Button>
 
-          {/* NOVO BOTÃO DE REFRESH ISOLADO */}
           <Button
             onClick={fetchHistorico}
             disabled={loading}
@@ -197,110 +195,117 @@ export default function DashHistorico({
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-white border-none shadow-md">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
-              <BarChart2 className="w-4 h-4 text-purple-500" />
-              Top 10 - Volume por Motivo de Declínio
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={dadosGraficoMotivo}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  horizontal={true}
-                  vertical={false}
-                  stroke="#e2e8f0"
-                />
-                <XAxis
-                  type="number"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  width={150}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <RechartsTooltip
-                  cursor={{ fill: "#f1f5f9" }}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                  }}
-                />
-                <Bar
-                  dataKey="value"
-                  fill={CORES.grafico_barras_1}
-                  radius={[0, 4, 4, 0]}
-                  barSize={20}
-                  name="Total de Históricos"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      {/* ATUALIZADO: Esta é a nova div isolada com o ID exclusivo para o print dos gráficos.
+          Adicionei padding (p-4) para o print não ficar colado na borda. */}
+      <div
+        id="graficos-historico-export"
+        className="p-4 bg-slate-50 rounded-xl"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="bg-white border-none shadow-md">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
+                <BarChart2 className="w-4 h-4 text-purple-500" />
+                Top 10 - Volume por Motivo de Declínio
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={dadosGraficoMotivo}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    horizontal={true}
+                    vertical={false}
+                    stroke="#e2e8f0"
+                  />
+                  <XAxis
+                    type="number"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={150}
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <RechartsTooltip
+                    cursor={{ fill: "#f1f5f9" }}
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "none",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    }}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill={CORES.grafico_barras_1}
+                    radius={[0, 4, 4, 0]}
+                    barSize={20}
+                    name="Total de Históricos"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-white border-none shadow-md">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
-              <Users className="w-4 h-4 text-emerald-500" />
-              Top 10 - Volume de Histórico por Consultor
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={dadosGraficoConsultor}
-                margin={{ top: 20, right: 30, left: 0, bottom: 60 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#e2e8f0"
-                />
-                <XAxis
-                  dataKey="name"
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                  interval={0}
-                  angle={-45}
-                  textAnchor="end"
-                  height={70}
-                />
-                <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                <RechartsTooltip
-                  cursor={{ fill: "#f1f5f9" }}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                  }}
-                  labelFormatter={(value) => `Consultor: ${value}`}
-                />
-                <Bar
-                  dataKey="value"
-                  fill={CORES.grafico_barras_2}
-                  radius={[4, 4, 0, 0]}
-                  barSize={40}
-                  name="Volume de Atendimentos"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          <Card className="bg-white border-none shadow-md">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
+                <Users className="w-4 h-4 text-emerald-500" />
+                Top 10 - Volume de Histórico por Consultor
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={dadosGraficoConsultor}
+                  margin={{ top: 20, right: 30, left: 0, bottom: 60 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e2e8f0"
+                  />
+                  <XAxis
+                    dataKey="name"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={70}
+                  />
+                  <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                  <RechartsTooltip
+                    cursor={{ fill: "#f1f5f9" }}
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "none",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    }}
+                    labelFormatter={(value) => `Consultor: ${value}`}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill={CORES.grafico_barras_2}
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                    name="Volume de Atendimentos"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </section>
   );
