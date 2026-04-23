@@ -49,7 +49,9 @@ export interface DashServicoClaroProps {
   loading: boolean;
   limparFiltros: () => void;
   aplicarFiltrosGlobais: () => void;
-  setModalExportacaoAberto: (val: "servicos" | "historico" | "carteira" | "crm" | null) => void;
+  setModalExportacaoAberto: (
+    val: "servicos" | "historico" | "carteira" | "crm" | null,
+  ) => void;
 
   filtroAtivo: TipoAtivoFilter;
   setFiltroAtivo: (val: TipoAtivoFilter) => void;
@@ -137,8 +139,6 @@ export default function DashServicoClaro({
   setFiltroLinhasRangeMin,
   filtroLinhasRangeMax,
   setFiltroLinhasRangeMax,
-  filtroLinhasExact,
-  setFiltroLinhasExact,
   maxLinhasGlobal,
   filtroCpcAtivo,
   setFiltroCpcAtivo,
@@ -149,11 +149,13 @@ export default function DashServicoClaro({
   CORES,
   renderCenterText,
 }: DashServicoClaroProps) {
-
-  // Garantir um máximo seguro para uso nos inputs
   const safeMaxLinhas = Math.max(maxLinhasGlobal || 0, 1);
 
-  const renderMiniGrafico = (titulo: string, valor: number, corGrafico: string) => {
+  const renderMiniGrafico = (
+    titulo: string,
+    valor: number,
+    corGrafico: string,
+  ) => {
     const isVazio = valor === 0;
     const dataGrafico = [
       {
@@ -268,7 +270,9 @@ export default function DashServicoClaro({
 
         <div className="flex flex-wrap items-center gap-3">
           <Button
-            onClick={() => exportToImage("dash-servicos-container", "Analise_Servicos_Claro")}
+            onClick={() =>
+              exportToImage("dash-servicos-container", "Analise_Servicos_Claro")
+            }
             className="flex items-center gap-2 px-4 py-2 font-semibold text-slate-700 transition-all shadow-sm bg-white border border-slate-200 hover:bg-slate-50 rounded-xl"
             title="Salvar Gráficos como Imagem"
           >
@@ -290,7 +294,9 @@ export default function DashServicoClaro({
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2 font-semibold text-white transition-all shadow-md bg-slate-800 hover:bg-slate-900 rounded-xl"
           >
-            <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCcw
+              className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+            />
             {loading ? "Buscando..." : "Refresh Dados"}
           </Button>
         </div>
@@ -301,7 +307,8 @@ export default function DashServicoClaro({
           <CardContent className="p-5">
             <div className="flex flex-col justify-between gap-4 pb-4 mb-5 border-b md:flex-row md:items-center border-slate-100">
               <h2 className="flex items-center gap-2 text-base font-bold text-slate-800">
-                <Filter className="w-4 h-4 text-primary" /> Filtros em Memória (Sem usar DB)
+                <Filter className="w-4 h-4 text-primary" /> Filtros em Memória
+                (Sem usar DB)
               </h2>
               <div className="flex flex-wrap items-center gap-3">
                 <Button
@@ -325,11 +332,14 @@ export default function DashServicoClaro({
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Power className="w-3.5 h-3.5 text-orange-500" /> Serviço Ativo?
+                  <Power className="w-3.5 h-3.5 text-orange-500" /> Serviço
+                  Ativo?
                 </label>
                 <select
                   value={filtroAtivo}
-                  onChange={(e) => setFiltroAtivo(e.target.value as TipoAtivoFilter)}
+                  onChange={(e) =>
+                    setFiltroAtivo(e.target.value as TipoAtivoFilter)
+                  }
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                 >
                   <option value="TODOS">Todos (Ativos e Inativos)</option>
@@ -340,11 +350,16 @@ export default function DashServicoClaro({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Target className="w-3.5 h-3.5 text-yellow-500" /> Serviço Exclusivo
+                  <Target className="w-3.5 h-3.5 text-yellow-500" /> Serviço
+                  Exclusivo
                 </label>
                 <select
                   value={filtroExclusivo}
-                  onChange={(e) => setFiltroExclusivo(e.target.value as "TODOS" | "SIM" | "NAO")}
+                  onChange={(e) =>
+                    setFiltroExclusivo(
+                      e.target.value as "TODOS" | "SIM" | "NAO",
+                    )
+                  }
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                 >
                   <option value="TODOS">Ambos (Sim e Não)</option>
@@ -355,7 +370,8 @@ export default function DashServicoClaro({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <span className="font-extrabold text-blue-500">📞</span> Região (DDD Maioral)
+                  <span className="font-extrabold text-blue-500">📞</span>{" "}
+                  Região (DDD Maioral)
                 </label>
                 <select
                   value={filtroDDD}
@@ -364,8 +380,12 @@ export default function DashServicoClaro({
                 >
                   <option value="TODOS">Todos os DDDs</option>
                   <optgroup label="Filtros Inteligentes">
-                    <option value="EXCLUSO_11_RENOVACAO_E_FORA_ESTADO">Todos (Sem 11 p/ Renovação e Fora do Estado)</option>
-                    <option value="EXCLUSO_11_RENOVACAO">Todos (Excluso 11 Renovação)</option>
+                    <option value="EXCLUSO_11_RENOVACAO_E_FORA_ESTADO">
+                      Todos (Sem 11 p/ Renovação e Fora do Estado)
+                    </option>
+                    <option value="EXCLUSO_11_RENOVACAO">
+                      Todos (Excluso 11 Renovação)
+                    </option>
                     <option value="FORA_SP">DDDs Fora de São Paulo</option>
                   </optgroup>
                   <optgroup label="São Paulo">
@@ -387,7 +407,8 @@ export default function DashServicoClaro({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Users className="w-3.5 h-3.5 text-purple-500" /> Consultor Atribuído
+                  <Users className="w-3.5 h-3.5 text-purple-500" /> Consultor
+                  Atribuído
                 </label>
                 <select
                   value={filtroConsultor}
@@ -408,11 +429,14 @@ export default function DashServicoClaro({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <AlertCircle className="w-3.5 h-3.5 text-sky-500" /> Situação do Atend.
+                  <AlertCircle className="w-3.5 h-3.5 text-sky-500" /> Situação
+                  do Atend.
                 </label>
                 <select
                   value={filtroSituacao}
-                  onChange={(e) => setFiltroSituacao(e.target.value as TipoSituacaoFilter)}
+                  onChange={(e) =>
+                    setFiltroSituacao(e.target.value as TipoSituacaoFilter)
+                  }
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                 >
                   <option value="TODOS">Todas as Situações</option>
@@ -427,11 +451,14 @@ export default function DashServicoClaro({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Wallet className="w-3.5 h-3.5 text-emerald-500" /> Atrib. de Carteira
+                  <Wallet className="w-3.5 h-3.5 text-emerald-500" /> Atrib. de
+                  Carteira
                 </label>
                 <select
                   value={filtroCarteira}
-                  onChange={(e) => setFiltroCarteira(e.target.value as TipoCarteiraFilter)}
+                  onChange={(e) =>
+                    setFiltroCarteira(e.target.value as TipoCarteiraFilter)
+                  }
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                 >
                   <option value="AMBOS">Ambos (Com e Sem)</option>
@@ -442,11 +469,14 @@ export default function DashServicoClaro({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <CloudCog className="w-3.5 h-3.5 text-indigo-500" /> PipeRun (CRM)
+                  <CloudCog className="w-3.5 h-3.5 text-indigo-500" />
+                  Abertos no PipeRun (CRM)
                 </label>
                 <select
                   value={filtroPiperun}
-                  onChange={(e) => setFiltroPiperun(e.target.value as TipoPiperunFilter)}
+                  onChange={(e) =>
+                    setFiltroPiperun(e.target.value as TipoPiperunFilter)
+                  }
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                 >
                   <option value="AMBOS">Ambos (Dentro e Fora)</option>
@@ -457,7 +487,8 @@ export default function DashServicoClaro({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Calendar className="w-3.5 h-3.5 text-red-500" /> Vencimento Contr.
+                  <Calendar className="w-3.5 h-3.5 text-red-500" /> Vencimento
+                  Contr.
                 </label>
                 <input
                   type="date"
@@ -465,6 +496,31 @@ export default function DashServicoClaro({
                   onChange={(e) => setFiltroDataFim(e.target.value)}
                   className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none cursor-pointer border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <Tag className="w-3.5 h-3.5 text-pink-500" /> Classificação
+                </label>
+                <select
+                  value={filtroClassificacao}
+                  onChange={(e) =>
+                    setFiltroClassificacao(
+                      e.target.value as TipoClassificacaoFilter,
+                    )
+                  }
+                  className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                >
+                  <option value="TODOS">Todas as Classificações</option>
+                  <option value="CA">CA</option>
+                  <option value="CB">CB</option>
+                  <option value="CC">CC</option>
+                  <option value="CD">CD</option>
+                  <option value="CE">CE</option>
+                  <option value="CF">CF</option>
+                  <option value="CG">CG</option>
+                  <option value="SEM_CLASSIFICACAO">Sem Classificação</option>
+                </select>
               </div>
 
               <div className=" border border-slate-200 bg-white rounded-lg p-3 space-y-3">
@@ -482,52 +538,41 @@ export default function DashServicoClaro({
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Tag className="w-3.5 h-3.5 text-pink-500" /> Classificação
-                </label>
-                <select
-                  value={filtroClassificacao}
-                  onChange={(e) => setFiltroClassificacao(e.target.value as TipoClassificacaoFilter)}
-                  className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
-                >
-                  <option value="TODOS">Todas as Classificações</option>
-                  <option value="CA">CA</option>
-                  <option value="CB">CB</option>
-                  <option value="CC">CC</option>
-                  <option value="CD">CD</option>
-                  <option value="CE">CE</option>
-                  <option value="CF">CF</option>
-                  <option value="CG">CG</option>
-                  <option value="SEM_CLASSIFICACAO">Sem Classificação</option>
-                </select>
-              </div>
-
-              {/* BLOCO SUBSTITUÍDO: Refino de Volume de Linhas com Inputs Nativos */}
               <div className="col-span-1 md:col-span-2 xl:col-span-3 border border-slate-200 bg-white rounded-lg p-3 space-y-3">
                 <label className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                  <Briefcase className="w-4 h-4 text-amber-500" /> Controle de Volume de Linhas Totais
+                  <Briefcase className="w-4 h-4 text-amber-500" /> Controle de
+                  Volume de Linhas Totais
                 </label>
 
                 <div
-                  className={`relative p-5 rounded-xl border-2 transition-all max-w-2xl ${tipoFiltroLinha === "RANGE"
+                  className={`relative p-5 rounded-xl border-2 transition-all max-w-2xl ${
+                    tipoFiltroLinha === "RANGE"
                       ? "border-primary bg-slate-50 shadow-sm"
                       : "border-slate-100 opacity-60"
-                    }`}
+                  }`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="font-semibold text-slate-700 text-sm">Intervalo de Linhas</p>
+                      <p className="font-semibold text-slate-700 text-sm">
+                        Intervalo de Linhas
+                      </p>
                       <p className="text-[11px] mt-0.5 text-slate-500">
-                        Ex: De 2 até 7 linhas (ou digite 1 até 1 para buscar um valor exato)
+                        Ex: De 2 até 7 linhas (ou digite 1 até 1 para buscar um
+                        valor exato)
                       </p>
                     </div>
                     <button
                       onClick={() =>
-                        setTipoFiltroLinha(tipoFiltroLinha === "RANGE" ? "NONE" : "RANGE")
+                        setTipoFiltroLinha(
+                          tipoFiltroLinha === "RANGE" ? "NONE" : "RANGE",
+                        )
                       }
                       className="transition-opacity cursor-pointer text-primary hover:opacity-80"
-                      title={tipoFiltroLinha === "RANGE" ? "Desativar filtro de linhas" : "Ativar filtro de linhas"}
+                      title={
+                        tipoFiltroLinha === "RANGE"
+                          ? "Desativar filtro de linhas"
+                          : "Ativar filtro de linhas"
+                      }
                     >
                       {tipoFiltroLinha === "RANGE" ? (
                         <ToggleRight className="w-8 h-8 text-emerald-500" />
@@ -547,7 +592,9 @@ export default function DashServicoClaro({
                         min="0"
                         max={safeMaxLinhas}
                         value={filtroLinhasRangeMin}
-                        onChange={(e) => setFiltroLinhasRangeMin(Number(e.target.value))}
+                        onChange={(e) =>
+                          setFiltroLinhasRangeMin(Number(e.target.value))
+                        }
                         disabled={tipoFiltroLinha !== "RANGE"}
                         className="w-full h-11 px-4 text-sm font-bold transition-all border shadow-inner outline-none border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                         placeholder="Mínimo"
@@ -562,7 +609,9 @@ export default function DashServicoClaro({
                         min="0"
                         max={safeMaxLinhas}
                         value={filtroLinhasRangeMax}
-                        onChange={(e) => setFiltroLinhasRangeMax(Number(e.target.value))}
+                        onChange={(e) =>
+                          setFiltroLinhasRangeMax(Number(e.target.value))
+                        }
                         disabled={tipoFiltroLinha !== "RANGE"}
                         className="w-full h-11 px-4 text-sm font-bold transition-all border shadow-inner outline-none border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                         placeholder="Máximo"
@@ -578,16 +627,33 @@ export default function DashServicoClaro({
         <div className="mt-4">
           <div>
             <h2 className="flex items-center gap-2 mb-4 text-lg font-bold text-slate-800">
-              <PieChart className="w-5 h-5 text-primary" /> Visualização Comparativa por Indicação
+              <PieChart className="w-5 h-5 text-primary" /> Visualização
+              Comparativa por Indicação
             </h2>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {renderMiniGrafico("Fora do Prazo", totais.fora_prazo, CORES.fora_prazo)}
+            {renderMiniGrafico(
+              "Fora do Prazo",
+              totais.fora_prazo,
+              CORES.fora_prazo,
+            )}
             {renderMiniGrafico("Aquecendo", totais.aquecendo, CORES.aquecendo)}
             {renderMiniGrafico("Renovação", totais.renovacao, CORES.renovacao)}
-            {renderMiniGrafico("Portabilidade", totais.portabilidade, CORES.portabilidade)}
-            {renderMiniGrafico("Prazo Excedido", totais.prazo_excedido, CORES.prazo_excedido)}
-            {renderMiniGrafico("Prazo Limitado", totais.prazo_limitado, CORES.prazo_limitado)}
+            {renderMiniGrafico(
+              "Portabilidade",
+              totais.portabilidade,
+              CORES.portabilidade,
+            )}
+            {renderMiniGrafico(
+              "Prazo Excedido",
+              totais.prazo_excedido,
+              CORES.prazo_excedido,
+            )}
+            {renderMiniGrafico(
+              "Prazo Limitado",
+              totais.prazo_limitado,
+              CORES.prazo_limitado,
+            )}
           </div>
         </div>
 

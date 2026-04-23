@@ -120,7 +120,7 @@ export default function DashCrm({
               variant="outline"
               onClick={() => fetchDadosBolhas(true)}
               disabled={loadingBolhas}
-              className="gap-2 shadow-sm flex items-center border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
+              className="gap-2 shadow-sm flex items-center border-slate-200 text-white hover:bg-slate-50 cursor-pointer"
             >
               <RotateCw
                 className={`h-4 w-4 ${loadingBolhas ? "animate-spin text-red-500" : ""}`}
