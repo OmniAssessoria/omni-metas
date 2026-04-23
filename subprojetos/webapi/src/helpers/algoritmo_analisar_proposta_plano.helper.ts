@@ -1,6 +1,10 @@
 import { PLANOS_DISPONIVEIS } from "../configs/planos_proposta.config";
 
 export class AnalisadorPlanosHelper {
+  private arredondarCentavos(valor: number): number {
+    return Math.round(valor * 100) / 100;
+  }
+
   public extrairGb(texto: any): number {
     if (!texto) return 0;
     if (typeof texto === "number") return texto;
@@ -14,12 +18,16 @@ export class AnalisadorPlanosHelper {
     let total_gb = 0;
     let total_linhas = 0;
 
+    const linhas_requisitos: number[] = [];
+
     for (const servico of servicos) {
       if (servico.linha_ativa === false) continue;
 
       const plano = servico.plano || "";
       const valor = Number(servico.valor) || 0;
       const gbBase = this.extrairGb(plano);
+
+      linhas_requisitos.push(gbBase);
 
       if (!planos_agrupados[plano]) {
         planos_agrupados[plano] = {
@@ -32,9 +40,13 @@ export class AnalisadorPlanosHelper {
       }
 
       planos_agrupados[plano].quantidade += 1;
-      planos_agrupados[plano].total_valor += valor;
+
+      planos_agrupados[plano].total_valor = this.arredondarCentavos(
+        planos_agrupados[plano].total_valor + valor,
+      );
+      total_valor = this.arredondarCentavos(total_valor + valor);
+
       planos_agrupados[plano].total_gb += gbBase;
-      total_valor += valor;
       total_gb += gbBase;
       total_linhas += 1;
     }
@@ -44,173 +56,198 @@ export class AnalisadorPlanosHelper {
       total_valor,
       total_gb,
       total_linhas,
+      linhas_requisitos,
       servicos,
     };
   }
 
-  // ============================================================================
-  // OFERTA ECONÔMICA
-  // ============================================================================
   public encontrarMelhorOfertaEconomica(analiseAtual: any) {
     const planos = PLANOS_DISPONIVEIS;
-    const totalLinhas = analiseAtual.total_linhas;
-    const gbMinimo = analiseAtual.total_gb;
+    const linhasReq = analiseAtual.linhas_requisitos as number[];
 
-    let melhorOferta: any = null;
+    let totalValorOferta = 0;
+    let totalGbOferta = 0;
+    let totalGbComBonusOferta = 0;
+    const contagemPlanos: Record<number, any> = {};
 
-    const gerarRecursivo = (
-      linhasRestantes: number,
-      gbAcumulado: number,
-      valorAcumulado: number,
-      comboAtual: any[],
-      idxPlano: number,
-    ) => {
-      if (melhorOferta && valorAcumulado >= melhorOferta.total_valor) {
-        return;
+    for (const gbMinimoLinha of linhasReq) {
+      const planosValidos = planos
+        .map((p, idx) => ({ ...p, originalIndex: idx }))
+        .filter((p) => p.gb >= gbMinimoLinha);
+
+      if (planosValidos.length === 0) {
+        return null;
       }
 
-      if (linhasRestantes === 0) {
-        if (gbAcumulado >= gbMinimo) {
-          const totalBonus = comboAtual.reduce(
-            (acc, p) => acc + p.bonus * p.qtd,
-            0,
-          );
+      planosValidos.sort((a, b) => a.valor - b.valor);
+      const melhorPlano = planosValidos[0];
+
+      totalValorOferta = this.arredondarCentavos(
+        totalValorOferta + melhorPlano.valor,
+      );
+      totalGbOferta += melhorPlano.gb;
+      totalGbComBonusOferta += melhorPlano.gb + melhorPlano.bonus;
+
+      if (!contagemPlanos[melhorPlano.originalIndex]) {
+        contagemPlanos[melhorPlano.originalIndex] = {
+          gb: melhorPlano.gb,
+          valor: melhorPlano.valor,
+          bonus: melhorPlano.bonus,
+          qtd: 0,
+        };
+      }
+      contagemPlanos[melhorPlano.originalIndex].qtd += 1;
+    }
+
+    return {
+      combo: Object.values(contagemPlanos),
+      total_gb: totalGbOferta,
+      total_gb_com_bonus: totalGbComBonusOferta,
+      total_valor: totalValorOferta,
+    };
+  }
+
+  public encontrarMelhorOfertaMaisGb(analiseAtual: any, ofertaEconomica?: any) {
+    const planos = PLANOS_DISPONIVEIS;
+    const linhasReq = analiseAtual.linhas_requisitos as number[];
+
+    const valorEco = ofertaEconomica ? ofertaEconomica.total_valor : -1;
+    const gbTotalEco = ofertaEconomica
+      ? ofertaEconomica.total_gb_com_bonus
+      : -1;
+
+    const valorBaseParaMargem = Math.max(analiseAtual.total_valor, valorEco);
+
+    const planosValidosPorLinha = linhasReq.map((gbMinimo) => {
+      return planos.filter((p) => p.gb >= gbMinimo);
+    });
+
+    if (planosValidosPorLinha.some((lista) => lista.length === 0)) return null;
+
+    const custoMinimoPorLinha = planosValidosPorLinha.map((lista) =>
+      Math.min(...lista.map((p) => p.valor)),
+    );
+    const sufixoCustoMinimo = new Array(linhasReq.length).fill(0);
+    let acumulado = 0;
+    for (let i = linhasReq.length - 1; i >= 0; i--) {
+      acumulado = this.arredondarCentavos(acumulado + custoMinimoPorLinha[i]);
+      sufixoCustoMinimo[i] = acumulado;
+    }
+
+    const buscarComLimite = (multiplicadorLimite: number) => {
+      const limiteValorPermitido = this.arredondarCentavos(
+        valorBaseParaMargem * multiplicadorLimite,
+      );
+      let melhorOferta: any = null;
+
+      const gerarRecursivo = (
+        indexLinha: number,
+        gbAcumulado: number,
+        bonusAcumulado: number,
+        valorAcumulado: number,
+        contagemAtual: Record<number, number>,
+      ) => {
+        const custoNecessarioRestante =
+          indexLinha < linhasReq.length ? sufixoCustoMinimo[indexLinha] : 0;
+
+        if (
+          this.arredondarCentavos(valorAcumulado + custoNecessarioRestante) >
+          limiteValorPermitido
+        ) {
+          return;
+        }
+
+        if (indexLinha === linhasReq.length) {
+          const totalGbComBonus = gbAcumulado + bonusAcumulado;
+
+          if (valorAcumulado < valorBaseParaMargem) {
+            return;
+          }
+
+          if (ofertaEconomica) {
+            if (valorAcumulado <= valorEco || totalGbComBonus <= gbTotalEco) {
+              return;
+            }
+          }
+
           const ofertaAtual = {
-            combo: [...comboAtual],
+            combo: converterContagemParaCombo(contagemAtual, planos),
             total_gb: gbAcumulado,
-            total_gb_com_bonus: gbAcumulado + totalBonus,
+            total_gb_com_bonus: totalGbComBonus,
             total_valor: valorAcumulado,
           };
 
           if (
             !melhorOferta ||
-            ofertaAtual.total_valor < melhorOferta.total_valor
+            ofertaAtual.total_gb_com_bonus > melhorOferta.total_gb_com_bonus
           ) {
             melhorOferta = ofertaAtual;
-          }
-        }
-        return;
-      }
-
-      for (let i = idxPlano; i < planos.length; i++) {
-        const plano = planos[i];
-        for (let qtd = 1; qtd <= linhasRestantes; qtd++) {
-          comboAtual.push({
-            qtd,
-            gb: plano.gb,
-            valor: plano.valor,
-            bonus: plano.bonus,
-          });
-
-          gerarRecursivo(
-            linhasRestantes - qtd,
-            gbAcumulado + plano.gb * qtd,
-            valorAcumulado + plano.valor * qtd,
-            comboAtual,
-            i + 1,
-          );
-
-          comboAtual.pop();
-        }
-      }
-    };
-
-    gerarRecursivo(totalLinhas, 0, 0, [], 0);
-    return melhorOferta;
-  }
-
-  // ============================================================================
-  // OFERTA MAIS GB
-  // ============================================================================
-  public encontrarMelhorOfertaMaisGb(analiseAtual: any, ofertaEconomica?: any) {
-    const planos = PLANOS_DISPONIVEIS;
-    const totalLinhas = analiseAtual.total_linhas;
-    
-    // REGRA 1: O GB Mínimo da base do cliente atual (Sem Bônus)
-    const gbMinimo = analiseAtual.total_gb;    
-    
-    // REGRA 2: Os valores da Econômica para o Desempate
-    const valorEco = ofertaEconomica ? ofertaEconomica.total_valor : -1;
-    const gbTotalEco = ofertaEconomica ? ofertaEconomica.total_gb_com_bonus : -1; // TOTAL ECO (Com Bônus)
-
-    const buscarComLimite = (multiplicadorLimite: number) => {
-      const limiteValorPermitido = analiseAtual.total_valor * multiplicadorLimite;
-      let melhorOferta: any = null;
-
-      const gerarRecursivo = (
-        linhasRestantes: number,
-        gbAcumulado: number,
-        valorAcumulado: number,
-        comboAtual: any[],
-        idxPlano: number,
-      ) => {
-        if (valorAcumulado > limiteValorPermitido) {
-          return;
-        }
-
-        if (linhasRestantes === 0) {
-          // Validação da Base do Cliente: gbAcumulado (Sem Bônus) tem que ser >= gbMinimo (Sem Bônus)
-          if (gbAcumulado >= gbMinimo && valorAcumulado <= limiteValorPermitido) {
-            
-            const totalBonus = comboAtual.reduce((acc, p) => acc + p.bonus * p.qtd, 0);
-            const totalGbComBonus = gbAcumulado + totalBonus;
-
-            // ===============================================================
-            // CRITÉRIO DE DESEMPATE CONTRA A ECONÔMICA
-            // Se empatar ou for menor no VALOR, descarta.
-            // Se empatar ou for menor no TOTAL GB (Base + Bônus), descarta.
-            // ===============================================================
-            if (ofertaEconomica) {
-              if (valorAcumulado <= valorEco || totalGbComBonus <= gbTotalEco) {
-                return; 
-              }
-            }
-
-            const ofertaAtual = {
-              combo: [...comboAtual],
-              total_gb: gbAcumulado,
-              total_gb_com_bonus: totalGbComBonus,
-              total_valor: valorAcumulado,
-            };
-
-            if (!melhorOferta || ofertaAtual.total_gb_com_bonus > melhorOferta.total_gb_com_bonus) {
+          } else if (
+            ofertaAtual.total_gb_com_bonus === melhorOferta.total_gb_com_bonus
+          ) {
+            if (ofertaAtual.total_valor < melhorOferta.total_valor) {
               melhorOferta = ofertaAtual;
             }
           }
           return;
         }
 
-        for (let i = idxPlano; i < planos.length; i++) {
-          const plano = planos[i];
-          for (let qtd = 1; qtd <= linhasRestantes; qtd++) {
-            comboAtual.push({ qtd, gb: plano.gb, valor: plano.valor, bonus: plano.bonus });
+        const planosParaLinha = planosValidosPorLinha[indexLinha];
 
-            gerarRecursivo(
-              linhasRestantes - qtd,
-              gbAcumulado + plano.gb * qtd,
-              valorAcumulado + plano.valor * qtd,
-              comboAtual,
-              i + 1,
-            );
+        for (let i = 0; i < planosParaLinha.length; i++) {
+          const plano = planosParaLinha[i];
+          const planoOriginalIndex = planos.indexOf(plano);
 
-            comboAtual.pop();
+          contagemAtual[planoOriginalIndex] =
+            (contagemAtual[planoOriginalIndex] || 0) + 1;
+
+          gerarRecursivo(
+            indexLinha + 1,
+            gbAcumulado + plano.gb,
+            bonusAcumulado + plano.bonus,
+            this.arredondarCentavos(valorAcumulado + plano.valor),
+            contagemAtual,
+          );
+
+          contagemAtual[planoOriginalIndex] -= 1;
+          if (contagemAtual[planoOriginalIndex] === 0) {
+            delete contagemAtual[planoOriginalIndex];
           }
         }
       };
 
-      gerarRecursivo(totalLinhas, 0, 0, [], 0);
+      gerarRecursivo(0, 0, 0, 0, {});
       return melhorOferta;
     };
 
+    const converterContagemParaCombo = (
+      contagem: Record<number, number>,
+      planosRef: any[],
+    ) => {
+      const combo = [];
+      for (const idxStr in contagem) {
+        const idx = Number(idxStr);
+        const qtd = contagem[idx];
+        if (qtd > 0) {
+          combo.push({
+            qtd,
+            gb: planosRef[idx].gb,
+            valor: planosRef[idx].valor,
+            bonus: planosRef[idx].bonus,
+          });
+        }
+      }
+      return combo;
+    };
+
     let ofertaEncontrada = null;
-    let margemAtual = 1.06; 
-    const margemMaxima = 1.40; 
+    let margemAtual = 1.06;
+    const margemMaxima = 1.4;
 
     while (!ofertaEncontrada && margemAtual <= margemMaxima) {
       ofertaEncontrada = buscarComLimite(margemAtual);
-      
       if (!ofertaEncontrada) {
-        margemAtual += 0.02; 
+        margemAtual = this.arredondarCentavos(margemAtual + 0.02);
       }
     }
 
