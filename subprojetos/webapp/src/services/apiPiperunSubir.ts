@@ -143,7 +143,7 @@ export const API_PIPERUN = async ({
       const isConsultorOtavio =
         emailConsultor === "otavio@rennovatecnologia.com.br";
 
-      if (isConsultorCarolina || isCarteira) {
+      if (isConsultorCarolina) {
         hashDefinido = "911c2966-27b7-4fc2-b9b2-21dc3deaa561";
       } else if (isConsultorOtavio) {
         hashDefinido = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
