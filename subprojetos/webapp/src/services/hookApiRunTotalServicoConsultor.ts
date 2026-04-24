@@ -34,13 +34,11 @@ export async function compilarOportunidadesDinamico(
     99648: "RENOVACAO", // Natalia Ribeiro
     58488: "AMBOS", // Nathália Dadalte
     59215: "AMBOS", // Otavio Souza
-    100979: "RENOVACAO", // Raquel Souza
     88311: "RENOVACAO", // Vitor Moreira
     100703: "PORTABILIDADE", // Gabrieli Lima
     58448: "PORTABILIDADE", // Letícia Ohara
     97363: "CARTEIRA", // Carolina Souza
     102074: "RENOVACAO", // Lara de Oliveira
-    102075: "RENOVACAO", // Jessica Breve
     102076: "RENOVACAO", // Maria Eduarda Santos
   };
 
