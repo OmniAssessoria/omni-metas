@@ -13,7 +13,10 @@ import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecis
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 import formatarObservacaoPlanosLinhas from "@/utils/formatarObservacao.util";
 import { apiPipeRunRest } from "@/configs/piperunConfigs.config";
-import { gerarEAnexarImagemPipeRun } from "./omniGeradorLayoutService";
+import {
+  gerarEAnexarImagemPipeRun,
+} from "./omniGeradorLayoutService";
+import { anexarImagemDecisorPipeRun, extrairImagemDecisorDrive } from "./driveObterDecisor";
 
 export const API_PIPERUN = async ({
   servicos,
@@ -293,6 +296,24 @@ export const API_PIPERUN = async ({
             "proposta",
             "📱 Proposta Comercial Multiplano",
           );
+        }
+
+        // ===================================================================
+        // 👉 NOVA LÓGICA: ANEXA A IMAGEM DO DECISOR (SE HOUVER DOCDRIVE)
+        // ===================================================================
+        if (servico.servico_docdrive) {
+          const base64Decisor = await extrairImagemDecisorDrive(
+            servico.servico_docdrive,
+            cnpjLimpo,
+          );
+
+          if (base64Decisor) {
+            await anexarImagemDecisorPipeRun(
+              dealIdCriado,
+              base64Decisor,
+              servico.seq_empresa,
+            );
+          }
         }
       } else {
         console.warn(
