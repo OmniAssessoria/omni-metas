@@ -242,26 +242,6 @@ export default class ServicoClaroRepository {
     }
   }
 
-  async executarValidacaoTemporarioClaro() {
-    const query = `SELECT omni.fn_validar_temporario_claro();`;
-    try {
-      console.log(
-        `[DB] Executando rotina noturna: omni.fn_validar_temporario_claro()...`,
-      );
-      const result = await pool.query(query);
-      console.log(
-        `[DB] Rotina fn_validar_temporario_claro executada com sucesso.`,
-      );
-      return result.rows;
-    } catch (error) {
-      console.error(
-        "[ServicoClaroRepository] Erro Crítico ao executar fn_validar_temporario_claro:",
-        error,
-      );
-      throw error;
-    }
-  }
-
   async buscarDashboardHistorico() {
     const query = `SELECT * FROM omni.vw_historico_atendimento_declinio;`;
     try {

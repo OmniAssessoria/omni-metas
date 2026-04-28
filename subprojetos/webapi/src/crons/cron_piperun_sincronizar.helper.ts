@@ -2,16 +2,19 @@ import {
   FUNIS_PERDAS,
   PIPELINE_GANHOS,
   STAGE_GANHOS,
-} from "../configs/piperun.config";
-import ServicoClaroRepository from "../repositories/servico_claro.repository";
+} from "../configs/piperun.config.js";
+
+// IMPORT ATUALIZADO: Agora apontamos para o seu novo repositório unificado de funções do banco
+import FunctionsDatabaseRepository from "../repositories/functions_database.repository.js";
+
 import {
   buscarCnpjPorCompanyId,
   buscarTodasAsPaginas,
   obterCustomField,
   formatarCNPJ,
   delay,
-} from "../helpers/piperun_auxiliares.helper";
-import ServicoClaroService from "../services/servico_claro.service";
+} from "../helpers/piperun_auxiliares.helper.js";
+import ServicoClaroService from "../services/servico_claro.service.js";
 
 export default class Piperun {
   private servicoClaroService: ServicoClaroService;
@@ -123,7 +126,9 @@ export default class Piperun {
       }
 
       console.log(`[CRON 19:00] Disparando function de validação no PostgreSQL...`);
-      const repo = new ServicoClaroRepository();
+      
+      const repo = new FunctionsDatabaseRepository();
+      
       await repo.executarValidacaoTemporarioClaro();
 
       console.log(`======================================================`);
@@ -134,4 +139,3 @@ export default class Piperun {
     }
   }
 }
-
