@@ -5,8 +5,8 @@ import FunctionsDatabaseRepository from "./repositories/functions_database.repos
 import Piperun from "./crons/cron_piperun_sincronizar.helper.js";
 
 async function Servidor() {
-  const server = app.listen(3000, () => {
-    console.log("Server está rodando http://localhost:3000");
+  const server = app.listen(3333, () => {
+    console.log("Server está rodando http://localhost:3333");
 
     const piperunCron = new Piperun();
 

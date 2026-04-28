@@ -19,7 +19,7 @@ const apiPipeRun = axios.create({
 });
 
 const apiInterna = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: "http://localhost:3333/api",
   headers: {
     "Content-Type": "application/json",
   },
