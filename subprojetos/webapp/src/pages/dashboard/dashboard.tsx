@@ -17,7 +17,6 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import html2canvas from "html2canvas";
 import {
   IApiResponseView,
   IServicoViewAPI,
@@ -64,6 +63,32 @@ const calcularMesesAtivosContrato = (
   const diffAnos = hoje.getFullYear() - dataFim.getFullYear();
   const diffMeses = hoje.getMonth() - dataFim.getMonth();
   return diffAnos * 12 + diffMeses + 24;
+};
+
+// ============================================================================
+// REGRA DE NEGÓCIO CENTRALIZADA - DEFINIÇÃO ESTRITA DE AQUECIMENTO
+// ============================================================================
+const verificarSeElegivelAquecimento = (
+  dataFimContrato?: string | null,
+  classificacao?: string | null,
+): boolean => {
+  const mesesAtivos = calcularMesesAtivosContrato(dataFimContrato);
+  if (mesesAtivos === null) return false;
+
+  let offsetRenovacao = 0;
+
+  // Se a classificação for CA, CC ou CE, a renovação atrasa 2 meses (vai para 18).
+  if (classificacao && ["CA", "CC", "CE"].includes(classificacao)) {
+    offsetRenovacao = 2;
+  }
+
+  // O mês exato de aquecimento é sempre 1 mês ANTES da renovação.
+  // Renovação padrão = 16 meses -> Aquecendo = 15.
+  // Renovação especial = 18 meses -> Aquecendo = 17.
+  const mesExatoAquecimento = 15 + offsetRenovacao;
+
+  // Retorna TRUE única e exclusivamente se for o mês exato da regra!
+  return mesesAtivos === mesExatoAquecimento;
 };
 
 const prepararDados = (lista: any[]) => {
@@ -200,11 +225,13 @@ export default function DashboardAnaliticoMultiView() {
       const arrayAquecendo: IServicoViewAPI[] = [];
 
       baseForaPrazoBruta.forEach((item) => {
-        const mesesAtivos = calcularMesesAtivosContrato(item.dt_fim_contrato);
-        let offsetRenovacao = 0;
-        if (["CA", "CC", "CE"].includes(item.classificacao_contrato))
-          offsetRenovacao = 2;
-        if (mesesAtivos !== null && mesesAtivos === 15 + offsetRenovacao) {
+        // Aplicação limpa e direta da nossa regra de negócio utilitária
+        if (
+          verificarSeElegivelAquecimento(
+            item.dt_fim_contrato,
+            item.classificacao_contrato,
+          )
+        ) {
           item.indicacao = "AQUECENDO";
           arrayAquecendo.push(item);
         } else {
@@ -249,13 +276,13 @@ export default function DashboardAnaliticoMultiView() {
       const baseCarteiraTratada = (resCarteira?.data?.dados || []).map(
         (item: any) => {
           if (item.indicacao === "FORA DO PRAZO") {
-            const mesesAtivos = calcularMesesAtivosContrato(
-              item.dt_fim_contrato,
-            );
-            let offsetRenovacao = 0;
-            if (["CA", "CC", "CE"].includes(item.classificacao_contrato))
-              offsetRenovacao = 2;
-            if (mesesAtivos !== null && mesesAtivos === 15 + offsetRenovacao) {
+            // Aplicação da mesma regra utilitária na carteira
+            if (
+              verificarSeElegivelAquecimento(
+                item.dt_fim_contrato,
+                item.classificacao_contrato,
+              )
+            ) {
               item.indicacao = "AQUECENDO";
             }
           }
