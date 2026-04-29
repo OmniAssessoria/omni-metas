@@ -1204,6 +1204,40 @@ export default function DashboardAnaliticoMultiView() {
               </div>
             </CardContent>
           </Card>
+
+          {/* ========================================= */}
+          {/* LEGENDA DAS MÉTRICAS DE FUNIL (REINSERIDA) */}
+          {/* ========================================= */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+            <div className="p-4 bg-slate-800/60 border border-slate-700/50 rounded-lg shadow-sm transition-all hover:bg-slate-800">
+              <h4 className="text-sm font-bold text-emerald-400 mb-1">CPC</h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                São empresas que já foram lidas na aplicação de planos e linhas.
+              </p>
+            </div>
+            <div className="p-4 bg-slate-800/60 border border-slate-700/50 rounded-lg shadow-sm transition-all hover:bg-slate-800">
+              <h4 className="text-sm font-bold text-sky-400 mb-1">eDoc</h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                São empresas que foram lidas na aplicação eDoc de contratos.
+              </p>
+            </div>
+            <div className="p-4 bg-slate-800/60 border border-slate-700/50 rounded-lg shadow-sm transition-all hover:bg-slate-800">
+              <h4 className="text-sm font-bold text-blue-400 mb-1">DRIVE</h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                São as empresas que foram lidas e possuem CONTRATO.
+              </p>
+            </div>
+            <div className="p-4 bg-slate-800/60 border border-slate-700/50 rounded-lg shadow-sm transition-all hover:bg-slate-800">
+              <h4 className="text-sm font-bold text-purple-400 mb-1">
+                Serviço Claro
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                São empresas que têm serviço (planos e linhas para
+                trabalharmos).
+              </p>
+            </div>
+          </div>
+          {/* ========================================= */}
         </div>
 
         <hr className="w-full max-w-7xl mx-auto border-t-[6px] border-emerald-500 rounded-full opacity-80 my-8" />
