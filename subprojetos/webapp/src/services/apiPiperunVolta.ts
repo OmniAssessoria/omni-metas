@@ -1,5 +1,6 @@
 import { TOKEN_PIPERUN } from "@/configs/piperunConfigs.config";
 import axios from "axios";
+import { URL_API_LOCAL } from "./api";
 
 // ============================================================================
 // CONFIGURAÇÕES E CONSTANTES
@@ -19,7 +20,7 @@ const apiPipeRun = axios.create({
 });
 
 const apiInterna = axios.create({
-  baseURL: "http://localhost:3333/api",
+  baseURL: `${URL_API_LOCAL}/api`,
   headers: {
     "Content-Type": "application/json",
   },

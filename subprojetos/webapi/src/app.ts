@@ -1,6 +1,7 @@
 import express, { Application } from "express";
-import cors from "cors";
+import cors, { CorsOptions } from "cors";
 import RouterController from "./routes/rotas.router";
+
 class App {
   public server: Application;
 
@@ -11,9 +12,23 @@ class App {
   }
 
   private middleware() {
-    this.server.use(cors());
-    this.server.use(express.json());
-    this.server.use(express.urlencoded({ extended: true }));
+    const corsOptions: CorsOptions = {
+      origin: [
+        "http://localhost:3035",      
+        "http://10.0.0.234:3035",      
+        "http://127.0.0.1:3035"       
+      ],
+      
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "Accept", "token"],
+      credentials: true,
+      optionsSuccessStatus: 200 
+    };
+
+    this.server.use(cors(corsOptions));
+    
+    this.server.use(express.json({ limit: "50mb" }));
+    this.server.use(express.urlencoded({ extended: true, limit: "50mb" }));
   }
 
   private routes() {
