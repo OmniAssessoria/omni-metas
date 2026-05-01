@@ -126,9 +126,6 @@ export const API_PIPERUN = async ({
         companyId = createCompany.data?.data?.id || null;
       }
 
-      // ===================================================================
-      // 2) PREPARAÇÃO DO HASH E PAYLOAD DO WEBHOOK
-      // ===================================================================
       let hashDefinido = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
 
       const isCarteira =
@@ -250,9 +247,6 @@ export const API_PIPERUN = async ({
         ],
       };
 
-      // ===================================================================
-      // 3) DISPARA O WEBHOOK PARA CRIAR O DEAL NO PIPERUN
-      // ===================================================================
       console.log(`[Passo 2] 🤝 Disparando Webhook para Oportunidade...`);
       const responseWebhook = await axios.post(
         `https://app.pipe.run/webservice/integradorJson`,
@@ -276,9 +270,6 @@ export const API_PIPERUN = async ({
         );
       }
 
-      // ===================================================================
-      // 4) ANEXA AS IMAGENS BASEADO NO CONSULTOR
-      // ===================================================================
       if (dealIdCriado) {
         await gerarEAnexarImagemPipeRun(
           dealIdCriado,
@@ -288,7 +279,7 @@ export const API_PIPERUN = async ({
           "📊 Resumo de Situação Atual - Linhas",
         );
 
-        if (isConsultorCarolina) {
+        if (indicacaoNormalizada === "RENOVACAO") {
           await gerarEAnexarImagemPipeRun(
             dealIdCriado,
             servico,
@@ -298,9 +289,6 @@ export const API_PIPERUN = async ({
           );
         }
 
-        // ===================================================================
-        // 👉 NOVA LÓGICA: ANEXA A IMAGEM DO DECISOR (SE HOUVER DOCDRIVE)
-        // ===================================================================
         if (servico.servico_docdrive) {
           const base64Decisor = await extrairImagemDecisorDrive(
             servico.servico_docdrive,
