@@ -1,11 +1,44 @@
 import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
-import { buscarTodasOportunidadesPipeline } from "./apiPieperunTotalServicoConsultor";
-import { buscarOportunidadesPorPeriodo } from "./apiPieperunTotalServicoConsultor";
+import { buscarOportunidadesGenericaPorPeriodo, buscarTodasOportunidadesPipeline } from "./apiPieperunTotalServicoConsultor";
 
 const PIPELINE_IDS = {
   CARTEIRA: 93990,
   RENOVACAO: 90697,
   PORTABILIDADE: 102509,
+};
+
+const FUNIS_ABERTOS_E_PERDIDOS = [
+  90697,
+  102509, 
+  94063,  
+  93990,  
+  91356,  
+  103176,
+  91369,  
+  77127  
+];
+
+const HASHES_GANHOS = [
+  "c1d9312f-db68-4379-8820-a5d3619ec002",
+  "6b9a2da5-c640-48c3-8cf5-adb63a726a27"  
+];
+
+const regrasPerfisExatos: Record<number, string> = {
+  89614: "RENOVACAO",
+  89613: "RENOVACAO",
+  95586: "RENOVACAO",
+  100201: "RENOVACAO",
+  100980: "RENOVACAO",
+  99648: "RENOVACAO",
+  58488: "AMBOS",
+  59215: "AMBOS",
+  100979: "RENOVACAO",
+  100703: "PORTABILIDADE",
+  58448: "PORTABILIDADE",
+  97363: "CARTEIRA",
+  102074: "RENOVACAO",
+  102075: "RENOVACAO",
+  102076: "RENOVACAO",
 };
 
 export async function compilarOportunidadesDinamico(
@@ -25,40 +58,14 @@ export async function compilarOportunidadesDinamico(
     ...dealsPortabilidade,
   ];
 
-  const regrasPerfisExatos: Record<number, string> = {
-    89614: "RENOVACAO", // Aderlane Mendes
-    89613: "RENOVACAO", // Aline Araujo
-    95586: "RENOVACAO", // Julia Penafore
-    100201: "RENOVACAO", // Leticia Ferreira
-    100980: "RENOVACAO", // Lisa Leao
-    99648: "RENOVACAO", // Natalia Ribeiro
-    58488: "AMBOS", // Nathália Dadalte
-    59215: "AMBOS", // Otavio Souza
-    88311: "RENOVACAO", // Vitor Moreira
-    100703: "PORTABILIDADE", // Gabrieli Lima
-    58448: "PORTABILIDADE", // Letícia Ohara
-    97363: "CARTEIRA", // Carolina Souza
-    102074: "RENOVACAO", // Lara de Oliveira
-    102076: "RENOVACAO", // Maria Eduarda Santos
-  };
-
   const resultadoFinal = consultoresDinamic.map((consultor) => {
-    const perfilOperacional =
-      regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
+    const perfilOperacional = regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
     let pipelinesPermitidos: number[] = [];
 
-    if (perfilOperacional === "CARTEIRA") {
-      pipelinesPermitidos = [PIPELINE_IDS.CARTEIRA];
-    } else if (perfilOperacional === "PORTABILIDADE") {
-      pipelinesPermitidos = [PIPELINE_IDS.PORTABILIDADE];
-    } else if (perfilOperacional === "AMBOS") {
-      pipelinesPermitidos = [
-        PIPELINE_IDS.RENOVACAO,
-        PIPELINE_IDS.PORTABILIDADE,
-      ];
-    } else {
-      pipelinesPermitidos = [PIPELINE_IDS.RENOVACAO];
-    }
+    if (perfilOperacional === "CARTEIRA") pipelinesPermitidos = [PIPELINE_IDS.CARTEIRA];
+    else if (perfilOperacional === "PORTABILIDADE") pipelinesPermitidos = [PIPELINE_IDS.PORTABILIDADE];
+    else if (perfilOperacional === "AMBOS") pipelinesPermitidos = [PIPELINE_IDS.RENOVACAO, PIPELINE_IDS.PORTABILIDADE];
+    else pipelinesPermitidos = [PIPELINE_IDS.RENOVACAO];
 
     const totalDoConsultor = todosDeals.filter(
       (deal) =>
@@ -81,100 +88,86 @@ export async function compilarRelatorioPerdas(
   dataInicio: string,
   dataFim: string,
 ) {
-  const [dealsCarteira, dealsRenovacao, dealsPortabilidade] = await Promise.all(
-    [
-      buscarOportunidadesPorPeriodo(PIPELINE_IDS.CARTEIRA, dataInicio, dataFim),
-      buscarOportunidadesPorPeriodo(
-        PIPELINE_IDS.RENOVACAO,
-        dataInicio,
-        dataFim,
-      ),
-      buscarOportunidadesPorPeriodo(
-        PIPELINE_IDS.PORTABILIDADE,
-        dataInicio,
-        dataFim,
-      ),
-    ],
+  console.log(`[PipeRun] Extraindo Safra (Criados entre ${dataInicio} e ${dataFim})...`);
+  const promessasPipelines = FUNIS_ABERTOS_E_PERDIDOS.map((pipelineId) =>
+    buscarOportunidadesGenericaPorPeriodo(
+      { pipeline_id: pipelineId }, 
+      dataInicio, 
+      dataFim
+    )
   );
 
-  const todosDeals = [
-    ...dealsCarteira,
-    ...dealsRenovacao,
-    ...dealsPortabilidade,
-  ];
+  const promessasHashes = HASHES_GANHOS.map((hash) =>
+    buscarOportunidadesGenericaPorPeriodo(
+      { stage_hash: hash, status: 1 },
+      dataInicio, 
+      dataFim
+    )
+  );
 
-  const regrasPerfisExatos: Record<number, string> = {
-    89614: "RENOVACAO",
-    89613: "RENOVACAO",
-    95586: "RENOVACAO",
-    100201: "RENOVACAO",
-    100980: "RENOVACAO",
-    99648: "RENOVACAO",
-    58488: "AMBOS",
-    59215: "AMBOS",
-    100979: "RENOVACAO",
-    88311: "RENOVACAO",
-    100703: "PORTABILIDADE",
-    58448: "PORTABILIDADE",
-    97363: "CARTEIRA",
-    102074: "RENOVACAO",
-    102075: "RENOVACAO",
-    102076: "RENOVACAO",
-  };
+  const resultadosPipelines = await Promise.all(promessasPipelines);
+  const resultadosHashes = await Promise.all(promessasHashes);
+
+  const todosDealsFunis = resultadosPipelines.flat();
+  const todosDealsGanhos = resultadosHashes.flat();
 
   const resultadoFinal = consultoresDinamic.map((consultor) => {
-    const perfilOperacional =
-      regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
+    const perfilOperacional = regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
 
-    let pipelinesPermitidos: number[] = [];
-    if (perfilOperacional === "CARTEIRA")
-      pipelinesPermitidos = [PIPELINE_IDS.CARTEIRA];
-    else if (perfilOperacional === "PORTABILIDADE")
-      pipelinesPermitidos = [PIPELINE_IDS.PORTABILIDADE];
-    else if (perfilOperacional === "AMBOS")
-      pipelinesPermitidos = [
-        PIPELINE_IDS.RENOVACAO,
-        PIPELINE_IDS.PORTABILIDADE,
-      ];
-    else pipelinesPermitidos = [PIPELINE_IDS.RENOVACAO];
-
-    const dealsDoConsultor = todosDeals.filter(
-      (deal) =>
-        deal.owner_id === consultor.owner_id &&
-        pipelinesPermitidos.includes(deal.pipeline_id),
+    const dealsConsultorFunis = todosDealsFunis.filter(
+      (deal) => deal.owner_id === consultor.owner_id
     );
 
-    let totalBase = 0;
-    let valorBase = 0;
-    let totalDeclinados = 0;
-    let valorDeclinados = 0;
+    const dealsConsultorGanhos = todosDealsGanhos.filter(
+      (deal) => deal.owner_id === consultor.owner_id
+    );
 
-    dealsDoConsultor.forEach((deal) => {
-      totalBase++;
-      const valorOportunidade = Number(deal.value || deal.value_mrr || 0);
-      valorBase += valorOportunidade;
+    let totalAbertos = 0;
+    let totalPerdidos = 0;
+    
+    // ====================================================================
+    // REGRA 1: GANHOS
+    // Avalia SOMENTE a data de criação (já garantido pelo fetch da API).
+    // O status 1 na requisição garante que é um ganho real.
+    // ====================================================================
+    let totalGanhos = dealsConsultorGanhos.length;
 
-      if (deal.status === 3) {
-        totalDeclinados++;
-        valorDeclinados += valorOportunidade;
+    dealsConsultorFunis.forEach((deal) => {
+      if (deal.status === 0) {
+        // ====================================================================
+        // REGRA 2: ABERTOS
+        // Avalia SOMENTE a data de criação (já garantido pelo fetch da API).
+        // ====================================================================
+        totalAbertos++;
+      } else if (deal.status === 3) {
+        // ====================================================================
+        // REGRA 3: PERDIDOS
+        // Avalia a data de CRIAÇÃO (via API) + Data de DECLÍNIO (via Código).
+        // ====================================================================
+
+        const dataDeclinioCompleta = deal.closed_at || deal.updated_at || "";
+        
+        const dataDeclinioValida = dataDeclinioCompleta.split(" ")[0]; 
+        if (dataDeclinioValida >= dataInicio && dataDeclinioValida <= dataFim) {
+          totalPerdidos++;
+        }
       }
     });
 
     return {
       nome: consultor.nome,
       perfil: perfilOperacional,
-      totalBase,
-      valorBase,
-      totalDeclinados,
-      valorDeclinados,
-      taxaPerda:
-        totalBase > 0
-          ? ((totalDeclinados / totalBase) * 100).toFixed(2)
-          : "0.00",
+      totalGanhos,
+      totalPerdidos,
+      totalAbertos,
     };
   });
 
   return resultadoFinal
-    .filter((c) => c.totalBase > 0)
-    .sort((a, b) => b.totalDeclinados - a.totalDeclinados);
+    .filter((c) => c.totalGanhos > 0 || c.totalPerdidos > 0 || c.totalAbertos > 0)
+    .sort(
+      (a, b) =>
+        (b.totalGanhos + b.totalPerdidos + b.totalAbertos) - 
+        (a.totalGanhos + a.totalPerdidos + a.totalAbertos)
+    );
 }

@@ -42,6 +42,17 @@ import DashHistorico from "@/components/dash_historico/dash_historico";
 import DashServicoClaro from "@/components/dash_servico_claro/dash_servico_claro";
 import DashCarteira from "@/components/dash_carteira.ts/dash_carteira";
 
+const getDataAtualFormata = () => {
+  const hoje = new Date();
+  return hoje.toISOString().split("T")[0];
+};
+
+const getPrimeiroDiaMesFormatado = () => {
+  const hoje = new Date();
+  const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  return primeiroDia.toISOString().split("T")[0];
+};
+
 const calcularDiasPassados = (dataString?: string | null): number | null => {
   if (!dataString) return null;
   const dataBase = new Date(dataString);
@@ -65,9 +76,6 @@ const calcularMesesAtivosContrato = (
   return diffAnos * 12 + diffMeses + 24;
 };
 
-// ============================================================================
-// REGRA DE NEGÓCIO CENTRALIZADA - DEFINIÇÃO ESTRITA DE AQUECIMENTO
-// ============================================================================
 const verificarSeElegivelAquecimento = (
   dataFimContrato?: string | null,
   classificacao?: string | null,
@@ -76,18 +84,10 @@ const verificarSeElegivelAquecimento = (
   if (mesesAtivos === null) return false;
 
   let offsetRenovacao = 0;
-
-  // Se a classificação for CA, CC ou CE, a renovação atrasa 2 meses (vai para 18).
   if (classificacao && ["CA", "CC", "CE"].includes(classificacao)) {
     offsetRenovacao = 2;
   }
-
-  // O mês exato de aquecimento é sempre 1 mês ANTES da renovação.
-  // Renovação padrão = 16 meses -> Aquecendo = 15.
-  // Renovação especial = 18 meses -> Aquecendo = 17.
   const mesExatoAquecimento = 15 + offsetRenovacao;
-
-  // Retorna TRUE única e exclusivamente se for o mês exato da regra!
   return mesesAtivos === mesExatoAquecimento;
 };
 
@@ -162,6 +162,7 @@ export default function DashboardAnaliticoMultiView() {
   const [isLinhasMaxInitialized, setIsLinhasMaxInitialized] = useState(false);
   const [filtroCpcAtivo, setFiltroCpcAtivo] = useState(false);
   const [filtroCpcValor, setFiltroCpcValor] = useState(30);
+
   const [historicoBruto, setHistoricoBruto] = useState<IHistoricoViewAPI[]>([]);
   const [historicoFiltrado, setHistoricoFiltrado] = useState<
     IHistoricoViewAPI[]
@@ -170,16 +171,22 @@ export default function DashboardAnaliticoMultiView() {
     useState<string>("TODOS");
   const [filtroHistMotivo, setFiltroHistMotivo] = useState<string>("TODOS");
   const [consultoresDB, setConsultoresDB] = useState<ConsultorBD[]>([]);
+
   const [dadosPipelineBolhas, setDadosPipelineBolhas] = useState<any[]>([]);
   const [loadingBolhas, setLoadingBolhas] = useState<boolean>(false);
-  const [dataInicioPipe, setDataInicioPipe] = useState<string>("");
-  const [dataFimPipe, setDataFimPipe] = useState<string>("");
   const [dadosPerdas, setDadosPerdas] = useState<any[]>([]);
   const [loadingPerdas, setLoadingPerdas] = useState<boolean>(false);
   const [dadosFunilCpc, setDadosFunilCpc] = useState<any>(null);
   const [viewModePerdas, setViewModePerdas] = useState<"grafico" | "tabela">(
     "grafico",
   );
+
+  const [dataInicioPipe, setDataInicioPipe] = useState<string>(
+    getPrimeiroDiaMesFormatado(),
+  );
+  const [dataFimPipe, setDataFimPipe] = useState<string>(getDataAtualFormata());
+
+  const hasFetchedDefaultRelatorio = useRef<boolean>(false);
 
   const CORES = {
     renovacao: "#eab308",
@@ -225,7 +232,6 @@ export default function DashboardAnaliticoMultiView() {
       const arrayAquecendo: IServicoViewAPI[] = [];
 
       baseForaPrazoBruta.forEach((item) => {
-        // Aplicação limpa e direta da nossa regra de negócio utilitária
         if (
           verificarSeElegivelAquecimento(
             item.dt_fim_contrato,
@@ -272,11 +278,9 @@ export default function DashboardAnaliticoMultiView() {
       const resCarteira = await API.get<any>(
         "/api/servico-claro/dashboard/empresas-carteira",
       );
-
       const baseCarteiraTratada = (resCarteira?.data?.dados || []).map(
         (item: any) => {
           if (item.indicacao === "FORA DO PRAZO") {
-            // Aplicação da mesma regra utilitária na carteira
             if (
               verificarSeElegivelAquecimento(
                 item.dt_fim_contrato,
@@ -321,7 +325,6 @@ export default function DashboardAnaliticoMultiView() {
         "/api/servico-claro/dashboard/historico",
       );
       const payloadHistorico = resHist.data?.dados || [];
-
       setHistoricoBruto(payloadHistorico);
       setHistoricoFiltrado(payloadHistorico);
 
@@ -353,7 +356,6 @@ export default function DashboardAnaliticoMultiView() {
       ...dadosBrutos.prazo_excedido,
       ...carteiraBruta,
     ];
-
     let maxLinhas = 0;
     let maxCpc = 0;
 
@@ -362,12 +364,9 @@ export default function DashboardAnaliticoMultiView() {
         Number(item.qtd_linhas_total || 0),
         Number(item.qtd_servico_claro || 0),
       );
-
       if (linhas > maxLinhas) maxLinhas = linhas;
-
       const dataLeituraCpc = item.dt_leitura_cpc_empresa || item.dt_leitura_cpc;
       const diasCpc = calcularDiasPassados(dataLeituraCpc);
-
       if (diasCpc !== null && diasCpc > maxCpc) maxCpc = diasCpc;
     });
 
@@ -466,8 +465,8 @@ export default function DashboardAnaliticoMultiView() {
         }
         if (filtroDataFim !== "") {
           if (!item.dt_fim_contrato) return false;
-          const dataFormatada = item.dt_fim_contrato.substring(0, 10);
-          if (dataFormatada !== filtroDataFim) return false;
+          if (item.dt_fim_contrato.substring(0, 10) !== filtroDataFim)
+            return false;
         }
 
         if (tipoFiltroLinha === "RANGE") {
@@ -524,8 +523,8 @@ export default function DashboardAnaliticoMultiView() {
 
         if (filtroDataFim !== "") {
           if (!item.dt_fim_contrato) return false;
-          const dataFormatada = item.dt_fim_contrato.substring(0, 10);
-          if (dataFormatada !== filtroDataFim) return false;
+          if (item.dt_fim_contrato.substring(0, 10) !== filtroDataFim)
+            return false;
         }
 
         if (filtroCpcAtivo) {
@@ -538,25 +537,20 @@ export default function DashboardAnaliticoMultiView() {
             Number(item.qtd_linhas_total || 0),
             Number(item.qtd_servico_claro || 0),
           );
-
           if (tipoFiltroLinha === "RANGE") {
             if (
               qtdeLinhasAvaliada < filtroLinhasRangeMin ||
               qtdeLinhasAvaliada > filtroLinhasRangeMax
-            ) {
+            )
               return false;
-            }
           } else if (tipoFiltroLinha === "EXACT") {
-            if (qtdeLinhasAvaliada !== filtroLinhasExact) {
-              return false;
-            }
+            if (qtdeLinhasAvaliada !== filtroLinhasExact) return false;
           }
         }
 
         if (filtroDDD !== "TODOS" && item.numero_linha) {
           const dddStr = String(item.numero_linha).substring(0, 2);
           const dddNum = Number(dddStr);
-
           if (filtroDDD === "FORA_SP") {
             if (dddNum >= 11 && dddNum <= 19) return false;
           } else if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
@@ -568,7 +562,6 @@ export default function DashboardAnaliticoMultiView() {
             if (dddStr !== filtroDDD) return false;
           }
         }
-
         return true;
       });
     };
@@ -595,15 +588,12 @@ export default function DashboardAnaliticoMultiView() {
     setFiltroConsultor("TODOS");
     setFiltroClassificacao("TODOS");
     setFiltroDataFim("");
-
     setTipoFiltroLinha("NONE");
     setFiltroLinhasRangeMin(0);
     setFiltroLinhasRangeMax(maxLinhasGlobal);
     setFiltroLinhasExact(0);
-
     setFiltroCpcAtivo(false);
     setFiltroCpcValor(maxDiasCpcGlobal);
-
     setDadosFiltrados(dadosBrutos);
     setCarteiraFiltrada(carteiraBruta);
   };
@@ -634,7 +624,6 @@ export default function DashboardAnaliticoMultiView() {
       prazo_limitado = 0,
       prazo_excedido = 0,
       cancelados_inviavel = 0;
-
     carteiraFiltrada.forEach((item) => {
       if (
         item.dt_leitura_cpc !== null &&
@@ -649,7 +638,6 @@ export default function DashboardAnaliticoMultiView() {
       if (item.indicacao === "PRAZO LIMITADO") prazo_limitado++;
       if (item.indicacao === "PRAZO EXCEDIDO") prazo_excedido++;
     });
-
     return {
       renovacao,
       portabilidade,
@@ -749,35 +737,28 @@ export default function DashboardAnaliticoMultiView() {
     const element = elementId
       ? document.getElementById(elementId)
       : dashboardRef.current;
-
     if (!element) {
       setNotification(
         "Erro: Não foi possível localizar a área para exportação.",
       );
       return;
     }
-
     try {
       const nodeWidth = element.offsetWidth;
       const nodeHeight = element.offsetHeight;
-
       const dataUrl = await htmlToImage.toPng(element, {
         quality: 1,
         backgroundColor: "#f8fafc",
         pixelRatio: 2,
         width: nodeWidth,
         height: nodeHeight,
-        style: {
-          overflow: "hidden",
-        },
+        style: { overflow: "hidden" },
       });
-
       const link = document.createElement("a");
       const nomeArquivo = fileNamePrefix ? fileNamePrefix : "Analise_Dashboard";
       link.download = `${nomeArquivo}_${new Date().toISOString().slice(0, 10)}.png`;
       link.href = dataUrl;
       link.click();
-
       setNotification(
         fileNamePrefix
           ? `Print exportado com sucesso!`
@@ -803,7 +784,6 @@ export default function DashboardAnaliticoMultiView() {
     else if (modalExportacaoAberto === "servicos") prefix = "Base_Servicos";
     else if (modalExportacaoAberto === "historico") prefix = "Base_Historico";
     else if (modalExportacaoAberto === "crm") prefix = "Base_CRM_Perdas";
-
     return `${prefix}_${new Date().toISOString().slice(0, 10)}`;
   };
 
@@ -822,7 +802,6 @@ export default function DashboardAnaliticoMultiView() {
           .join(";"),
       ),
     ].join("\n");
-
     const blob = new Blob(["\uFEFF" + csvContent], {
       type: "text/csv;charset=utf-8;",
     });
@@ -836,7 +815,6 @@ export default function DashboardAnaliticoMultiView() {
   const exportToXLSX = async () => {
     const data = getDataToExport();
     if (!data || data.length === 0) return alert("Nenhum dado para exportar.");
-
     try {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Dados Exportados");
@@ -853,7 +831,6 @@ export default function DashboardAnaliticoMultiView() {
         pattern: "solid",
         fgColor: { argb: "FF1E293B" },
       };
-
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -863,7 +840,6 @@ export default function DashboardAnaliticoMultiView() {
       setNotification("Planilha XLSX gerada com sucesso!");
       setTimeout(() => setNotification(null), 3000);
     } catch (error) {
-      console.error("Erro ao gerar Excel:", error);
       alert("Houve um erro ao processar o arquivo XLSX.");
     }
   };
@@ -877,7 +853,6 @@ export default function DashboardAnaliticoMultiView() {
     const tableData = data.map((row) =>
       displayKeys.map((k) => String((row as any)[k] || "")),
     );
-
     doc.text(`Relatório Analítico de Base`, 40, 40);
     autoTable(doc, {
       head: [displayKeys],
@@ -965,50 +940,61 @@ export default function DashboardAnaliticoMultiView() {
     [consultoresDB],
   );
 
+  const buscarRelatorioPerdasPeriodo = useCallback(
+    async (isAutoLoad = false) => {
+      if (!dataInicioPipe || !dataFimPipe) {
+        setNotification("Por favor, selecione a Data de Início e Fim.");
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+      if (consultoresDB.length === 0) return;
+
+      setLoadingPerdas(true);
+      try {
+        const payloadConsultoresFormatado: IConsultor[] = consultoresDB.map(
+          (c) =>
+            ({
+              nome: c.nome,
+              owner_id: c.codigo_crm,
+              seq: c.codigo_crm || 0,
+              email: "",
+              perfil: String(c.perfil_indicacao)
+                .trim()
+                .toUpperCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, ""),
+            }) as IConsultor,
+        );
+
+        const relatorio = await compilarRelatorioPerdas(
+          payloadConsultoresFormatado,
+          dataInicioPipe,
+          dataFimPipe,
+        );
+
+        setDadosPerdas(relatorio);
+
+        if (!isAutoLoad) {
+          setNotification("Relatório de Oportunidades atualizado com sucesso!");
+          setTimeout(() => setNotification(null), 3000);
+        }
+      } catch (error) {
+        setNotification("Falha ao gerar o relatório.");
+        setTimeout(() => setNotification(null), 3000);
+      } finally {
+        setLoadingPerdas(false);
+      }
+    },
+    [consultoresDB, dataInicioPipe, dataFimPipe],
+  );
+
   useEffect(() => {
-    if (consultoresDB.length > 0) fetchDadosBolhas();
-  }, [consultoresDB, fetchDadosBolhas]);
-
-  const buscarRelatorioPerdasPeriodo = async () => {
-    if (!dataInicioPipe || !dataFimPipe) {
-      setNotification("Por favor, selecione a Data de Início e Fim.");
-      setTimeout(() => setNotification(null), 3000);
-      return;
+    if (consultoresDB.length > 0 && !hasFetchedDefaultRelatorio.current) {
+      fetchDadosBolhas();
+      buscarRelatorioPerdasPeriodo(true);
+      hasFetchedDefaultRelatorio.current = true;
     }
-    if (consultoresDB.length === 0) return;
-
-    setLoadingPerdas(true);
-    try {
-      const payloadConsultoresFormatado: IConsultor[] = consultoresDB.map(
-        (c) =>
-          ({
-            nome: c.nome,
-            owner_id: c.codigo_crm,
-            seq: c.codigo_crm || 0,
-            email: "",
-            perfil: String(c.perfil_indicacao)
-              .trim()
-              .toUpperCase()
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, ""),
-          }) as IConsultor,
-      );
-
-      const relatorio = await compilarRelatorioPerdas(
-        payloadConsultoresFormatado,
-        dataInicioPipe,
-        dataFimPipe,
-      );
-      setDadosPerdas(relatorio);
-      setNotification("Relatório de Perdas atualizado com sucesso!");
-      setTimeout(() => setNotification(null), 3000);
-    } catch (error) {
-      setNotification("Falha ao gerar o relatório de perdas.");
-      setTimeout(() => setNotification(null), 3000);
-    } finally {
-      setLoadingPerdas(false);
-    }
-  };
+  }, [consultoresDB, fetchDadosBolhas, buscarRelatorioPerdasPeriodo]);
 
   return (
     <div className="flex h-screen overflow-hidden w-screen bg-slate-50 text-slate-900">
@@ -1025,8 +1011,8 @@ export default function DashboardAnaliticoMultiView() {
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-in zoom-in-95 duration-200">
               <div className="flex justify-between items-center mb-6 border-b pb-3">
                 <h3 className="font-bold text-lg flex items-center gap-2 text-slate-800">
-                  <Download className="w-5 h-5 text-primary" />
-                  Exportar Dados ({modalExportacaoAberto.toUpperCase()})
+                  <Download className="w-5 h-5 text-primary" /> Exportar Dados (
+                  {modalExportacaoAberto.toUpperCase()})
                 </h3>
                 <button
                   onClick={() => setModalExportacaoAberto(null)}
@@ -1205,9 +1191,6 @@ export default function DashboardAnaliticoMultiView() {
             </CardContent>
           </Card>
 
-          {/* ========================================= */}
-          {/* LEGENDA DAS MÉTRICAS DE FUNIL (REINSERIDA) */}
-          {/* ========================================= */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
             <div className="p-4 bg-slate-800/60 border border-slate-700/50 rounded-lg shadow-sm transition-all hover:bg-slate-800">
               <h4 className="text-sm font-bold text-emerald-400 mb-1">CPC</h4>
@@ -1237,11 +1220,9 @@ export default function DashboardAnaliticoMultiView() {
               </p>
             </div>
           </div>
-          {/* ========================================= */}
         </div>
 
         <hr className="w-full max-w-7xl mx-auto border-t-[6px] border-emerald-500 rounded-full opacity-80 my-8" />
-
         <DashCarteira
           ultimaAtualizacao={ultimaAtualizacao}
           exportToImage={exportToImage}
@@ -1287,9 +1268,7 @@ export default function DashboardAnaliticoMultiView() {
           CORES={CORES}
           renderCenterText={renderCenterText}
         />
-
         <hr className="w-full max-w-7xl mx-auto border-t-7 border-red-700 rounded-full" />
-
         <DashCrm
           loadingBolhas={loadingBolhas}
           dadosPipelineBolhas={dadosPipelineBolhas}
@@ -1308,9 +1287,7 @@ export default function DashboardAnaliticoMultiView() {
           exportToImage={exportToImage}
           setModalExportacaoAberto={setModalExportacaoAberto}
         />
-
         <hr className="w-full max-w-7xl mx-auto border-t-7 border-yellow-500 rounded-full opacity-80 my-8" />
-
         <DashHistorico
           historicoFiltrado={historicoFiltrado}
           limparFiltrosHistorico={limparFiltrosHistorico}

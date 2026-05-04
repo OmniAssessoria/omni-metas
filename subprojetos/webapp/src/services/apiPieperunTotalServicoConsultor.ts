@@ -1,5 +1,4 @@
 import axios from "axios";
-import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
 import { TOKEN_PIPERUN } from "@/configs/piperunConfigs.config";
 
 const apiPipeRunRest = axios.create({
@@ -9,7 +8,6 @@ const apiPipeRunRest = axios.create({
     token: TOKEN_PIPERUN,
   },
 });
-
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -56,12 +54,12 @@ export async function buscarTodasOportunidadesPipeline(pipelineId: number): Prom
     }
   }
 
-  console.log(`[PipeRun] Pipeline ${pipelineId} concluído com sucesso. Total extraído (limpo): ${todasOportunidades.length} deals.`);
+  console.log(`[PipeRun] Pipeline ${pipelineId} concluído com sucesso. Total extraído: ${todasOportunidades.length} deals.`);
   return todasOportunidades;
 }
 
-export async function buscarOportunidadesPorPeriodo(
-  pipelineId: number,
+export async function buscarOportunidadesGenericaPorPeriodo(
+  paramsExtra: Record<string, any>,
   dataInicio: string,
   dataFim: string,
 ): Promise<any[]> {
@@ -69,9 +67,7 @@ export async function buscarOportunidadesPorPeriodo(
   let paginaAtual = 1;
   let temMaisPaginas = true;
 
-  console.log(
-    `[PipeRun] Buscando Pipeline ${pipelineId} de ${dataInicio} até ${dataFim}`,
-  );
+  console.log(`[PipeRun] Buscando de ${dataInicio} até ${dataFim} com params:`, paramsExtra);
 
   while (temMaisPaginas) {
     try {
@@ -79,7 +75,7 @@ export async function buscarOportunidadesPorPeriodo(
         "/deals?deleted=false&freezed=false",
         {
           params: {
-            pipeline_id: pipelineId,
+            ...paramsExtra,
             created_at_start: `${dataInicio} 00:00:00`,
             created_at_end: `${dataFim} 23:59:59`,
             page: paginaAtual,
@@ -95,22 +91,16 @@ export async function buscarOportunidadesPorPeriodo(
         break;
       }
 
-      const dealsIsolados = data.filter(
-        (deal: any) => deal.pipeline_id === pipelineId,
-      );
-      todasOportunidades.push(...dealsIsolados);
-
+      todasOportunidades.push(...data);
       paginaAtual++;
       await delay(250);
     } catch (error: any) {
       if (error.response && error.response.status === 429) {
+        console.warn(`[Rate Limit 429] Aguardando 3s para tentar de novo...`);
         await delay(3000);
         continue;
       }
-      console.error(
-        `[Erro] Falha ao buscar pipeline ${pipelineId}:`,
-        error.message,
-      );
+      console.error(`[Erro] Falha ao buscar oportunidades dinâmicas:`, error.message);
       temMaisPaginas = false;
     }
   }
