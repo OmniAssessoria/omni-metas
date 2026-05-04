@@ -4,7 +4,6 @@ import {
   STAGE_GANHOS,
 } from "../configs/piperun.config.js";
 
-// IMPORT ATUALIZADO: Agora apontamos para o seu novo repositório unificado de funções do banco
 import FunctionsDatabaseRepository from "../repositories/functions_database.repository.js";
 
 import {
