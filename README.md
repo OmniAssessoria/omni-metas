@@ -62,6 +62,7 @@ APOIO | GANHO | hash:  6b9a2da5-c640-48c3-8cf5-adb63a726a27 | Apenas uma etapas 
 
 
 # Validar no backend
+- Olhar a data de de criados e fechados dos ganhos dentro do periodos
 
 - Se esta puxando os delcinio dessas etapas:
     - PROSPECÇÃO
@@ -93,4 +94,99 @@ APOIO | GANHO | hash:  6b9a2da5-c640-48c3-8cf5-adb63a726a27 | Apenas uma etapas 
 - Dashboard historico
     - Validar importação e prints
     - Validar filtros de colunas
-    
+
+
+# Validação dos filtros da Dashoard Analise geral de Bases (Serviços Claro)
+
+## Descrição de cara um dos parametros e qual sua responsabilidade no banco.
+
+interface que vem do banco é essa:
+
+export interface IServicoViewAPI {
+  seq_claro: number;
+  seq_empresa: number;
+  seq_consultor: number | null;
+  empresa_razao: string;
+  empresa_cnpj: string;
+  ddd_predominante: string;
+  indicacao: string;
+  situacao: string;
+  classificacao_contrato:
+    | string
+    | "CA"
+    | "CC"
+    | "CE"
+    | "CG"
+    | "CB"
+    | "CD"
+    | "CF";
+  carteira: string | null;
+  exclusivo: boolean;
+  observacao: string | null;
+  qtd_linhas_total: number;
+  qtd_linhas_ativas: number;
+  qtd_linhas_claro_operadora: number;
+  dt_fim_contrato: string | null;
+  dt_fechamento: string | null;
+  dt_ultima_leitura_servico: string | null;
+  dt_leitura_cpc_empresa: string | null;
+  flag_crm_servico: boolean;
+  flag_cpc_servico: boolean;
+  flag_edoc_servico: boolean;
+  servico_claro_ativo: boolean;
+  consultor_nome: string | null;
+}
+
+export interface IApiResponseView {
+  status: boolean;
+  mensagem: string;
+  dados: any[];
+}
+
+
+# Filtros e qual paremtro responsavel.
+
+- Limpar Filtros: Limpar todos os filtros e trazer os dados cru.
+- Aplicar na Base atual: Aplicar filtros adicionados
+- Serviço ativo
+    - Todos (Ativos e Inativos): servico_claro_ativo = true e false
+    - Sim (Apenas Ativos): servico_claro_ativo = true
+    - Não (Apenas Inativos): servico_claro_ativo = false 
+- Serviço Exclusivo:
+    - Ambos (Sim e Não): exclusivo = true e false
+    - Sim (Apenas exclusivos): exclusivo = true
+    - Não (Apenas Normais): exclusivo = false
+- Região (DDD Maioral):
+    - Todos os DDDs: Exibe todos independente do DDD
+    - Todos (Sem 11 p/ Renovação e Fora do Estado): ddd_predominante todos os DDD menos os fora de estado, para os registros que são renovação não se inclui aqueles de DDD 11.
+    - Todos (Exclusivos 11 Renovação): ddd_predominante somente que são 11
+    - DDDs fora de São Paulo: ddd_predominante deve ser somente aqueles fora de são paulo oou seja que esteja fora de 11 a 19.
+    - retantes dos filtros....
+- Consultor Atribuido
+    - Todos os Consultores: Mostra todos os registros com consultor ou sem
+    - Não atribuidos: Aqueles servicos que não tem consultor :seq_consultor
+    - Consultores Disponiveis: Exibe serviços que estao com aquele consultor :seq_consultor
+        - Lista dos consultores.... :seq_consultor
+- Situação do Atendimento
+    - Todas as Situações: Não filtra por situação,tras todas :situacao
+    - Aberto, Temporário.... E os retantes das situação ai filtra pela situação que esta correspondente.
+- Atrib. de Carteira 
+    - Ambos (Com e Sem): Servicos que tem a :carteira = null ou carteira is not null
+    - Com Carteira : Servicos que tem carteira is not null
+    - Sem Carteira : servicos que tem carteira null
+- Abertos no Piperun (CRM)
+    - Ambos (Dentro e Fora): Todos que tem variavel flag_crm_servico = true ou false
+    - Sim (No CRM): flag_crm_servico = true
+    - Não (Fora do CRM): flag_crm_servico = false
+- Vencimento Contr.
+    - dd/mm/aaaa : Só filtra a data do contrato mesmo.
+- Classificação
+    - Todas as Classificações: Todas as Classificação independente de qual seja classificacao_contrato 
+    - as classificação dos contratos....
+    - Sem Classificação: todos que tem classificacao_contrato = null
+- Dias da Leitura CPC
+    - é um seletor que conta em dias exemplo
+    - 1d, 30d... Esse filtro vai pegar a dt da ultima leitura e conta os dias a partir de hoje.
+- Controle de volume de linha
+    - 
+    - 

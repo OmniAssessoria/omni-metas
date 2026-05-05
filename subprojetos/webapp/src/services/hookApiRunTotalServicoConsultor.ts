@@ -1,5 +1,8 @@
 import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
-import { buscarOportunidadesGenericaPorPeriodo, buscarTodasOportunidadesPipeline } from "./apiPieperunTotalServicoConsultor";
+import {
+  buscarOportunidadesGenericaPorPeriodo,
+  buscarTodasOportunidadesPipeline,
+} from "./apiPieperunTotalServicoConsultor";
 
 const PIPELINE_IDS = {
   CARTEIRA: 93990,
@@ -8,19 +11,12 @@ const PIPELINE_IDS = {
 };
 
 const FUNIS_ABERTOS_E_PERDIDOS = [
-  90697,
-  102509, 
-  94063,  
-  93990,  
-  91356,  
-  103176,
-  91369,  
-  77127  
+  90697, 102509, 94063, 93990, 91356, 103176, 91369, 77127,
 ];
 
 const HASHES_GANHOS = [
   "c1d9312f-db68-4379-8820-a5d3619ec002",
-  "6b9a2da5-c640-48c3-8cf5-adb63a726a27"  
+  "6b9a2da5-c640-48c3-8cf5-adb63a726a27",
 ];
 
 const regrasPerfisExatos: Record<number, string> = {
@@ -59,12 +55,19 @@ export async function compilarOportunidadesDinamico(
   ];
 
   const resultadoFinal = consultoresDinamic.map((consultor) => {
-    const perfilOperacional = regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
+    const perfilOperacional =
+      regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
     let pipelinesPermitidos: number[] = [];
 
-    if (perfilOperacional === "CARTEIRA") pipelinesPermitidos = [PIPELINE_IDS.CARTEIRA];
-    else if (perfilOperacional === "PORTABILIDADE") pipelinesPermitidos = [PIPELINE_IDS.PORTABILIDADE];
-    else if (perfilOperacional === "AMBOS") pipelinesPermitidos = [PIPELINE_IDS.RENOVACAO, PIPELINE_IDS.PORTABILIDADE];
+    if (perfilOperacional === "CARTEIRA")
+      pipelinesPermitidos = [PIPELINE_IDS.CARTEIRA];
+    else if (perfilOperacional === "PORTABILIDADE")
+      pipelinesPermitidos = [PIPELINE_IDS.PORTABILIDADE];
+    else if (perfilOperacional === "AMBOS")
+      pipelinesPermitidos = [
+        PIPELINE_IDS.RENOVACAO,
+        PIPELINE_IDS.PORTABILIDADE,
+      ];
     else pipelinesPermitidos = [PIPELINE_IDS.RENOVACAO];
 
     const totalDoConsultor = todosDeals.filter(
@@ -88,21 +91,23 @@ export async function compilarRelatorioPerdas(
   dataInicio: string,
   dataFim: string,
 ) {
-  console.log(`[PipeRun] Extraindo Safra (Criados entre ${dataInicio} e ${dataFim})...`);
+  console.log(
+    `[PipeRun] Extraindo Safra (Criados entre ${dataInicio} e ${dataFim})...`,
+  );
   const promessasPipelines = FUNIS_ABERTOS_E_PERDIDOS.map((pipelineId) =>
     buscarOportunidadesGenericaPorPeriodo(
-      { pipeline_id: pipelineId }, 
-      dataInicio, 
-      dataFim
-    )
+      { pipeline_id: pipelineId },
+      dataInicio,
+      dataFim,
+    ),
   );
 
   const promessasHashes = HASHES_GANHOS.map((hash) =>
     buscarOportunidadesGenericaPorPeriodo(
       { stage_hash: hash, status: 1 },
-      dataInicio, 
-      dataFim
-    )
+      dataInicio,
+      dataFim,
+    ),
   );
 
   const resultadosPipelines = await Promise.all(promessasPipelines);
@@ -112,26 +117,40 @@ export async function compilarRelatorioPerdas(
   const todosDealsGanhos = resultadosHashes.flat();
 
   const resultadoFinal = consultoresDinamic.map((consultor) => {
-    const perfilOperacional = regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
+    const perfilOperacional =
+      regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
 
     const dealsConsultorFunis = todosDealsFunis.filter(
-      (deal) => deal.owner_id === consultor.owner_id
+      (deal) => deal.owner_id === consultor.owner_id,
     );
 
     const dealsConsultorGanhos = todosDealsGanhos.filter(
-      (deal) => deal.owner_id === consultor.owner_id
+      (deal) => deal.owner_id === consultor.owner_id,
     );
 
     let totalAbertos = 0;
     let totalPerdidos = 0;
-    
+    let totalGanhos = 0;
+
     // ====================================================================
     // REGRA 1: GANHOS
-    // Avalia SOMENTE a data de criação (já garantido pelo fetch da API).
+    // Avalia a data de CRIAÇÃO (já garantido pelo fetch da API) em
+    // conjunção estrita com a data de FECHAMENTO (avaliada via código).
     // O status 1 na requisição garante que é um ganho real.
     // ====================================================================
-    let totalGanhos = dealsConsultorGanhos.length;
+    dealsConsultorGanhos.forEach((deal) => {
+      const dataFechamentoCompleta = deal.closed_at || deal.updated_at || "";
+      const dataFechamentoValida = dataFechamentoCompleta.split(" ")[0];
 
+      if (
+        dataFechamentoValida >= dataInicio &&
+        dataFechamentoValida <= dataFim
+      ) {
+        totalGanhos++;
+      }
+    });
+
+    // Processamento de Funis (Abertos e Perdidos)
     dealsConsultorFunis.forEach((deal) => {
       if (deal.status === 0) {
         // ====================================================================
@@ -144,10 +163,9 @@ export async function compilarRelatorioPerdas(
         // REGRA 3: PERDIDOS
         // Avalia a data de CRIAÇÃO (via API) + Data de DECLÍNIO (via Código).
         // ====================================================================
-
         const dataDeclinioCompleta = deal.closed_at || deal.updated_at || "";
-        
-        const dataDeclinioValida = dataDeclinioCompleta.split(" ")[0]; 
+        const dataDeclinioValida = dataDeclinioCompleta.split(" ")[0];
+
         if (dataDeclinioValida >= dataInicio && dataDeclinioValida <= dataFim) {
           totalPerdidos++;
         }
@@ -164,10 +182,14 @@ export async function compilarRelatorioPerdas(
   });
 
   return resultadoFinal
-    .filter((c) => c.totalGanhos > 0 || c.totalPerdidos > 0 || c.totalAbertos > 0)
+    .filter(
+      (c) => c.totalGanhos > 0 || c.totalPerdidos > 0 || c.totalAbertos > 0,
+    )
     .sort(
       (a, b) =>
-        (b.totalGanhos + b.totalPerdidos + b.totalAbertos) - 
-        (a.totalGanhos + a.totalPerdidos + a.totalAbertos)
+        b.totalGanhos +
+        b.totalPerdidos +
+        b.totalAbertos -
+        (a.totalGanhos + a.totalPerdidos + a.totalAbertos),
     );
 }
