@@ -20,6 +20,7 @@ import {
   RefreshCcw,
   Image as ImageIcon,
   Database,
+  CheckCircle2,
 } from "lucide-react";
 import {
   PieChart,
@@ -73,15 +74,15 @@ export interface DashServicoClaroProps {
   filtroClassificacao: TipoClassificacaoFilter;
   setFiltroClassificacao: (val: TipoClassificacaoFilter) => void;
 
+  filtroFlagCpc: "TODOS" | "SIM" | "NAO";
+  setFiltroFlagCpc: (val: "TODOS" | "SIM" | "NAO") => void;
+
   tipoFiltroLinha: TipoFiltroLinha;
   setTipoFiltroLinha: (val: TipoFiltroLinha) => void;
   filtroLinhasRangeMin: number;
   setFiltroLinhasRangeMin: (val: number) => void;
   filtroLinhasRangeMax: number;
   setFiltroLinhasRangeMax: (val: number) => void;
-
-  // Propriedades mantidas na interface para evitar erros com o componente Pai,
-  // mas a lógica visual e funcional foi unificada no Range.
   filtroLinhasExact: number;
   setFiltroLinhasExact: (val: number) => void;
 
@@ -133,6 +134,8 @@ export default function DashServicoClaro({
   setFiltroDataFim,
   filtroClassificacao,
   setFiltroClassificacao,
+  filtroFlagCpc,
+  setFiltroFlagCpc,
   tipoFiltroLinha,
   setTipoFiltroLinha,
   filtroLinhasRangeMin,
@@ -482,6 +485,24 @@ export default function DashServicoClaro({
                   <option value="AMBOS">Ambos (Dentro e Fora)</option>
                   <option value="SIM">Sim (No CRM)</option>
                   <option value="NAO">Não (Fora do CRM)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
+                  Flag CPC (Pendente/Lido)
+                </label>
+                <select
+                  value={filtroFlagCpc}
+                  onChange={(e) =>
+                    setFiltroFlagCpc(e.target.value as "TODOS" | "SIM" | "NAO")
+                  }
+                  className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-primary"
+                >
+                  <option value="TODOS">Ambos</option>
+                  <option value="SIM">Sim (Lido no CPC)</option>
+                  <option value="NAO">Não (CPC Pendente)</option>
                 </select>
               </div>
 

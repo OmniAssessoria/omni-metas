@@ -188,5 +188,5 @@ export interface IApiResponseView {
     - é um seletor que conta em dias exemplo
     - 1d, 30d... Esse filtro vai pegar a dt da ultima leitura e conta os dias a partir de hoje.
 - Controle de volume de linha
-    - 
-    - 
+    - Vai olhar a variavel de qtd de linhas e no filtro vai pegar os registros que for setado naquele periodo exemplo
+    serviços com 1 a 3 linhas, de 2 a 10... e afim.

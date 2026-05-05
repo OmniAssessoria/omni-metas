@@ -149,6 +149,10 @@ export default function DashboardAnaliticoMultiView() {
   const [filtroExclusivo, setFiltroExclusivo] = useState<
     "TODOS" | "SIM" | "NAO"
   >("TODOS");
+  const [filtroFlagCpc, setFiltroFlagCpc] = useState<"TODOS" | "SIM" | "NAO">(
+    "TODOS",
+  );
+  
   const [filtroDataFim, setFiltroDataFim] = useState<string>("");
   const [filtroDDD, setFiltroDDD] = useState<string>("TODOS");
   const [filtroConsultor, setFiltroConsultor] = useState<string>("TODOS");
@@ -407,19 +411,33 @@ export default function DashboardAnaliticoMultiView() {
       return array.filter((item) => {
         if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao)
           return false;
-        const isCarteiraVazia = !item.carteira || item.carteira.trim() === "";
+        
+        const isCarteiraVazia = !item.carteira || String(item.carteira).trim() === "";
         if (filtroCarteira === "COM_CARTEIRA" && isCarteiraVazia) return false;
         if (filtroCarteira === "SEM_CARTEIRA" && !isCarteiraVazia) return false;
+        
         if (filtroPiperun === "SIM" && item.flag_crm_servico !== true)
           return false;
         if (filtroPiperun === "NAO" && item.flag_crm_servico === true)
           return false;
+          
         if (filtroAtivo === "SIM" && item.servico_claro_ativo !== true)
           return false;
         if (filtroAtivo === "NAO" && item.servico_claro_ativo === true)
           return false;
+          
         if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
         if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
+        
+        // --- LOGICA INVERTIDA CPC ---
+        // Flag verdadeira no banco = PRECISA SER LIDO (Pendente).
+        // Flag falsa no banco = JÁ LIDO.
+        if (filtroFlagCpc === "SIM" && item.flag_cpc_servico === true) 
+          return false; // Se quer lido (SIM), descarta quem está pendente (true)
+          
+        if (filtroFlagCpc === "NAO" && item.flag_cpc_servico === false) 
+          return false; // Se quer pendente (NAO), descarta quem já foi lido (false)
+        // -----------------------------
 
         if (filtroDDD !== "TODOS") {
           if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
@@ -580,6 +598,7 @@ export default function DashboardAnaliticoMultiView() {
 
   const limparFiltros = () => {
     setFiltroSituacao("TODOS");
+    setFiltroFlagCpc("TODOS");
     setFiltroCarteira("AMBOS");
     setFiltroPiperun("AMBOS");
     setFiltroAtivo("TODOS");
@@ -1059,6 +1078,8 @@ export default function DashboardAnaliticoMultiView() {
         )}
 
         <DashServicoClaro
+          filtroFlagCpc={filtroFlagCpc}
+          setFiltroFlagCpc={setFiltroFlagCpc}
           ultimaAtualizacao={ultimaAtualizacao}
           exportToImage={exportToImage}
           fetchTodasViews={() => fetchServicos(true)}
