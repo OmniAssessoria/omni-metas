@@ -19,6 +19,7 @@ import {
   Database,
   Ban,
   Download,
+  CheckCircle2,
 } from "lucide-react";
 import {
   PieChart,
@@ -29,7 +30,6 @@ import {
 } from "recharts";
 import {
   TipoAtivoFilter,
-  TipoCarteiraFilter,
   TipoClassificacaoFilter,
   TipoFiltroLinha,
   TipoPiperunFilter,
@@ -63,8 +63,10 @@ export interface DashCarteiraProps {
   listaConsultoresUnicos: ConsultorSimples[];
   filtroSituacao: TipoSituacaoFilter;
   setFiltroSituacao: (val: TipoSituacaoFilter) => void;
-  filtroCarteira: TipoCarteiraFilter;
-  setFiltroCarteira: (val: TipoCarteiraFilter) => void;
+  
+  filtroFlagCpc: "TODOS" | "SIM" | "NAO";
+  setFiltroFlagCpc: (val: "TODOS" | "SIM" | "NAO") => void;
+
   filtroPiperun: TipoPiperunFilter;
   setFiltroPiperun: (val: TipoPiperunFilter) => void;
   filtroDataFim: string;
@@ -78,9 +80,6 @@ export interface DashCarteiraProps {
   setFiltroLinhasRangeMin: (val: number) => void;
   filtroLinhasRangeMax: number;
   setFiltroLinhasRangeMax: (val: number) => void;
-
-  // As propriedades 'Exact' foram mantidas na interface para não quebrar 
-  // caso o componente pai ainda as injete, mas elas não são mais usadas na UI.
   filtroLinhasExact: number;
   setFiltroLinhasExact: (val: number) => void;
 
@@ -125,6 +124,8 @@ export default function DashCarteira({
   listaConsultoresUnicos,
   filtroSituacao,
   setFiltroSituacao,
+  filtroFlagCpc,
+  setFiltroFlagCpc,
   filtroPiperun,
   setFiltroPiperun,
   tipoFiltroLinha,
@@ -133,8 +134,6 @@ export default function DashCarteira({
   setFiltroLinhasRangeMin,
   filtroLinhasRangeMax,
   setFiltroLinhasRangeMax,
-  filtroLinhasExact,
-  setFiltroLinhasExact,
   maxLinhasGlobal,
   filtroCpcAtivo,
   setFiltroCpcAtivo,
@@ -314,7 +313,7 @@ export default function DashCarteira({
                   onClick={limparFiltros}
                   variant="outline"
                   size="sm"
-                  className="transition-colors shadow-sm cursor-pointer text-slate-600 hover:text-slate-900 border-slate-300"
+                  className="transition-colors shadow-sm cursor-pointer text-white hover:text-slate-900 border-slate-300"
                 >
                   <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
                 </Button>
@@ -464,6 +463,25 @@ export default function DashCarteira({
                 </select>
               </div>
 
+              {/* LÓGICA DO FILTRO DE CPC AQUI, SUBSTITUINDO O FILTRO DE CARTEIRA */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
+                  Flag CPC (Pendente/Lido)
+                </label>
+                <select
+                  value={filtroFlagCpc}
+                  onChange={(e) =>
+                    setFiltroFlagCpc(e.target.value as "TODOS" | "SIM" | "NAO")
+                  }
+                  className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="TODOS">Ambos</option>
+                  <option value="SIM">Sim (Lido no CPC)</option>
+                  <option value="NAO">Não (CPC Pendente)</option>
+                </select>
+              </div>
+
               <div className=" border border-slate-200 bg-white rounded-lg p-3 space-y-3">
                 {renderRangeSlider(
                   "Dias de Leitura CPC",
@@ -479,7 +497,6 @@ export default function DashCarteira({
                 )}
               </div>
 
-              {/* BLOCO SUBSTITUÍDO: Refino de Volume de Linhas com Inputs Nativos */}
               <div className="col-span-1 md:col-span-2 xl:col-span-4 border border-emerald-100 bg-emerald-50/30 rounded-lg p-4 space-y-3">
                 <label className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
                   <Briefcase className="w-4 h-4 text-emerald-600" /> Refino de

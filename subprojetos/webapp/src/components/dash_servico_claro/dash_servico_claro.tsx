@@ -318,7 +318,7 @@ export default function DashServicoClaro({
                   onClick={limparFiltros}
                   variant="outline"
                   size="sm"
-                  className="transition-colors shadow-sm cursor-pointer text-slate-600 hover:text-slate-900 border-slate-300"
+                  className="transition-colors shadow-sm cursor-pointer text-white hover:text-slate-900 border-slate-300"
                 >
                   <Eraser className="w-3.5 h-3.5 mr-2" /> Limpar Filtros
                 </Button>

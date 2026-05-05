@@ -429,15 +429,12 @@ export default function DashboardAnaliticoMultiView() {
         if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
         if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
         
-        // --- LOGICA INVERTIDA CPC ---
         // Flag verdadeira no banco = PRECISA SER LIDO (Pendente).
         // Flag falsa no banco = JÁ LIDO.
         if (filtroFlagCpc === "SIM" && item.flag_cpc_servico === true) 
-          return false; // Se quer lido (SIM), descarta quem está pendente (true)
-          
+          return false; 
         if (filtroFlagCpc === "NAO" && item.flag_cpc_servico === false) 
-          return false; // Se quer pendente (NAO), descarta quem já foi lido (false)
-        // -----------------------------
+          return false;
 
         if (filtroDDD !== "TODOS") {
           if (filtroDDD === "EXCLUSO_11_RENOVACAO") {
@@ -517,6 +514,13 @@ export default function DashboardAnaliticoMultiView() {
         if (filtroAtivo === "NAO" && item.claro_ativo === true) return false;
         if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
         if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
+
+        // --- LÓGICA INVERTIDA CPC NA CARTEIRA ---
+        const isCpcPendente = item.cpc !== undefined ? item.cpc : item.flag_cpc_servico;
+        if (filtroFlagCpc === "SIM" && isCpcPendente === true) 
+          return false;
+        if (filtroFlagCpc === "NAO" && isCpcPendente === false) 
+          return false;
 
         if (filtroConsultor !== "TODOS") {
           if (filtroConsultor === "NAO_ATRIBUIDO") {
@@ -1244,7 +1248,11 @@ export default function DashboardAnaliticoMultiView() {
         </div>
 
         <hr className="w-full max-w-7xl mx-auto border-t-[6px] border-emerald-500 rounded-full opacity-80 my-8" />
+        
+        {/* Passamos filtroFlagCpc ao invés do filtroCarteira */}
         <DashCarteira
+          filtroFlagCpc={filtroFlagCpc}
+          setFiltroFlagCpc={setFiltroFlagCpc}
           ultimaAtualizacao={ultimaAtualizacao}
           exportToImage={exportToImage}
           fetchTodasViews={() => fetchCarteira(true)}
@@ -1263,8 +1271,6 @@ export default function DashboardAnaliticoMultiView() {
           listaConsultoresUnicos={listaConsultoresUnicos}
           filtroSituacao={filtroSituacao}
           setFiltroSituacao={setFiltroSituacao}
-          filtroCarteira={filtroCarteira}
-          setFiltroCarteira={setFiltroCarteira}
           filtroPiperun={filtroPiperun}
           setFiltroPiperun={setFiltroPiperun}
           filtroDataFim={filtroDataFim}
