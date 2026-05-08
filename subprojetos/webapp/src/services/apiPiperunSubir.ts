@@ -13,10 +13,11 @@ import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecis
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 import formatarObservacaoPlanosLinhas from "@/utils/formatarObservacao.util";
 import { apiPipeRunRest } from "@/configs/piperunConfigs.config";
+import { gerarEAnexarImagemPipeRun } from "./omniGeradorLayoutService";
 import {
-  gerarEAnexarImagemPipeRun,
-} from "./omniGeradorLayoutService";
-import { anexarImagemDecisorPipeRun, extrairImagemDecisorDrive } from "./driveObterDecisor";
+  anexarImagemDecisorPipeRun,
+  extrairImagemDecisorDrive,
+} from "./driveObterDecisor";
 
 export const API_PIPERUN = async ({
   servicos,
@@ -89,18 +90,14 @@ export const API_PIPERUN = async ({
 
       let companyId = null;
       console.log(
-        `[Passo 1] 🏢 Validando Empresa: ${servico.razao} (CNPJ: ${cnpjLimpo})`,
+        `[Passo 1] 🏢 Validando Empresa: ${servico.razao} (CNPJ: ${cnpjFormatado})`,
       );
 
-      if (cnpjLimpo) {
-        let resCompany = await apiPipeRunRest.get("/companies", {
-          params: { cnpj: cnpjLimpo },
+      if (cnpjFormatado) {
+        const resCompany = await apiPipeRunRest.get("/companies", {
+          params: { cnpj: cnpjFormatado },
         });
-        if (!resCompany.data?.data?.length) {
-          resCompany = await apiPipeRunRest.get("/companies", {
-            params: { cnpj: cnpjFormatado },
-          });
-        }
+
         if (resCompany.data?.data && resCompany.data.data.length > 0) {
           companyId = resCompany.data.data[0].id;
         }
@@ -108,13 +105,12 @@ export const API_PIPERUN = async ({
 
       const payloadCompany = {
         name: servico.razao,
-        cnpj: cnpjFormatado,
+        cnpj: cnpjFormatado, 
         contactPhones: resultEmpresa.telefonesFormatados,
       };
 
       if (companyId) {
-        const { cnpj, ...payloadPutSemCnpj } = payloadCompany;
-        await apiPipeRunRest.put(`/companies/${companyId}`, payloadPutSemCnpj);
+        await apiPipeRunRest.put(`/companies/${companyId}`, payloadCompany);
       } else {
         const createCompany = await apiPipeRunRest.post(
           "/companies",
@@ -230,11 +226,9 @@ export const API_PIPERUN = async ({
         : `(${dddFinal}) ${servico.indicacao} >> ${servico.razao}${isCarteira ? ` >> CARTEIRA` : ""}`;
 
       const payloadWebhook = {
-        rules: { update: true, filter_status_update: "open", status: "open" },
         leads: [
           {
             title: titleCard,
-            company_id: companyId,
             company: servico.razao,
             cnpj: cnpjFormatado,
             user: emailConsultor || undefined,
