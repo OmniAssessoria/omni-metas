@@ -87,9 +87,6 @@ export const API_PIPERUN = async ({
       );
       const mesesContrato = calcularMesesAteInicioContrato(dataInicioFormatada);
 
-      // ===================================================================
-      // 1) VALIDAÇÃO E CRIAÇÃO DA EMPRESA (COMPANY)
-      // ===================================================================
       let companyId = null;
       console.log(
         `[Passo 1] 🏢 Validando Empresa: ${servico.razao} (CNPJ: ${cnpjLimpo})`,
@@ -247,7 +244,6 @@ export const API_PIPERUN = async ({
         ],
       };
 
-      console.log(`[Passo 2] 🤝 Disparando Webhook para Oportunidade...`);
       const responseWebhook = await axios.post(
         `https://app.pipe.run/webservice/integradorJson`,
         payloadWebhook,
@@ -265,9 +261,6 @@ export const API_PIPERUN = async ({
         else if (respData?.id) dealIdCriado = respData.id;
         else if (responseWebhook.data?.id)
           dealIdCriado = responseWebhook.data.id;
-        console.log(
-          `[Passo 2] ✅ Oportunidade Criada! Deal ID: ${dealIdCriado}`,
-        );
       }
 
       if (dealIdCriado) {
@@ -303,10 +296,6 @@ export const API_PIPERUN = async ({
             );
           }
         }
-      } else {
-        console.warn(
-          `⚠️ Oportunidade gerada, mas Webhook não retornou 'deal_id' para subir imagens.`,
-        );
       }
 
       console.log(`✅ Fluxo concluído com sucesso para: ${servico.razao}`);
