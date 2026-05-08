@@ -185,9 +185,9 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
         .highlight-yellow { background: rgba(245, 168, 0, 0.2); font-weight: 600; color: ${CORES.primaria}; }
         .plan-name { font-weight: 600; color: #fff; }
         tfoot { background: linear-gradient(135deg, ${CORES.primaria} 0%, ${CORES.primaria_escura} 100%); color: ${CORES.preto}; font-weight: 700; font-size: 1.1em; }
-        tfoot td { padding: 20px 15px; border-top: 3px solid ${CORES.primaria_escura}; }
+        tfoot td { padding: 20px 15px; border-top: 3px solid ${CORES.primaria_escura}; color: ${CORES.preto}; }
         tfoot td:nth-child(3), tfoot td:nth-child(4), tfoot td:nth-child(5) { text-align: center; }
-        .footer { text-align: center; color: #555; margin-top: 40px; padding: 30px; }
+        .footer { text-align: center; color: #000; margin-top: 40px; padding: 30px; }
     </style>
 </head>
 <body>
