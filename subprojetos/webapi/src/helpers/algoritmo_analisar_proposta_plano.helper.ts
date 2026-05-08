@@ -8,7 +8,19 @@ export class AnalisadorPlanosHelper {
   public extrairGb(texto: any): number {
     if (!texto) return 0;
     if (typeof texto === "number") return texto;
-    const match = String(texto).match(/(\d+)/);
+
+    const textoStr = String(texto);
+
+    if (/MB/i.test(textoStr)) {
+      const match = textoStr.match(/(\d+)\s*MB/i);
+      if (match) {
+        const mb = parseInt(match[1], 10);
+        return mb / 1000;
+      }
+    }
+
+    // Comportamento original para GB
+    const match = textoStr.match(/(\d+)/);
     return match ? parseInt(match[1], 10) : 0;
   }
 
