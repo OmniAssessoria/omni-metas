@@ -70,58 +70,56 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
   const economia_contrato = economia > 0 ? economia * 24 : 0;
   const ganho_gb = turbo ? turbo_total_gb - atual.total_gb : 0;
 
-  const gerarTabelaProposta = (combo: any[]) => {
-    if (!combo || combo.length === 0)
+  const gerarTabelaProposta = (oferta: any) => {
+    if (
+      !oferta ||
+      !oferta.planos_por_linha ||
+      oferta.planos_por_linha.length === 0
+    ) {
       return "<p style='color:#ccc;'>Nenhuma combinação viável encontrada.</p>";
+    }
 
     let linhasHtml = "";
     let prop_gb_base = 0;
     let prop_bonus = 0;
     let prop_valor = 0;
 
-    let index_telefone = 0;
+    oferta.planos_por_linha.forEach((planoLinha: any, index: number) => {
+      const numero_real = telefonesReais[index] || `Linha ${index + 1}`;
+      const plano_nome = `Claro Pós ${planoLinha.gb}GB`;
+      const gb_total = planoLinha.gb + planoLinha.bonus;
 
-    combo.forEach((item: any) => {
-      prop_gb_base += item.gb * item.qtd;
-      prop_bonus += item.bonus * item.qtd;
-      prop_valor += item.valor * item.qtd;
+      prop_gb_base += planoLinha.gb;
+      prop_bonus += planoLinha.bonus;
+      prop_valor += planoLinha.valor;
 
-      for (let i = 0; i < item.qtd; i++) {
-        const numero_real =
-          telefonesReais[index_telefone] || `Linha ${index_telefone + 1}`;
-        index_telefone++;
-
-        const plano_nome = `Claro Pós ${item.gb}GB`;
-        const gb_total = item.gb + item.bonus;
-
-        linhasHtml += `
-          <tr>
-              <td>${numero_real}</td>
-              <td class="plan-name">${plano_nome}</td>
-              <td>${item.bonus.toFixed(1)} GB</td>
-              <td class="highlight-red">${gb_total.toFixed(1)} GB</td>
-              <td class="highlight-yellow">R$ ${item.valor.toFixed(2)}</td>
-          </tr>`;
-      }
+      linhasHtml += `
+      <tr>
+          <td>${numero_real}</td>
+          <td class="plan-name">${plano_nome}</td>
+          <td>${planoLinha.bonus.toFixed(1)} GB</td>
+          <td class="highlight-red">${gb_total.toFixed(1)} GB</td>
+          <td class="highlight-yellow">R$ ${planoLinha.valor.toFixed(2)}</td>
+      </tr>`;
     });
 
     return `
-      <div class="table-wrapper">
-          <table>
-              <thead>
-                  <tr><th>Número da Linha</th><th>Novo Plano Sugerido</th><th>Bônus</th><th>GB Total</th><th>Valor</th></tr>
-              </thead>
-              <tbody>${linhasHtml}</tbody>
-              <tfoot>
-                  <tr>
-                      <td colspan="2"><strong>TOTAL</strong></td>
-                      <td><strong>${prop_bonus.toFixed(1)} GB</strong></td>
-                      <td><strong>${(prop_gb_base + prop_bonus).toFixed(1)} GB</strong></td>
-                      <td><strong>R$ ${prop_valor.toFixed(2)}</strong></td>
-                  </tr>
-              </tfoot>
-          </table>
-      </div>`;
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th>Número da Linha</th><th>Novo Plano Sugerido</th><th>Bônus</th><th>GB Total</th><th>Valor</th></tr>
+            </thead>
+            <tbody>${linhasHtml}</tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2"><strong>TOTAL</strong></td>
+                    <td><strong>${prop_bonus.toFixed(1)} GB</strong></td>
+                    <td><strong>${(prop_gb_base + prop_bonus).toFixed(1)} GB</strong></td>
+                    <td><strong>R$ ${prop_valor.toFixed(2)}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>`;
   };
 
   return `<!DOCTYPE html>
@@ -264,24 +262,24 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
             }
         </div>
 
-        ${
-          eco
+       ${
+            eco
             ? `
-        <div class="glass table-section">
-            <h2>💰 Detalhamento - Oferta Econômica</h2>
-            ${gerarTabelaProposta(eco.combo)}
-        </div>`
-            : ""
+            <div class="glass table-section">
+                <h2>💰 Detalhamento - Oferta Econômica</h2>
+                ${gerarTabelaProposta(eco)}
+            </div>`
+                    : ""
         }
 
         ${
-          turbo
-            ? `
-        <div class="glass table-section">
-            <h2>🚀 Detalhamento - Oferta Mais GB</h2>
-            ${gerarTabelaProposta(turbo.combo)}
-        </div>`
-            : ""
+            turbo
+                ? `
+            <div class="glass table-section">
+                <h2>🚀 Detalhamento - Oferta Mais GB</h2>
+                ${gerarTabelaProposta(turbo)}
+            </div>`
+                : ""
         }
 
         <div class="footer">

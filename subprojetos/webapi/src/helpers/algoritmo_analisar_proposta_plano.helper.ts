@@ -81,6 +81,7 @@ export class AnalisadorPlanosHelper {
     let totalGbOferta = 0;
     let totalGbComBonusOferta = 0;
     const contagemPlanos: Record<number, any> = {};
+    const planosEscolhidosPorLinha: any[] = [];
 
     for (const gbMinimoLinha of linhasReq) {
       const planosValidos = planos
@@ -93,6 +94,12 @@ export class AnalisadorPlanosHelper {
 
       planosValidos.sort((a, b) => a.valor - b.valor);
       const melhorPlano = planosValidos[0];
+
+      planosEscolhidosPorLinha.push({
+        gb: melhorPlano.gb,
+        valor: melhorPlano.valor,
+        bonus: melhorPlano.bonus,
+      });
 
       totalValorOferta = this.arredondarCentavos(
         totalValorOferta + melhorPlano.valor,
@@ -113,6 +120,7 @@ export class AnalisadorPlanosHelper {
 
     return {
       combo: Object.values(contagemPlanos),
+      planos_por_linha: planosEscolhidosPorLinha, // NOVO
       total_gb: totalGbOferta,
       total_gb_com_bonus: totalGbComBonusOferta,
       total_valor: totalValorOferta,
@@ -158,6 +166,7 @@ export class AnalisadorPlanosHelper {
         bonusAcumulado: number,
         valorAcumulado: number,
         contagemAtual: Record<number, number>,
+        planosEscolhidos: any[], // NOVO: rastreia escolhas por linha
       ) => {
         const custoNecessarioRestante =
           indexLinha < linhasReq.length ? sufixoCustoMinimo[indexLinha] : 0;
@@ -184,6 +193,7 @@ export class AnalisadorPlanosHelper {
 
           const ofertaAtual = {
             combo: converterContagemParaCombo(contagemAtual, planos),
+            planos_por_linha: [...planosEscolhidos], // NOVO: copia do array
             total_gb: gbAcumulado,
             total_gb_com_bonus: totalGbComBonus,
             total_valor: valorAcumulado,
@@ -213,13 +223,24 @@ export class AnalisadorPlanosHelper {
           contagemAtual[planoOriginalIndex] =
             (contagemAtual[planoOriginalIndex] || 0) + 1;
 
+          // NOVO: adiciona o plano escolhido para esta linha
+          planosEscolhidos.push({
+            gb: plano.gb,
+            valor: plano.valor,
+            bonus: plano.bonus,
+          });
+
           gerarRecursivo(
             indexLinha + 1,
             gbAcumulado + plano.gb,
             bonusAcumulado + plano.bonus,
             this.arredondarCentavos(valorAcumulado + plano.valor),
             contagemAtual,
+            planosEscolhidos, // NOVO: passa o array
           );
+
+          // NOVO: remove o último plano ao fazer backtrack
+          planosEscolhidos.pop();
 
           contagemAtual[planoOriginalIndex] -= 1;
           if (contagemAtual[planoOriginalIndex] === 0) {
@@ -228,7 +249,7 @@ export class AnalisadorPlanosHelper {
         }
       };
 
-      gerarRecursivo(0, 0, 0, 0, {});
+      gerarRecursivo(0, 0, 0, 0, {}, []); // NOVO: passa array vazio inicial
       return melhorOferta;
     };
 
