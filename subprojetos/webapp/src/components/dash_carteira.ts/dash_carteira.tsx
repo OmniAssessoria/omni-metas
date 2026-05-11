@@ -20,6 +20,8 @@ import {
   Ban,
   Download,
   CheckCircle2,
+  Calendar, // Adicionado para manter igual a Servico
+  Tag,      // Adicionado para manter igual a Servico
 } from "lucide-react";
 import {
   PieChart,
@@ -128,6 +130,10 @@ export default function DashCarteira({
   setFiltroFlagCpc,
   filtroPiperun,
   setFiltroPiperun,
+  filtroDataFim, 
+  setFiltroDataFim, 
+  filtroClassificacao, 
+  setFiltroClassificacao, 
   tipoFiltroLinha,
   setTipoFiltroLinha,
   filtroLinhasRangeMin,
@@ -368,6 +374,44 @@ export default function DashCarteira({
 
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <span className="font-extrabold text-blue-500">📞</span>{" "}
+                  Região (DDD Maioral)
+                </label>
+                <select
+                  value={filtroDDD}
+                  onChange={(e) => setFiltroDDD(e.target.value)}
+                  className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="TODOS">Todos os DDDs</option>
+                  <optgroup label="Filtros Inteligentes">
+                    <option value="EXCLUSO_11_RENOVACAO_E_FORA_ESTADO">
+                      Todos (Sem 11 p/ Renovação e Fora do Estado)
+                    </option>
+                    <option value="EXCLUSO_11_RENOVACAO">
+                      Todos (Excluso 11 Renovação)
+                    </option>
+                    <option value="FORA_SP">DDDs Fora de São Paulo</option>
+                  </optgroup>
+                  <optgroup label="São Paulo">
+                    <option value="11">11 - São Paulo/Metropol.</option>
+                    <option value="12">12 - Vale do Paraíba/Lit.</option>
+                    <option value="13">13 - Baixada Santista</option>
+                    <option value="14">14 - Bauru/Marília</option>
+                    <option value="15">15 - Sorocaba/Itapetininga</option>
+                    <option value="16">16 - Ribeirão Preto/Franca</option>
+                    <option value="17">17 - S. José do Rio Preto</option>
+                    <option value="18">18 - Pres. Prud./Araçatuba</option>
+                    <option value="19">19 - Campinas/Piracicaba</option>
+                  </optgroup>
+                  <optgroup label="Outros">
+                    <option value="00">Indefinido/Sem Linhas</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* CONSULTOR */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                   <Users className="w-3.5 h-3.5 text-purple-500" /> Consultor
                   Atribuído
                 </label>
@@ -388,42 +432,7 @@ export default function DashCarteira({
                 </select>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <span className="font-extrabold text-blue-500">📞</span>{" "}
-                  Região (DDD)
-                </label>
-                <select
-                  value={filtroDDD}
-                  onChange={(e) => setFiltroDDD(e.target.value)}
-                  className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="TODOS">Todos os DDDs</option>
-                  <optgroup label="Filtros Inteligentes">
-                    <option value="EXCLUSO_11_RENOVACAO_E_FORA_ESTADO">
-                      Todos (Sem 11 p/ Renovação e Fora do Estado)
-                    </option>
-                    <option value="EXCLUSO_11_RENOVACAO">
-                      Todos (Excluso 11 Renovação)
-                    </option>
-                    <option value="FORA_SP">DDDs Fora de São Paulo</option>
-                  </optgroup>
-                  <optgroup label="São Paulo">
-                    <option value="11">11 - São Paulo/Metropol.</option>
-                    <option value="12">12 - Vale do Paraíba</option>
-                    <option value="13">13 - Baixada Santista</option>
-                    <option value="14">14 - Bauru/Marília</option>
-                    <option value="15">15 - Sorocaba/Itapetininga</option>
-                    <option value="16">16 - Ribeirão Preto/Franca</option>
-                    <option value="17">17 - São José do Rio Preto</option>
-                    <option value="18">
-                      18 - Presidente Prudente/Araçatuba
-                    </option>
-                    <option value="19">19 - Campinas e Região</option>
-                  </optgroup>
-                </select>
-              </div>
-
+              {/* SITUACAO - Padronizado (Blacklist Inserido) */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                   <AlertCircle className="w-3.5 h-3.5 text-sky-500" /> Situação
@@ -442,12 +451,14 @@ export default function DashCarteira({
                   <option value="PAUSADO">Pausado (Aguard. 30d)</option>
                   <option value="INVIAVEL">Inviável (Perdido)</option>
                   <option value="GANHO">Ganho (Fechado)</option>
+                  <option value="BLACKLIST">Blacklist</option>
                 </select>
               </div>
 
+              {/* PIPERUN */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <CloudCog className="w-3.5 h-3.5 text-indigo-500" /> PipeRun
+                  <CloudCog className="w-3.5 h-3.5 text-indigo-500" /> Abertos no PipeRun
                   (CRM)
                 </label>
                 <select
@@ -463,7 +474,7 @@ export default function DashCarteira({
                 </select>
               </div>
 
-              {/* LÓGICA DO FILTRO DE CPC AQUI, SUBSTITUINDO O FILTRO DE CARTEIRA */}
+              {/* FLAG CPC */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                   <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
@@ -482,6 +493,47 @@ export default function DashCarteira({
                 </select>
               </div>
 
+              {/* VENCIMENTO CONTR. (Adicionado a partir de ServicoClaro) */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <Calendar className="w-3.5 h-3.5 text-red-500" /> Vencimento
+                  Contr.
+                </label>
+                <input
+                  type="date"
+                  value={filtroDataFim}
+                  onChange={(e) => setFiltroDataFim(e.target.value)}
+                  className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none cursor-pointer border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* CLASSIFICAÇÃO (Adicionado a partir de ServicoClaro) */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <Tag className="w-3.5 h-3.5 text-pink-500" /> Classificação
+                </label>
+                <select
+                  value={filtroClassificacao}
+                  onChange={(e) =>
+                    setFiltroClassificacao(
+                      e.target.value as TipoClassificacaoFilter,
+                    )
+                  }
+                  className="w-full h-9 px-3 text-sm transition-all border shadow-sm outline-none border-slate-200 rounded-md bg-slate-50 text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="TODOS">Todas as Classificações</option>
+                  <option value="CA">CA</option>
+                  <option value="CB">CB</option>
+                  <option value="CC">CC</option>
+                  <option value="CD">CD</option>
+                  <option value="CE">CE</option>
+                  <option value="CF">CF</option>
+                  <option value="CG">CG</option>
+                  <option value="SEM_CLASSIFICACAO">Sem Classificação</option>
+                </select>
+              </div>
+
+              {/* SLIDER CPC */}
               <div className=" border border-slate-200 bg-white rounded-lg p-3 space-y-3">
                 {renderRangeSlider(
                   "Dias de Leitura CPC",
@@ -497,17 +549,19 @@ export default function DashCarteira({
                 )}
               </div>
 
-              <div className="col-span-1 md:col-span-2 xl:col-span-4 border border-emerald-100 bg-emerald-50/30 rounded-lg p-4 space-y-3">
+              {/* SLIDER RANGE LINHAS */}
+              <div className="col-span-1 md:col-span-2 xl:col-span-2 border border-emerald-100 bg-emerald-50/30 rounded-lg p-4 space-y-3">
                 <label className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
                   <Briefcase className="w-4 h-4 text-emerald-600" /> Refino de
                   Volume de Linhas da Carteira
                 </label>
 
                 <div
-                  className={`relative p-5 rounded-xl border-2 transition-all max-w-2xl ${tipoFiltroLinha === "RANGE"
+                  className={`relative p-5 rounded-xl border-2 transition-all max-w-2xl ${
+                    tipoFiltroLinha === "RANGE"
                       ? "border-emerald-500 bg-white shadow-sm"
                       : "border-slate-200 bg-white/50 opacity-60"
-                    }`}
+                  }`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div>

@@ -152,7 +152,7 @@ export default function DashboardAnaliticoMultiView() {
   const [filtroFlagCpc, setFiltroFlagCpc] = useState<"TODOS" | "SIM" | "NAO">(
     "TODOS",
   );
-  
+
   const [filtroDataFim, setFiltroDataFim] = useState<string>("");
   const [filtroDDD, setFiltroDDD] = useState<string>("TODOS");
   const [filtroConsultor, setFiltroConsultor] = useState<string>("TODOS");
@@ -411,29 +411,30 @@ export default function DashboardAnaliticoMultiView() {
       return array.filter((item) => {
         if (filtroSituacao !== "TODOS" && item.situacao !== filtroSituacao)
           return false;
-        
-        const isCarteiraVazia = !item.carteira || String(item.carteira).trim() === "";
+
+        const isCarteiraVazia =
+          !item.carteira || String(item.carteira).trim() === "";
         if (filtroCarteira === "COM_CARTEIRA" && isCarteiraVazia) return false;
         if (filtroCarteira === "SEM_CARTEIRA" && !isCarteiraVazia) return false;
-        
+
         if (filtroPiperun === "SIM" && item.flag_crm_servico !== true)
           return false;
         if (filtroPiperun === "NAO" && item.flag_crm_servico === true)
           return false;
-          
+
         if (filtroAtivo === "SIM" && item.servico_claro_ativo !== true)
           return false;
         if (filtroAtivo === "NAO" && item.servico_claro_ativo === true)
           return false;
-          
+
         if (filtroExclusivo === "SIM" && item.exclusivo !== true) return false;
         if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
-        
+
         // Flag verdadeira no banco = PRECISA SER LIDO (Pendente).
         // Flag falsa no banco = JÁ LIDO.
-        if (filtroFlagCpc === "SIM" && item.flag_cpc_servico === true) 
-          return false; 
-        if (filtroFlagCpc === "NAO" && item.flag_cpc_servico === false) 
+        if (filtroFlagCpc === "SIM" && item.flag_cpc_servico === true)
+          return false;
+        if (filtroFlagCpc === "NAO" && item.flag_cpc_servico === false)
           return false;
 
         if (filtroDDD !== "TODOS") {
@@ -466,11 +467,13 @@ export default function DashboardAnaliticoMultiView() {
             if (String(item.seq_consultor) !== filtroConsultor) return false;
           }
         }
+
+        // Correção de segurança: Uso do Optional Chaining (?.) para evitar quebras em dados undefined
         if (filtroClassificacao !== "TODOS") {
           if (filtroClassificacao === "SEM_CLASSIFICACAO") {
             if (
               item.classificacao_contrato !== null &&
-              item.classificacao_contrato.trim() !== ""
+              item.classificacao_contrato?.trim() !== ""
             )
               return false;
           } else {
@@ -478,9 +481,11 @@ export default function DashboardAnaliticoMultiView() {
               return false;
           }
         }
+
         if (filtroDataFim !== "") {
           if (!item.dt_fim_contrato) return false;
-          if (item.dt_fim_contrato.substring(0, 10) !== filtroDataFim)
+          // Prevenção extra para garantir que o formato suporta o substring corretamente
+          if (String(item.dt_fim_contrato).substring(0, 10) !== filtroDataFim)
             return false;
         }
 
@@ -516,11 +521,10 @@ export default function DashboardAnaliticoMultiView() {
         if (filtroExclusivo === "NAO" && item.exclusivo === true) return false;
 
         // --- LÓGICA INVERTIDA CPC NA CARTEIRA ---
-        const isCpcPendente = item.cpc !== undefined ? item.cpc : item.flag_cpc_servico;
-        if (filtroFlagCpc === "SIM" && isCpcPendente === true) 
-          return false;
-        if (filtroFlagCpc === "NAO" && isCpcPendente === false) 
-          return false;
+        const isCpcPendente =
+          item.cpc !== undefined ? item.cpc : item.flag_cpc_servico;
+        if (filtroFlagCpc === "SIM" && isCpcPendente === true) return false;
+        if (filtroFlagCpc === "NAO" && isCpcPendente === false) return false;
 
         if (filtroConsultor !== "TODOS") {
           if (filtroConsultor === "NAO_ATRIBUIDO") {
@@ -545,7 +549,7 @@ export default function DashboardAnaliticoMultiView() {
 
         if (filtroDataFim !== "") {
           if (!item.dt_fim_contrato) return false;
-          if (item.dt_fim_contrato.substring(0, 10) !== filtroDataFim)
+          if (String(item.dt_fim_contrato).substring(0, 10) !== filtroDataFim)
             return false;
         }
 
@@ -1248,8 +1252,7 @@ export default function DashboardAnaliticoMultiView() {
         </div>
 
         <hr className="w-full max-w-7xl mx-auto border-t-[6px] border-emerald-500 rounded-full opacity-80 my-8" />
-        
-        {/* Passamos filtroFlagCpc ao invés do filtroCarteira */}
+
         <DashCarteira
           filtroFlagCpc={filtroFlagCpc}
           setFiltroFlagCpc={setFiltroFlagCpc}
