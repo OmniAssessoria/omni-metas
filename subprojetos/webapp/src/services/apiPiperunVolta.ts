@@ -6,10 +6,11 @@ import { URL_API_LOCAL } from "./api";
 // CONFIGURAÇÕES E CONSTANTES
 // ============================================================================
 
-const PIPELINE_GANHOS = 95219;
-const STAGE_GANHOS = 607025;
-
-const FUNIS_PERDAS = [95219, 93990, 91356, 103176, 91369, 77127, 90697, 102509];
+export const PIPELINE_GANHOS = 95219;
+export const STAGE_GANHOS = 607025;
+export const PIPELINE_GANHOS_VIVO = 95265;
+export const STAGE_GANHOS_VIVO = 607340;
+export const FUNIS_PERDAS = [95219, 93990, 91356, 103176, 91369, 77127, 90697, 102509, 95265];
 
 const apiPipeRun = axios.create({
   baseURL: "https://api.pipe.run/v1",
