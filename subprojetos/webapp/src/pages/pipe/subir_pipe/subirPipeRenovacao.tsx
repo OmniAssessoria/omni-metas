@@ -43,6 +43,7 @@ import {
   CheckCircle2,
   XCircle,
   FileJson,
+  Layers, // <-- Novo Ícone Adicionado
 } from "lucide-react";
 import {
   BarChart,
@@ -111,6 +112,17 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const [consultorSelecionadoAtribuicao, setConsultorSelecionadoAtribuicao] =
     useState<string>("");
   const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
+  
+  // ==========================================
+  // NOVOS ESTADOS PARA ATRIBUIÇÃO EM MASSA
+  // ==========================================
+  const [modalMassaAberto, setModalMassaAberto] = useState(false);
+  const [quantidadeMassa, setQuantidadeMassa] = useState<number | "">("");
+  const [consultorMassaSelecionado, setConsultorMassaSelecionado] = useState<string>("");
+  const [isProcessandoMassa, setIsProcessandoMassa] = useState(false);
+  const [progressoMassa, setProgressoMassa] = useState<{ analisadas: number; sucesso: number; totalRequerido: number } | null>(null);
+  // ==========================================
+
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
 
   const [syncLogs, setSyncLogs] = useState<{
@@ -278,9 +290,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     );
   };
 
-  // ============================================================================
-  // NOVA REGRA DE SANEAMENTO: Base de dados estrita para DDDs de SP (11 a 19) e 2+ Linhas
-  // ============================================================================
   const dadosGeraisFiltrados = useMemo(() => {
     if (!Array.isArray(dadosLocais)) return [];
 
@@ -300,7 +309,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         return { ...item, dddPredominante: dddFinal };
       })
       .filter((item) => {
-        // REGRA 1: Obrigatoriamente ter 2 ou mais linhas (Bloqueia quem tem só 1)
         const qtdLinhas = Number(item.qtd_servico_claro) || 0;
         if (qtdLinhas < 2) {
           return false;
@@ -308,12 +316,10 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
         const dddNum = parseInt(item.dddPredominante, 10);
 
-        // REGRA 2: Apenas DDDs do estado de São Paulo (11 a 19)
         if (isNaN(dddNum) || dddNum < 11 || dddNum > 19) {
           return false;
         }
 
-        // REGRA 3: Se for RENOVAÇÃO, bloqueamos os de DDD 11
         if (item.indicacao === "RENOVACAO" && item.dddPredominante === "11") {
           return false;
         }
@@ -322,7 +328,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
       });
   }, [dadosLocais]);
 
-  // A partir daqui, as seleções de tela derivam exclusivamente da base já saneada
   const dadosFiltrados = useMemo(() => {
     if (consultorSelecionado === null) return dadosGeraisFiltrados;
 
@@ -443,6 +448,87 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     }
   };
 
+  // ==========================================
+  // NOVA FUNÇÃO: EXECUTAR ATRIBUIÇÃO EM MASSA
+  // ==========================================
+  const executarAtribuicaoMassa = async () => {
+    const qtdAlvo = Number(quantidadeMassa);
+    const idConsultorAlvo = Number(consultorMassaSelecionado);
+
+    if (!idConsultorAlvo || !qtdAlvo || qtdAlvo <= 0) {
+      alert("Selecione um consultor válido e defina uma quantidade maior que zero.");
+      return;
+    }
+
+    setIsProcessandoMassa(true);
+    let qtdSucesso = 0;
+    let qtdAnalisada = 0;
+    let copiaDados = [...dadosLocais]; // Cópia segura para mutação otimista
+
+    setProgressoMassa({ analisadas: 0, sucesso: 0, totalRequerido: qtdAlvo });
+
+    for (const item of dadosFiltrados) {
+      if (qtdSucesso >= qtdAlvo) break; // Finaliza se já atingiu a meta
+
+      qtdAnalisada++;
+      
+      // 0. Ignora se já estiver com o consultor selecionado
+      if (item.seq_consultor === idConsultorAlvo) {
+         setProgressoMassa({ analisadas: qtdAnalisada, sucesso: qtdSucesso, totalRequerido: qtdAlvo });
+         continue;
+      }
+
+      try {
+        // 1. Verifica se consultor está disponível para a empresa (Regra de Carga/Perfil)
+        const resDisp = await API.get(`/api/consultor/disponiveis/empresa/${item.seq_empresa}?indicacao=RENOVACAO`);
+        const disponiveis: IConsultorDisponivel[] = resDisp.data?.dados || [];
+        const elegivel = disponiveis.find((c) => c.seq_consultor === idConsultorAlvo);
+
+        if (!elegivel) {
+           setProgressoMassa({ analisadas: qtdAnalisada, sucesso: qtdSucesso, totalRequerido: qtdAlvo });
+           continue; // Caiu na regra de validação, passa para próxima base
+        }
+
+        // 2. Verifica Histórico
+        const resHist = await API.get(`/api/consultor/historico/empresa/${item.seq_empresa}`);
+        const historico: IHistoricoEmpresa[] = resHist.data?.dados || [];
+        const jaTeveHistorico = historico.some((h) => Number(h.seq_consultor) === idConsultorAlvo);
+
+        if (jaTeveHistorico) {
+           setProgressoMassa({ analisadas: qtdAnalisada, sucesso: qtdSucesso, totalRequerido: qtdAlvo });
+           continue; // Caiu na regra de histórico, passa para a próxima base
+        }
+
+        // 3. Executa a Atribuição
+        await API.put(`/api/consultor/empresa/${item.seq_empresa}`, {
+          seq_consultor: idConsultorAlvo,
+        });
+
+        qtdSucesso++;
+
+        // Atualiza a matriz global localmente sem precisar dar reload da pagina
+        copiaDados = copiaDados.map((d) =>
+          d.seq_empresa === item.seq_empresa ? { ...d, seq_consultor: idConsultorAlvo } : d
+        );
+
+        setProgressoMassa({ analisadas: qtdAnalisada, sucesso: qtdSucesso, totalRequerido: qtdAlvo });
+        
+      } catch (err) {
+        console.error(`Erro ao processar em massa a empresa ${item.seq_empresa}:`, err);
+      }
+    }
+
+    setDadosLocais(copiaDados); // Atualiza os dados originais processados
+    setIsProcessandoMassa(false);
+    setProgressoMassa(null);
+    setModalMassaAberto(false);
+    setQuantidadeMassa("");
+    setConsultorMassaSelecionado("");
+
+    alert(`Processo concluído! \nForam analisadas ${qtdAnalisada} bases e ${qtdSucesso} foram atribuídas com sucesso.`);
+  };
+  // ==========================================
+
   const consultorAtual = useMemo(
     () => consultores.find((c) => c.seq_consultor === consultorSelecionado),
     [consultores, consultorSelecionado],
@@ -508,7 +594,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     mapaConsultores,
   ]);
 
-  // Contabiliza com base na base estrita de São Paulo
   const totalServicosGeral = useMemo(() => {
     return dadosGeraisFiltrados.length;
   }, [dadosGeraisFiltrados]);
@@ -556,7 +641,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const onClickSubirServicos = () => {
     handleSubirServicos({
       tipoOperacao: "Renovação",
-      // Garantimos que a API também só enxerga a base restrita de São Paulo (11 a 19 sem 11 p/ Renovação)
       dadosGlobais: dadosGeraisFiltrados,
       consultoresEnvio: consultoresEnvio,
       empresasEnvio: empresasSelecionadas,
@@ -618,7 +702,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                   const nomeConsultor =
                     mapaConsultores.get(id)?.nome || "Desconhecido";
 
-                  // A contagem do pill agora respeita a base validada de SP para bater com o visual
                   const totalDoConsultor = dadosGeraisFiltrados.filter(
                     (item) => item.seq_consultor === id,
                   ).length;
@@ -732,19 +815,32 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
 
         <div className="space-y-6">
           <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              {consultorSelecionado ? (
-                <Users size={20} className="text-yellow-500" />
-              ) : (
-                <LayoutList size={20} className="text-yellow-500" />
-              )}
-              <h2 className="text-lg font-semibold flex-1 flex align-center justify-start">
-                {consultorAtual
-                  ? `Carteira do Consultor: ${consultorAtual.nome} (Linhas: ${consultorAtual.perfil_qtd_linhas_min} a ${consultorAtual.perfil_qtd_linhas_max})`
-                  : consultorSelecionado === "nao_atribuidos"
-                    ? "Serviços Não Atribuídos (Renovação)"
-                    : "Todos os Serviços de Renovação"}
-              </h2>
+            <div className="flex flex-wrap md:flex-nowrap items-center gap-4 mb-4">
+              <div className="flex items-center gap-2 flex-1">
+                {consultorSelecionado ? (
+                  <Users size={20} className="text-yellow-500 flex-shrink-0" />
+                ) : (
+                  <LayoutList size={20} className="text-yellow-500 flex-shrink-0" />
+                )}
+                <h2 className="text-lg font-semibold truncate">
+                  {consultorAtual
+                    ? `Carteira do Consultor: ${consultorAtual.nome} (Linhas: ${consultorAtual.perfil_qtd_linhas_min} a ${consultorAtual.perfil_qtd_linhas_max})`
+                    : consultorSelecionado === "nao_atribuidos"
+                      ? "Serviços Não Atribuídos (Renovação)"
+                      : "Todos os Serviços de Renovação"}
+                </h2>
+              </div>
+
+              {/* BOTAO PARA ATRIBUIR EM MASSA */}
+              <Button
+                variant="outline"
+                onClick={() => setModalMassaAberto(true)}
+                className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10 transition-colors"
+                title="Atribuir bases do filtro atual em massa"
+              >
+                <Layers className="w-4 h-4 mr-2" />
+                Atribuir base em massa
+              </Button>
 
               <div className="w-80">
                 <Select
@@ -1098,6 +1194,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
             )}
           </div>
         </div>
+
+        {/* MODAL HISTORICO */}
         <DialogHistoricoRenovacao
           open={modalHistoricoAberto}
           onOpenChange={setModalHistoricoAberto}
@@ -1105,6 +1203,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
           dadosHistorico={dadosHistorico}
           isCarregando={isCarregandoHistorico}
         />
+
+        {/* MODAL LINHAS */}
         <Dialog open={modalLinhasAberto} onOpenChange={setModalLinhasAberto}>
           <DialogContent className="sm:max-w-6xl w-[95vw] max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-background [&>button.absolute]:hidden">
             <div className="p-6 border-b border-border bg-muted/10 shrink-0 flex items-start justify-between">
@@ -1232,6 +1332,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
           </DialogContent>
         </Dialog>
 
+        {/* MODAL ATRIBUIÇÃO MANUAL INDIVIDUAL */}
         <Dialog
           open={modalAtribuicaoAberto}
           onOpenChange={setModalAtribuicaoAberto}
@@ -1344,6 +1445,105 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
           </DialogContent>
         </Dialog>
 
+        {/* ========================================== */}
+        {/* NOVO MODAL: ATRIBUIÇÃO EM MASSA            */}
+        {/* ========================================== */}
+        <Dialog 
+          open={modalMassaAberto} 
+          onOpenChange={!isProcessandoMassa ? setModalMassaAberto : undefined}
+        >
+          <DialogContent className="sm:max-w-xl bg-background border border-border rounded-xl">
+            <DialogHeader className="pb-4 border-b border-border">
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold text-white">
+                <Layers className="w-5 h-5 text-yellow-500" />
+                Atribuir Bases em Massa
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground mt-2">
+                Essa ação irá percorrer os <strong className="text-white">{dadosFiltrados.length}</strong> serviços atualmente filtrados na tela. O sistema validará se o consultor escolhido atende a carga/perfil da base e se não possui histórico recente antes de fazer a alteração.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-6 flex flex-col gap-4">
+               {isProcessandoMassa ? (
+                 <div className="flex flex-col items-center justify-center py-6">
+                   <Loader2 className="w-10 h-10 animate-spin text-yellow-500 mb-4" />
+                   <span className="text-lg font-bold text-white mb-2">Processando Lote...</span>
+                   {progressoMassa && (
+                     <div className="text-center text-sm space-y-1">
+                        <p className="text-muted-foreground">Bases analisadas: <strong className="text-white">{progressoMassa.analisadas}</strong></p>
+                        <p className="text-muted-foreground">
+                          Atribuições com sucesso: <strong className="text-emerald-400">{progressoMassa.sucesso} / {progressoMassa.totalRequerido}</strong>
+                        </p>
+                     </div>
+                   )}
+                 </div>
+               ) : (
+                 <>
+                   <div className="space-y-2">
+                     <label className="text-sm font-semibold text-white">
+                       Quantidade Limite de Atribuições com Sucesso
+                     </label>
+                     <input
+                        type="number"
+                        min="1"
+                        placeholder="Ex: 10"
+                        value={quantidadeMassa}
+                        onChange={(e) => setQuantidadeMassa(e.target.value === "" ? "" : Number(e.target.value))}
+                        className="flex h-12 w-full rounded-md border border-input bg-muted/20 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 text-white"
+                     />
+                   </div>
+
+                   <div className="space-y-2 mt-4">
+                     <label className="text-sm font-semibold text-white">
+                       Consultor de Destino
+                     </label>
+                     <Select
+                        onValueChange={setConsultorMassaSelecionado}
+                        value={consultorMassaSelecionado}
+                     >
+                       <SelectTrigger className="w-full bg-muted/20 border-border focus:ring-yellow-500 text-white h-12">
+                         <SelectValue placeholder="Selecione na lista..." />
+                       </SelectTrigger>
+                       <SelectContent className="max-h-60">
+                         {consultoresElegiveis.map((c) => (
+                           <SelectItem key={`massa-${c.seq_consultor}`} value={String(c.seq_consultor)}>
+                             {c.nome} (Linhas: {c.perfil_qtd_linhas_min} a {c.perfil_qtd_linhas_max})
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                 </>
+               )}
+            </div>
+
+            <DialogFooter className="pt-4 border-t border-border flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setModalMassaAberto(false)}
+                disabled={isProcessandoMassa}
+                className="text-white hover:bg-muted"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={executarAtribuicaoMassa}
+                disabled={isProcessandoMassa || !consultorMassaSelecionado || !quantidadeMassa}
+                className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold min-w-[150px]"
+              >
+                {isProcessandoMassa ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" /> Iniciar Atribuição
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* MODAL RELATÓRIO DO PIPE RUN */}
         {isLogModalOpen && syncLogs && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">

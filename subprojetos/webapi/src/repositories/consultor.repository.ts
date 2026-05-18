@@ -43,6 +43,7 @@ export default class ConsultorRepository {
                 h.data_inicio_atendimento,
                 h.data_fim_atendimento,
                 c.nome AS consultor_nome,
+                c.seq_consultor,
                 c.perfil_indicacao,
                 c.perfil_qtd_linhas_min,
                 c.perfil_qtd_linhas_max,

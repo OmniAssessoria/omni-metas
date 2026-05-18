@@ -21,6 +21,7 @@ export interface IHistoricoEmpresa {
   tipo_servico: string;
   data_inicio_atendimento: string;
   data_fim_atendimento: string | null;
+  seq_consultor: number;
   consultor_nome: string;
   perfil_indicacao: string;
   perfil_qtd_linhas_min: number;
