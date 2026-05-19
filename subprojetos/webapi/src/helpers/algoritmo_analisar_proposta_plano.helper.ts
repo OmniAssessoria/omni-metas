@@ -19,7 +19,6 @@ export class AnalisadorPlanosHelper {
       }
     }
 
-    // Comportamento original para GB
     const match = textoStr.match(/(\d+)/);
     return match ? parseInt(match[1], 10) : 0;
   }
@@ -166,7 +165,7 @@ export class AnalisadorPlanosHelper {
         bonusAcumulado: number,
         valorAcumulado: number,
         contagemAtual: Record<number, number>,
-        planosEscolhidos: any[], // NOVO: rastreia escolhas por linha
+        planosEscolhidos: any[],
       ) => {
         const custoNecessarioRestante =
           indexLinha < linhasReq.length ? sufixoCustoMinimo[indexLinha] : 0;
@@ -223,7 +222,6 @@ export class AnalisadorPlanosHelper {
           contagemAtual[planoOriginalIndex] =
             (contagemAtual[planoOriginalIndex] || 0) + 1;
 
-          // NOVO: adiciona o plano escolhido para esta linha
           planosEscolhidos.push({
             gb: plano.gb,
             valor: plano.valor,
@@ -236,10 +234,9 @@ export class AnalisadorPlanosHelper {
             bonusAcumulado + plano.bonus,
             this.arredondarCentavos(valorAcumulado + plano.valor),
             contagemAtual,
-            planosEscolhidos, // NOVO: passa o array
+            planosEscolhidos, 
           );
 
-          // NOVO: remove o último plano ao fazer backtrack
           planosEscolhidos.pop();
 
           contagemAtual[planoOriginalIndex] -= 1;
@@ -249,7 +246,7 @@ export class AnalisadorPlanosHelper {
         }
       };
 
-      gerarRecursivo(0, 0, 0, 0, {}, []); // NOVO: passa array vazio inicial
+      gerarRecursivo(0, 0, 0, 0, {}, []);
       return melhorOferta;
     };
 
