@@ -21,19 +21,44 @@ class GeradorImagemLayoutService {
     return numeroStr;
   }
 
+  /**
+   * Função reutilizável para validar e atualizar planos de 10GB com bônus de 4GB.
+   * O plano passa a ser lido como 14GB (para cálculos e exibição no nome do plano),
+   */
+  private validarEConverterPlano10GB(linhas: any[]): any[] {
+    return linhas.map((linha) => {
+      const planoStr = String(linha.plano || "").toUpperCase();
+      const bonusStr = String(linha.bonus || "").toUpperCase();
+      
+      const ehPlano10GB = planoStr.includes("10GB") || planoStr.includes("10 GB");
+      const temBonus4GB = bonusStr.includes("4GB") || bonusStr.includes("4 GB") || bonusStr.trim() === "4";
+
+      if (ehPlano10GB && temBonus4GB) {
+        return {
+          ...linha,
+          plano: linha.plano.replace(/10\s*GB/i, "14GB"),
+        };
+      }
+
+      return linha;
+    });
+  }
+
   async gerarLayoutInfoLinhas(
     seq_empresa: number,
     razao: string,
     cnpj: string,
   ) {
-    const linhasDb =
+    const linhasDbBrutas =
       await this.repository.buscarLinhasPorSeqEmpresa(seq_empresa);
 
-    if (!linhasDb || linhasDb.length === 0) {
+    if (!linhasDbBrutas || linhasDbBrutas.length === 0) {
       throw new Error(
         `Nenhuma linha ativa (tipo CLARO) encontrada para a empresa ${seq_empresa}`,
       );
     }
+
+    const linhasDb = this.validarEConverterPlano10GB(linhasDbBrutas);
 
     let total_valor = 0;
     let linhas_tabela = "";
@@ -148,14 +173,16 @@ class GeradorImagemLayoutService {
     razao: string,
     cnpj: string,
   ) {
-    const linhasDb =
+    const linhasDbBrutas =
       await this.repository.buscarLinhasPorSeqEmpresa(seq_empresa);
 
-    if (!linhasDb || linhasDb.length === 0) {
+    if (!linhasDbBrutas || linhasDbBrutas.length === 0) {
       throw new Error(
         `Nenhuma linha ativa (tipo CLARO) encontrada para a empresa ${seq_empresa}`,
       );
     }
+
+    const linhasDb = this.validarEConverterPlano10GB(linhasDbBrutas);
 
     const analisador = new AnalisadorPlanosHelper();
     const analiseAtual = analisador.analisarPlanosCliente(linhasDb);
