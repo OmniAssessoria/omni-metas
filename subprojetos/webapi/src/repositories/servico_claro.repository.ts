@@ -216,7 +216,7 @@ export default class ServicoClaroRepository {
   async atualizarSituacaoServicoPipe(seq_claro: number) {
     const query = `
             UPDATE omni.servico_claro
-            SET crm = TRUE
+            SET crm = TRUE, dt_fechamento = NULL
             WHERE seq_claro = $1
             RETURNING *;
         `;
