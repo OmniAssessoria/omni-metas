@@ -1,73 +1,390 @@
-# React + TypeScript + Vite
+import axios from "axios";
+import { calcularMesesAteInicioContrato } from "@/utils/calcular_tempo_contrato_por_meses.util";
+import { obterDataInicioContrato } from "@/utils/calcular_dt_inicio_contrato.util";
+import { IPipeRunIntegrationParams } from "@/interfaces/pipeRunIntegrationParams.interface";
+import { IPipeRunIntegrationResult } from "@/interfaces/pipeRunIntegrationsResult.interface";
+import {
+  formatarCNPJ,
+  formatarCPF,
+  formatarDataBR,
+  limparPontuacao,
+} from "@/utils/formataDados.util";
+import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
+import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
+import formatarObservacaoPlanosLinhas from "@/utils/formatarObservacao.util";
+import { apiPipeRunRest } from "@/configs/piperunConfigs.config";
+import { gerarEAnexarImagemPipeRun } from "./omniGeradorLayoutService";
+import {
+  anexarImagemDecisorPipeRun,
+  extrairImagemDecisorDrive,
+} from "./driveObterDecisor";
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+export const API_PIPERUN = async ({
+  servicos,
+  tipoOperacao,
+}: IPipeRunIntegrationParams & {
+  tipoOperacao?: string;
+}): Promise<IPipeRunIntegrationResult> => {
+  let sucessos = 0;
+  let falhas = 0;
+  let pulados = 0;
 
-Currently, two official plugins are available:
+  for (const servico of servicos) {
+    console.log(
+      `\n================================================================`,
+    );
+    console.log(
+      `[PipeRun REST/Webhook] Iniciando processamento cronológico: ${servico.razao}`,
+    );
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+    try {
+      const isExclusivo = tipoOperacao === "Exclusivo";
+      const cnpjLimpo = limparPontuacao(servico.cnpj);
+      const cnpjFormatado = formatarCNPJ(servico.cnpj);
 
-## React Compiler
+      const resultDecisor = extrairEFormatarTelefonesDecisor(
+        servico.decisor_numero,
+        servico.decisor_num_obs,
+      );
+      const resultEmpresa = extrairTelefonesEmpresaDaObservacao(
+        servico.observacao,
+      );
+      const dddFinal =
+        resultEmpresa.dddPrincipal !== "00"
+          ? resultEmpresa.dddPrincipal
+          : resultDecisor.dddPrincipal !== "00"
+            ? resultDecisor.dddPrincipal
+            : "00";
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+      const dddNumerico = parseInt(dddFinal, 10);
+      const indicacaoNormalizada = (servico.indicacao || "")
+        .trim()
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
 
-## Expanding the ESLint configuration
+      if (!isExclusivo) {
+        if (isNaN(dddNumerico) || dddNumerico < 11 || dddNumerico > 19) {
+          console.warn(
+            `[PipeRun] 🚧 PULADO (Fora de SP ou Inválido): ${servico.razao} possui DDD ${dddFinal}.`,
+          );
+          pulados++;
+          continue;
+        }
+        if (indicacaoNormalizada === "RENOVACAO" && dddFinal === "11") {
+          console.warn(
+            `[PipeRun] 🚧 PULADO: ${servico.razao} possui DDD 11 e é de RENOVACAO.`,
+          );
+          pulados++;
+          continue;
+        }
+      } else {
+        console.log(`[PipeRun] 🎯 Fluxo Exclusivo Ativo para ${servico.razao}`);
+      }
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+      const dataFimFormatada = formatarDataBR(servico.dt_fim_contrato);
+      const dataInicioFormatada = obterDataInicioContrato(
+        servico.dt_fim_contrato,
+      );
+      const mesesContrato = calcularMesesAteInicioContrato(dataInicioFormatada);
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+      let companyId = null;
+      console.log(
+        `[Passo 1] 🏢 Verificando existência da Empresa: ${servico.razao} (CNPJ: ${cnpjFormatado})`,
+      );
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+      if (cnpjFormatado) {
+        const resCompany = await apiPipeRunRest.get("/companies", {
+          params: { cnpj: cnpjFormatado },
+        });
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+        if (resCompany.data?.data && resCompany.data.data.length > 0) {
+          companyId = resCompany.data.data[0].id;
+        }
+      }
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+      if (companyId) {
+        console.log(
+          `[Passo 1.1] ⚠️ ALERTA: Empresa já existe no sistema (ID: ${companyId}). Iniciando protocolo de higienização...`,
+        );
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+        const resDeals = await apiPipeRunRest.get("/deals", {
+          params: { company_id: companyId },
+        });
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+        const dealsVinculados = resDeals.data?.data || [];
+
+        if (dealsVinculados.length > 0) {
+          console.log(
+            `[Passo 1.2] 🗑️ Encontrada(s) ${dealsVinculados.length} oportunidade(s) prévia(s). Executando exclusão...`,
+          );
+          for (const deal of dealsVinculados) {
+            await apiPipeRunRest.delete(`/deals/${deal.id}`);
+            console.log(
+              `   └─ ✅ Oportunidade (Deal ID: ${deal.id}) deletada irreversivelmente.`,
+            );
+          }
+        } else {
+          console.log(
+            `[Passo 1.2] ℹ️ Nenhuma oportunidade encontrada para a empresa (ID: ${companyId}).`,
+          );
+        }
+
+        console.log(
+          `[Passo 1.3] 🧨 Aniquilando cadastro antigo da empresa (ID: ${companyId})...`,
+        );
+        await apiPipeRunRest.delete(`/companies/${companyId}`);
+        console.log(
+          `   └─ ✅ Cadastro da empresa removido. CNPJ ${cnpjFormatado} liberado no PipeRun.`,
+        );
+
+        companyId = null;
+      }
+
+      const payloadCompany = {
+        name: servico.razao,
+        cnpj: cnpjFormatado,
+        contactPhones: resultEmpresa.telefonesFormatados,
+      };
+
+      console.log(
+        `[Passo 2] 🆕 Criando NOVO cadastro da empresa no PipeRun...`,
+      );
+      const createCompany = await apiPipeRunRest.post(
+        "/companies",
+        payloadCompany,
+      );
+      companyId = createCompany.data?.data?.id || null;
+      console.log(
+        `   └─ ✅ Nova empresa criada com sucesso (ID: ${companyId}).`,
+      );
+
+      let hashDefinido = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
+
+      const isCarteira =
+        servico.carteira && String(servico.carteira).trim() !== "";
+      const isPortabilidade =
+        tipoOperacao === "Portabilidade" ||
+        indicacaoNormalizada === "PORTABILIDADE";
+      const emailConsultor = servico.consultor_email
+        ? String(servico.consultor_email).trim().toLowerCase()
+        : "";
+
+      const isConsultorCarolina =
+        Number(servico.seq_consultor) === 8 ||
+        emailConsultor === "carolina.souza@rennovatecnologia.com.br";
+
+      const isConsultorLeonardo =
+        Number(servico.seq_consultor) === 15 ||
+        emailConsultor === "leonardo.sousa@rennovatecnologia.com.br";
+
+      const isConsultorOtavio =
+        emailConsultor === "otavio@rennovatecnologia.com.br";
+
+      if (isConsultorCarolina || isConsultorLeonardo) {
+        hashDefinido = "911c2966-27b7-4fc2-b9b2-21dc3deaa561";
+      } else if (isConsultorOtavio) {
+        hashDefinido = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
+      } else if (isPortabilidade) {
+        hashDefinido = "856cb565-72d5-499f-aa40-d2bdb54825ac";
+      }
+
+      const processarEFormatarLista = (
+        principal: string | null,
+        observacao: string | null,
+        tipo: "telefone" | "email",
+      ): string => {
+        const lista: string[] = [];
+        if (principal)
+          lista.push(
+            ...principal
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
+          );
+        if (observacao)
+          lista.push(
+            ...observacao
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
+          );
+        if (lista.length === 0) return "";
+
+        return lista
+          .map((item) => {
+            if (tipo === "email") return item.toLowerCase();
+            if (tipo === "telefone") {
+              const numLimpo = item.replace(/\D/g, "");
+              if (numLimpo.length === 11)
+                return `(${numLimpo.slice(0, 2)}) ${numLimpo.slice(2, 7)}-${numLimpo.slice(7)}`;
+              if (numLimpo.length === 10)
+                return `(${numLimpo.slice(0, 2)}) ${numLimpo.slice(2, 6)}-${numLimpo.slice(6)}`;
+            }
+            return item;
+          })
+          .join(" <=> ");
+      };
+
+      const decisorNome = servico.decisor_nome
+        ? servico.decisor_nome.trim().toUpperCase()
+        : "";
+      const decisorCpf = servico.decisor_cpf
+        ? formatarCPF(servico.decisor_cpf.trim())
+        : "";
+      const telefonesStr = processarEFormatarLista(
+        servico.decisor_numero,
+        servico.decisor_num_obs,
+        "telefone",
+      );
+      const emailsStr = processarEFormatarLista(
+        servico.decisor_email,
+        servico.decisor_email_observacao,
+        "email",
+      );
+
+      let infoDecisorStr = "";
+      if (decisorNome || decisorCpf || telefonesStr || emailsStr) {
+        infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > CPF: ${decisorCpf || "NÃO INFORMADO"} < ||||| > TELEFONES: ${telefonesStr || "NÃO INFORMADO"} ||||| EMAILS: ${emailsStr || "NÃO INFORMADO"}`;
+      }
+
+      const custom_fields_payload: Record<string, string | null | undefined> = {
+        "Inicio do Contrato": dataInicioFormatada,
+        "Final do Contrato": dataFimFormatada,
+        "Tempo de Contrato": String(mesesContrato),
+        DDD: dddFinal,
+        "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
+        DOCDRIVE: servico.servico_docdrive,
+        Observacao: formatarObservacaoPlanosLinhas(servico.observacao),
+        Indicacao: isExclusivo
+          ? `EXCLUSIVO CLARO: ${servico.indicacao || "N/A"}`
+          : servico.indicacao,
+        Carteira: servico.carteira,
+      };
+
+      if (infoDecisorStr)
+        custom_fields_payload["Informações DECISOR (Possível decisor)"] =
+          infoDecisorStr;
+
+      const titleCard = isExclusivo
+        ? `(${dddFinal}) EXCLUSIVO CLARO >> ${servico.razao}`
+        : `(${dddFinal}) ${servico.indicacao} >> ${servico.razao}${isCarteira ? ` >> CARTEIRA` : ""}`;
+
+      const payloadWebhook = {
+        leads: [
+          {
+            title: titleCard,
+            company: servico.razao,
+            cnpj: cnpjFormatado,
+            user: emailConsultor || undefined,
+            probability: 10,
+            custom_fields: custom_fields_payload,
+          },
+        ],
+      };
+
+      console.log(
+        `[Passo 3] 🚀 Disparando Webhook de Oportunidade (Deal) para o PipeRun...`,
+      );
+
+      const responseWebhook = await axios.post(
+        `https://app.pipe.run/webservice/integradorJson`,
+        payloadWebhook,
+        {
+          params: { hash: hashDefinido },
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+
+      let dealIdCriado = null;
+      if (responseWebhook.status === 200 || responseWebhook.data?.success) {
+        const respData = responseWebhook.data?.data;
+        if (Array.isArray(respData) && respData.length > 0)
+          dealIdCriado = respData[0].id;
+        else if (respData?.id) dealIdCriado = respData.id;
+        else if (responseWebhook.data?.id)
+          dealIdCriado = responseWebhook.data.id;
+      } else {
+        console.warn(
+          `[Aviso Webhook] Webhook retornou status 200 mas com possível falha estrutural:`,
+          responseWebhook.data,
+        );
+      }
+
+      if (dealIdCriado) {
+        console.log(
+          `[Passo 4] 📎 Anexando artefatos e imagens ao Deal ID: ${dealIdCriado}...`,
+        );
+        await gerarEAnexarImagemPipeRun(
+          dealIdCriado,
+          servico,
+          cnpjFormatado,
+          "linhas",
+          "📊 Resumo de Situação Atual - Linhas",
+        );
+
+        if (indicacaoNormalizada === "RENOVACAO") {
+          await gerarEAnexarImagemPipeRun(
+            dealIdCriado,
+            servico,
+            cnpjFormatado,
+            "proposta",
+            "📱 Proposta Comercial Multiplano",
+          );
+        }
+
+        if (servico.servico_docdrive) {
+          const base64Decisor = await extrairImagemDecisorDrive(
+            servico.servico_docdrive,
+            cnpjLimpo,
+          );
+
+          if (base64Decisor) {
+            await anexarImagemDecisorPipeRun(
+              dealIdCriado,
+              base64Decisor,
+              servico.seq_empresa,
+            );
+          }
+        }
+      }
+
+      console.log(
+        `✅ Fluxo concluído com SUCESSO ABSOLUTO para: ${servico.razao}`,
+      );
+      sucessos++;
+    } catch (err: any) {
+      falhas++;
+      console.error(
+        `\n[!!! ERRO FATAL NO FLUXO !!!] Ocorreu uma interrupção processando: ${servico.razao}`,
+      );
+
+      if (axios.isAxiosError(err)) {
+        const met = err.config?.method?.toUpperCase() || "UNKNOWN";
+        const url = err.config?.url || "UNKNOWN_URL";
+        console.error(
+          `🔴 Falha na Requisição HTTP: Método [${met}] na URL [${url}] retornou Status [${err.response?.status}]`,
+        );
+
+        if (err.response?.data) {
+          console.error(`📄 DETALHES RETORNADOS PELO SERVIDOR PIPERUN:`);
+          console.error(JSON.stringify(err.response.data, null, 2));
+        }
+      } else {
+        console.error(
+          `🔴 Erro Interno do Node/Aplicação:`,
+          err instanceof Error ? err.stack : err,
+        );
+      }
+    }
+  }
+
+  console.log(
+    `\n================================================================`,
+  );
+  console.log(
+    `🏁 [Orquestração API REST/Webhook Finalizada] ✅ Sucessos: ${sucessos} | ❌ Falhas: ${falhas} | 🚧 Pulados: ${pulados}`,
+  );
+
+  return { sucessos, falhas, pulados } as any;
+};
