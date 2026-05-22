@@ -43,7 +43,7 @@ import {
   CheckCircle2,
   XCircle,
   FileJson,
-  Layers, // <-- Novo Ícone Adicionado
+  Layers,
 } from "lucide-react";
 import {
   BarChart,
@@ -112,16 +112,18 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
   const [consultorSelecionadoAtribuicao, setConsultorSelecionadoAtribuicao] =
     useState<string>("");
   const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
-  
-  // ==========================================
-  // NOVOS ESTADOS PARA ATRIBUIÇÃO EM MASSA
-  // ==========================================
   const [modalMassaAberto, setModalMassaAberto] = useState(false);
   const [quantidadeMassa, setQuantidadeMassa] = useState<number | "">("");
-  const [consultorMassaSelecionado, setConsultorMassaSelecionado] = useState<string>("");
+  const [consultorMassaSelecionado, setConsultorMassaSelecionado] =
+    useState<string>("");
+  const [linhaMinMassa, setLinhaMinMassa] = useState<number | "">("");
+  const [linhaMaxMassa, setLinhaMaxMassa] = useState<number | "">("");
   const [isProcessandoMassa, setIsProcessandoMassa] = useState(false);
-  const [progressoMassa, setProgressoMassa] = useState<{ analisadas: number; sucesso: number; totalRequerido: number } | null>(null);
-  // ==========================================
+  const [progressoMassa, setProgressoMassa] = useState<{
+    analisadas: number;
+    sucesso: number;
+    totalRequerido: number;
+  } | null>(null);
 
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
 
@@ -137,6 +139,25 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
       setDadosLocais(dados);
     }
   }, [dados]);
+
+  const consultorMassaPerfil = useMemo(() => {
+    if (!consultorMassaSelecionado) return null;
+    return (
+      consultores.find(
+        (c) => String(c.seq_consultor) === consultorMassaSelecionado,
+      ) || null
+    );
+  }, [consultorMassaSelecionado, consultores]);
+
+  useEffect(() => {
+    if (consultorMassaPerfil) {
+      setLinhaMinMassa(consultorMassaPerfil.perfil_qtd_linhas_min);
+      setLinhaMaxMassa(consultorMassaPerfil.perfil_qtd_linhas_max);
+    } else {
+      setLinhaMinMassa("");
+      setLinhaMaxMassa("");
+    }
+  }, [consultorMassaPerfil]);
 
   const formatarDataApenasDia = (
     dataString: string | Date | undefined | null,
@@ -434,9 +455,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
       );
 
       setModalAtribuicaoAberto(false);
-      console.log(
-        `[Sucesso] Consultor alterado para a empresa ${empresaAtribuicao.nome}`,
-      );
     } catch (error: any) {
       console.error("Erro ao atribuir novo consultor:", error);
       alert(
@@ -448,86 +466,139 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     }
   };
 
-  // ==========================================
-  // NOVA FUNÇÃO: EXECUTAR ATRIBUIÇÃO EM MASSA
-  // ==========================================
   const executarAtribuicaoMassa = async () => {
     const qtdAlvo = Number(quantidadeMassa);
     const idConsultorAlvo = Number(consultorMassaSelecionado);
+    const minL = Number(linhaMinMassa);
+    const maxL = Number(linhaMaxMassa);
 
     if (!idConsultorAlvo || !qtdAlvo || qtdAlvo <= 0) {
-      alert("Selecione um consultor válido e defina uma quantidade maior que zero.");
+      alert(
+        "Selecione um consultor válido e defina uma quantidade maior que zero.",
+      );
       return;
+    }
+
+    if (consultorMassaPerfil) {
+      if (
+        minL < consultorMassaPerfil.perfil_qtd_linhas_min ||
+        maxL > consultorMassaPerfil.perfil_qtd_linhas_max
+      ) {
+        alert(
+          `A faixa de linhas escolhida deve estar entre ${consultorMassaPerfil.perfil_qtd_linhas_min} e ${consultorMassaPerfil.perfil_qtd_linhas_max}.`,
+        );
+        return;
+      }
+      if (minL > maxL) {
+        alert("A linha inicial não pode ser maior que a linha final.");
+        return;
+      }
     }
 
     setIsProcessandoMassa(true);
     let qtdSucesso = 0;
     let qtdAnalisada = 0;
-    let copiaDados = [...dadosLocais]; // Cópia segura para mutação otimista
+    let copiaDados = [...dadosLocais];
 
     setProgressoMassa({ analisadas: 0, sucesso: 0, totalRequerido: qtdAlvo });
 
     for (const item of dadosFiltrados) {
-      if (qtdSucesso >= qtdAlvo) break; // Finaliza se já atingiu a meta
+      if (qtdSucesso >= qtdAlvo) break;
 
       qtdAnalisada++;
-      
-      // 0. Ignora se já estiver com o consultor selecionado
+
+      const qtdLinhasItem = Number(item.qtd_servico_claro) || 0;
+      if (qtdLinhasItem < minL || qtdLinhasItem > maxL) {
+        setProgressoMassa({
+          analisadas: qtdAnalisada,
+          sucesso: qtdSucesso,
+          totalRequerido: qtdAlvo,
+        });
+        continue; 
+      }
+
       if (item.seq_consultor === idConsultorAlvo) {
-         setProgressoMassa({ analisadas: qtdAnalisada, sucesso: qtdSucesso, totalRequerido: qtdAlvo });
-         continue;
+        setProgressoMassa({
+          analisadas: qtdAnalisada,
+          sucesso: qtdSucesso,
+          totalRequerido: qtdAlvo,
+        });
+        continue;
       }
 
       try {
-        // 1. Verifica se consultor está disponível para a empresa (Regra de Carga/Perfil)
-        const resDisp = await API.get(`/api/consultor/disponiveis/empresa/${item.seq_empresa}?indicacao=RENOVACAO`);
+        const resDisp = await API.get(
+          `/api/consultor/disponiveis/empresa/${item.seq_empresa}?indicacao=RENOVACAO`,
+        );
         const disponiveis: IConsultorDisponivel[] = resDisp.data?.dados || [];
-        const elegivel = disponiveis.find((c) => c.seq_consultor === idConsultorAlvo);
+        const elegivel = disponiveis.find(
+          (c) => c.seq_consultor === idConsultorAlvo,
+        );
 
         if (!elegivel) {
-           setProgressoMassa({ analisadas: qtdAnalisada, sucesso: qtdSucesso, totalRequerido: qtdAlvo });
-           continue; // Caiu na regra de validação, passa para próxima base
+          setProgressoMassa({
+            analisadas: qtdAnalisada,
+            sucesso: qtdSucesso,
+            totalRequerido: qtdAlvo,
+          });
+          continue;
         }
 
-        // 2. Verifica Histórico
-        const resHist = await API.get(`/api/consultor/historico/empresa/${item.seq_empresa}`);
+        const resHist = await API.get(
+          `/api/consultor/historico/empresa/${item.seq_empresa}`,
+        );
         const historico: IHistoricoEmpresa[] = resHist.data?.dados || [];
-        const jaTeveHistorico = historico.some((h) => Number(h.seq_consultor) === idConsultorAlvo);
+        const jaTeveHistorico = historico.some(
+          (h) => Number(h.seq_consultor) === idConsultorAlvo,
+        );
 
         if (jaTeveHistorico) {
-           setProgressoMassa({ analisadas: qtdAnalisada, sucesso: qtdSucesso, totalRequerido: qtdAlvo });
-           continue; // Caiu na regra de histórico, passa para a próxima base
+          setProgressoMassa({
+            analisadas: qtdAnalisada,
+            sucesso: qtdSucesso,
+            totalRequerido: qtdAlvo,
+          });
+          continue;
         }
 
-        // 3. Executa a Atribuição
         await API.put(`/api/consultor/empresa/${item.seq_empresa}`, {
           seq_consultor: idConsultorAlvo,
         });
 
         qtdSucesso++;
 
-        // Atualiza a matriz global localmente sem precisar dar reload da pagina
         copiaDados = copiaDados.map((d) =>
-          d.seq_empresa === item.seq_empresa ? { ...d, seq_consultor: idConsultorAlvo } : d
+          d.seq_empresa === item.seq_empresa
+            ? { ...d, seq_consultor: idConsultorAlvo }
+            : d,
         );
 
-        setProgressoMassa({ analisadas: qtdAnalisada, sucesso: qtdSucesso, totalRequerido: qtdAlvo });
-        
+        setProgressoMassa({
+          analisadas: qtdAnalisada,
+          sucesso: qtdSucesso,
+          totalRequerido: qtdAlvo,
+        });
       } catch (err) {
-        console.error(`Erro ao processar em massa a empresa ${item.seq_empresa}:`, err);
+        console.error(
+          `Erro ao processar em massa a empresa ${item.seq_empresa}:`,
+          err,
+        );
       }
     }
 
-    setDadosLocais(copiaDados); // Atualiza os dados originais processados
+    setDadosLocais(copiaDados);
     setIsProcessandoMassa(false);
     setProgressoMassa(null);
     setModalMassaAberto(false);
     setQuantidadeMassa("");
     setConsultorMassaSelecionado("");
+    setLinhaMinMassa("");
+    setLinhaMaxMassa("");
 
-    alert(`Processo concluído! \nForam analisadas ${qtdAnalisada} bases e ${qtdSucesso} foram atribuídas com sucesso.`);
+    alert(
+      `Processo concluído! \nForam analisadas ${qtdAnalisada} bases e ${qtdSucesso} foram atribuídas com sucesso.`,
+    );
   };
-  // ==========================================
 
   const consultorAtual = useMemo(
     () => consultores.find((c) => c.seq_consultor === consultorSelecionado),
@@ -820,7 +891,10 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 {consultorSelecionado ? (
                   <Users size={20} className="text-yellow-500 flex-shrink-0" />
                 ) : (
-                  <LayoutList size={20} className="text-yellow-500 flex-shrink-0" />
+                  <LayoutList
+                    size={20}
+                    className="text-yellow-500 flex-shrink-0"
+                  />
                 )}
                 <h2 className="text-lg font-semibold truncate">
                   {consultorAtual
@@ -831,7 +905,6 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 </h2>
               </div>
 
-              {/* BOTAO PARA ATRIBUIR EM MASSA */}
               <Button
                 variant="outline"
                 onClick={() => setModalMassaAberto(true)}
@@ -1148,7 +1221,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                                 )}
                               </TableCell>
                               <TableCell className="text-right whitespace-nowrap">
-                                {item.servico_docdrive || "-" }
+                                {item.servico_docdrive || "-"}
                               </TableCell>
                               <TableCell className="text-center">
                                 <div className="flex justify-center gap-2">
@@ -1448,8 +1521,8 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
         {/* ========================================== */}
         {/* NOVO MODAL: ATRIBUIÇÃO EM MASSA            */}
         {/* ========================================== */}
-        <Dialog 
-          open={modalMassaAberto} 
+        <Dialog
+          open={modalMassaAberto}
           onOpenChange={!isProcessandoMassa ? setModalMassaAberto : undefined}
         >
           <DialogContent className="sm:max-w-xl bg-background border border-border rounded-xl">
@@ -1459,62 +1532,152 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                 Atribuir Bases em Massa
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground mt-2">
-                Essa ação irá percorrer os <strong className="text-white">{dadosFiltrados.length}</strong> serviços atualmente filtrados na tela. O sistema validará se o consultor escolhido atende a carga/perfil da base e se não possui histórico recente antes de fazer a alteração.
+                Essa ação percorrerá as{" "}
+                <strong className="text-white">{dadosFiltrados.length}</strong>{" "}
+                bases de dados na tela. Ajuste a faixa de linhas e a quantidade
+                que deseja atribuir.
               </DialogDescription>
             </DialogHeader>
 
             <div className="py-6 flex flex-col gap-4">
-               {isProcessandoMassa ? (
-                 <div className="flex flex-col items-center justify-center py-6">
-                   <Loader2 className="w-10 h-10 animate-spin text-yellow-500 mb-4" />
-                   <span className="text-lg font-bold text-white mb-2">Processando Lote...</span>
-                   {progressoMassa && (
-                     <div className="text-center text-sm space-y-1">
-                        <p className="text-muted-foreground">Bases analisadas: <strong className="text-white">{progressoMassa.analisadas}</strong></p>
-                        <p className="text-muted-foreground">
-                          Atribuições com sucesso: <strong className="text-emerald-400">{progressoMassa.sucesso} / {progressoMassa.totalRequerido}</strong>
-                        </p>
-                     </div>
-                   )}
-                 </div>
-               ) : (
-                 <>
-                   <div className="space-y-2">
-                     <label className="text-sm font-semibold text-white">
-                       Quantidade Limite de Atribuições com Sucesso
-                     </label>
-                     <input
-                        type="number"
-                        min="1"
-                        placeholder="Ex: 10"
-                        value={quantidadeMassa}
-                        onChange={(e) => setQuantidadeMassa(e.target.value === "" ? "" : Number(e.target.value))}
-                        className="flex h-12 w-full rounded-md border border-input bg-muted/20 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 text-white"
-                     />
-                   </div>
+              {isProcessandoMassa ? (
+                <div className="flex flex-col items-center justify-center py-6">
+                  <Loader2 className="w-10 h-10 animate-spin text-yellow-500 mb-4" />
+                  <span className="text-lg font-bold text-white mb-2">
+                    Processando Lote...
+                  </span>
+                  {progressoMassa && (
+                    <div className="text-center text-sm space-y-1">
+                      <p className="text-muted-foreground">
+                        Bases analisadas do loop:{" "}
+                        <strong className="text-white">
+                          {progressoMassa.analisadas}
+                        </strong>
+                      </p>
+                      <p className="text-muted-foreground">
+                        Atribuições com sucesso:{" "}
+                        <strong className="text-emerald-400">
+                          {progressoMassa.sucesso} /{" "}
+                          {progressoMassa.totalRequerido}
+                        </strong>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-white">
+                      Consultor de Destino
+                    </label>
+                    <Select
+                      onValueChange={setConsultorMassaSelecionado}
+                      value={consultorMassaSelecionado}
+                    >
+                      <SelectTrigger className="w-full bg-muted/20 border-border focus:ring-yellow-500 text-white h-12">
+                        <SelectValue placeholder="Selecione na lista..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {consultoresElegiveis.map((c) => (
+                          <SelectItem
+                            key={`massa-${c.seq_consultor}`}
+                            value={String(c.seq_consultor)}
+                          >
+                            {c.nome} (Linhas: {c.perfil_qtd_linhas_min} a{" "}
+                            {c.perfil_qtd_linhas_max})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {consultorMassaPerfil && (
+                    <div className="grid text-white grid-cols-2 gap-4 bg-muted/10 p-4 border border-border rounded-lg">
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-white">
+                          Linhas a partir de:
+                        </label>
+                        <input
+                          type="number"
+                          min={consultorMassaPerfil.perfil_qtd_linhas_min}
+                          max={
+                            linhaMaxMassa ||
+                            consultorMassaPerfil.perfil_qtd_linhas_max
+                          }
+                          value={linhaMinMassa}
+                          onChange={(e) =>
+                            setLinhaMinMassa(
+                              e.target.value === ""
+                                ? ""
+                                : Number(e.target.value),
+                            )
+                          }
+                          onBlur={(e) => {
+                            let val = Number(e.target.value);
+                            const minP =
+                              consultorMassaPerfil.perfil_qtd_linhas_min;
+                            const maxP =
+                              consultorMassaPerfil.perfil_qtd_linhas_max;
+                            if (val < minP) setLinhaMinMassa(minP);
+                            if (val > maxP) setLinhaMinMassa(maxP);
+                          }}
+                          className="flex h-10 w-full color-white rounded-md border border-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
+                          title={`O valor mínimo permitido para este consultor é ${consultorMassaPerfil.perfil_qtd_linhas_min}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-white">
+                          Até o limite de:
+                        </label>
+                        <input
+                          type="number"
+                          min={
+                            linhaMinMassa ||
+                            consultorMassaPerfil.perfil_qtd_linhas_min
+                          }
+                          max={consultorMassaPerfil.perfil_qtd_linhas_max}
+                          value={linhaMaxMassa}
+                          onChange={(e) =>
+                            setLinhaMaxMassa(
+                              e.target.value === ""
+                                ? ""
+                                : Number(e.target.value),
+                            )
+                          }
+                          onBlur={(e) => {
+                            let val = Number(e.target.value);
+                            const minP =
+                              consultorMassaPerfil.perfil_qtd_linhas_min;
+                            const maxP =
+                              consultorMassaPerfil.perfil_qtd_linhas_max;
+                            if (val > maxP) setLinhaMaxMassa(maxP);
+                            if (val < minP) setLinhaMaxMassa(minP);
+                          }}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
+                          title={`O valor máximo permitido para este consultor é ${consultorMassaPerfil.perfil_qtd_linhas_max}`}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                   <div className="space-y-2 mt-4">
-                     <label className="text-sm font-semibold text-white">
-                       Consultor de Destino
-                     </label>
-                     <Select
-                        onValueChange={setConsultorMassaSelecionado}
-                        value={consultorMassaSelecionado}
-                     >
-                       <SelectTrigger className="w-full bg-muted/20 border-border focus:ring-yellow-500 text-white h-12">
-                         <SelectValue placeholder="Selecione na lista..." />
-                       </SelectTrigger>
-                       <SelectContent className="max-h-60">
-                         {consultoresElegiveis.map((c) => (
-                           <SelectItem key={`massa-${c.seq_consultor}`} value={String(c.seq_consultor)}>
-                             {c.nome} (Linhas: {c.perfil_qtd_linhas_min} a {c.perfil_qtd_linhas_max})
-                           </SelectItem>
-                         ))}
-                       </SelectContent>
-                     </Select>
-                   </div>
-                 </>
-               )}
+                  <div className="space-y-2 mt-2">
+                    <label className="text-sm font-semibold text-white">
+                      Meta de Atribuições com Sucesso
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Ex: 10"
+                      value={quantidadeMassa}
+                      onChange={(e) =>
+                        setQuantidadeMassa(
+                          e.target.value === "" ? "" : Number(e.target.value),
+                        )
+                      }
+                      className="flex h-12 w-full rounded-md border border-input bg-muted/20 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 text-white"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <DialogFooter className="pt-4 border-t border-border flex justify-end gap-2">
@@ -1528,7 +1691,13 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
               </Button>
               <Button
                 onClick={executarAtribuicaoMassa}
-                disabled={isProcessandoMassa || !consultorMassaSelecionado || !quantidadeMassa}
+                disabled={
+                  isProcessandoMassa ||
+                  !consultorMassaSelecionado ||
+                  !quantidadeMassa ||
+                  linhaMinMassa === "" ||
+                  linhaMaxMassa === ""
+                }
                 className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold min-w-[150px]"
               >
                 {isProcessandoMassa ? (
