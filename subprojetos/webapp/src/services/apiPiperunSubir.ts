@@ -103,20 +103,37 @@ export const API_PIPERUN = async ({
         }
       }
 
-      const payloadCompany = {
+      const payloadAtualizacao = {
         name: servico.razao,
-        cnpj: cnpjFormatado, 
         contactPhones: resultEmpresa.telefonesFormatados,
       };
 
-      if (companyId) {
-        await apiPipeRunRest.put(`/companies/${companyId}`, payloadCompany);
-      } else {
-        const createCompany = await apiPipeRunRest.post(
-          "/companies",
-          payloadCompany,
+      try {
+        if (companyId) {
+          await apiPipeRunRest.put(`/companies/${companyId}`, payloadAtualizacao);
+        } else {
+          const payloadCriacao = {
+            ...payloadAtualizacao,
+            cnpj: cnpjFormatado,
+          };
+          const createCompany = await apiPipeRunRest.post(
+            "/companies",
+            payloadCriacao,
+          );
+          companyId = createCompany.data?.data?.id || null;
+        }
+      } catch (companyError: any) {
+        console.error(
+          `\n[ERRO NA API DE EMPRESAS - 422/400] Falha ao processar empresa ${servico.razao}`,
         );
-        companyId = createCompany.data?.data?.id || null;
+        if (axios.isAxiosError(companyError)) {
+          console.error(`Status HTTP: ${companyError.response?.status}`);
+          console.error(
+            `Resposta do PipeRun:`,
+            JSON.stringify(companyError.response?.data, null, 2),
+          );
+        }
+        throw companyError;
       }
 
       let hashDefinido = "e015a67d-bab4-403a-a0f6-5b2cfbc35ebe";
