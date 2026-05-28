@@ -37,7 +37,7 @@ const regrasPerfisExatos: Record<number, string> = {
   58448: "PORTABILIDADE",
   58488: "RENOVACAO",
   59215: "RENOVACAO",
-  92696: "RENOVACAO",
+  92696: "CARTEIRA",
   97363: "CARTEIRA",
 };
 
