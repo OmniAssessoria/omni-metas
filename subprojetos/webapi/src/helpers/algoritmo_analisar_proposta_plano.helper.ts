@@ -28,8 +28,7 @@ export class AnalisadorPlanosHelper {
     let total_valor = 0;
     let total_gb = 0;
     let total_linhas = 0;
-
-    const linhas_requisitos: number[] = [];
+    const linhas_requisitos: { gbMinimo: number; valorAtual: number }[] = [];
 
     for (const servico of servicos) {
       if (servico.linha_ativa === false) continue;
@@ -37,8 +36,7 @@ export class AnalisadorPlanosHelper {
       const plano = servico.plano || "";
       const valor = Number(servico.valor) || 0;
       const gbBase = this.extrairGb(plano);
-
-      linhas_requisitos.push(gbBase);
+      linhas_requisitos.push({ gbMinimo: gbBase, valorAtual: valor });
 
       if (!planos_agrupados[plano]) {
         planos_agrupados[plano] = {
@@ -74,7 +72,7 @@ export class AnalisadorPlanosHelper {
 
   public encontrarMelhorOfertaEconomica(analiseAtual: any) {
     const planos = PLANOS_DISPONIVEIS;
-    const linhasReq = analiseAtual.linhas_requisitos as number[];
+    const linhasReq = analiseAtual.linhas_requisitos as { gbMinimo: number; valorAtual: number }[];
 
     let totalValorOferta = 0;
     let totalGbOferta = 0;
@@ -82,10 +80,10 @@ export class AnalisadorPlanosHelper {
     const contagemPlanos: Record<number, any> = {};
     const planosEscolhidosPorLinha: any[] = [];
 
-    for (const gbMinimoLinha of linhasReq) {
+    for (const req of linhasReq) {
       const planosValidos = planos
         .map((p, idx) => ({ ...p, originalIndex: idx }))
-        .filter((p) => p.gb >= gbMinimoLinha);
+        .filter((p) => p.gb >= req.gbMinimo && p.valor >= (req.valorAtual - 3));
 
       if (planosValidos.length === 0) {
         return null;
@@ -119,7 +117,7 @@ export class AnalisadorPlanosHelper {
 
     return {
       combo: Object.values(contagemPlanos),
-      planos_por_linha: planosEscolhidosPorLinha, // NOVO
+      planos_por_linha: planosEscolhidosPorLinha, 
       total_gb: totalGbOferta,
       total_gb_com_bonus: totalGbComBonusOferta,
       total_valor: totalValorOferta,
@@ -128,7 +126,7 @@ export class AnalisadorPlanosHelper {
 
   public encontrarMelhorOfertaMaisGb(analiseAtual: any, ofertaEconomica?: any) {
     const planos = PLANOS_DISPONIVEIS;
-    const linhasReq = analiseAtual.linhas_requisitos as number[];
+    const linhasReq = analiseAtual.linhas_requisitos as { gbMinimo: number; valorAtual: number }[];
 
     const valorEco = ofertaEconomica ? ofertaEconomica.total_valor : -1;
     const gbTotalEco = ofertaEconomica
@@ -137,8 +135,8 @@ export class AnalisadorPlanosHelper {
 
     const valorBaseParaMargem = Math.max(analiseAtual.total_valor, valorEco);
 
-    const planosValidosPorLinha = linhasReq.map((gbMinimo) => {
-      return planos.filter((p) => p.gb >= gbMinimo);
+    const planosValidosPorLinha = linhasReq.map((req) => {
+      return planos.filter((p) => p.gb >= req.gbMinimo && p.valor >= (req.valorAtual - 3));
     });
 
     if (planosValidosPorLinha.some((lista) => lista.length === 0)) return null;
@@ -192,7 +190,7 @@ export class AnalisadorPlanosHelper {
 
           const ofertaAtual = {
             combo: converterContagemParaCombo(contagemAtual, planos),
-            planos_por_linha: [...planosEscolhidos], // NOVO: copia do array
+            planos_por_linha: [...planosEscolhidos],
             total_gb: gbAcumulado,
             total_gb_com_bonus: totalGbComBonus,
             total_valor: valorAcumulado,
