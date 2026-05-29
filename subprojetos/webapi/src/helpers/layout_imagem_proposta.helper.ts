@@ -17,9 +17,6 @@ export const CORES = {
   azul_bg: "rgba(33, 150, 243, 0.15)",
 };
 
-// ============================================================================
-// GERAÇÃO DO HTML
-// ============================================================================
 export function gerarHtmlPropostaCompleta(proposta: any): string {
   let eco = proposta.oferta_economica;
   let turbo = proposta.oferta_mais_gb;
@@ -263,23 +260,23 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
         </div>
 
        ${
-            eco
-            ? `
+         eco
+           ? `
             <div class="glass table-section">
                 <h2>💰 Detalhamento - Oferta Econômica</h2>
                 ${gerarTabelaProposta(eco)}
             </div>`
-                    : ""
-        }
+           : ""
+       }
 
         ${
-            turbo
-                ? `
+          turbo
+            ? `
             <div class="glass table-section">
                 <h2>🚀 Detalhamento - Oferta Mais GB</h2>
                 ${gerarTabelaProposta(turbo)}
             </div>`
-                : ""
+            : ""
         }
 
         <div class="footer">
