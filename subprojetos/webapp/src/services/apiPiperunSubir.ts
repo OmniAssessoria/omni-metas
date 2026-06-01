@@ -234,7 +234,7 @@ export const API_PIPERUN = async ({
         DOCDRIVE: servico.servico_docdrive,
         Observacao: formatarObservacaoPlanosLinhas(servico.observacao),
         Indicacao: isExclusivo
-          ? `EXCLUSIVO CLARO: ${servico.indicacao || "N/A"}`
+          ? `DDD 11: ${servico.indicacao || "N/A"}`
           : servico.indicacao,
         Carteira: servico.carteira,
       };
@@ -244,7 +244,7 @@ export const API_PIPERUN = async ({
           infoDecisorStr;
 
       const titleCard = isExclusivo
-        ? `(${dddFinal}) EXCLUSIVO CLARO >> ${servico.razao}`
+        ? `(${dddFinal}) DDD 11  >> ${servico.razao}`
         : `(${dddFinal}) ${servico.indicacao} >> ${servico.razao}${isCarteira ? ` >> CARTEIRA` : ""}`;
 
       const payloadWebhook = {
