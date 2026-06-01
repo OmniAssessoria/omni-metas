@@ -2,6 +2,8 @@ import {
   FUNIS_PERDAS,
   PIPELINE_GANHOS,
   STAGE_GANHOS,
+  PIPELINE_GANHOS_VIVO,
+  STAGE_GANHOS_VIVO,
 } from "../configs/piperun.config.js";
 
 import FunctionsDatabaseRepository from "../repositories/functions_database.repository.js";
@@ -20,7 +22,8 @@ export default class Piperun {
 
   constructor() {
     this.servicoClaroService = new ServicoClaroService();
-    this.executarRotinaNoturnaPipeRun = this.executarRotinaNoturnaPipeRun.bind(this);
+    this.executarRotinaNoturnaPipeRun =
+      this.executarRotinaNoturnaPipeRun.bind(this);
   }
 
   async executarRotinaNoturnaPipeRun() {
@@ -37,31 +40,39 @@ export default class Piperun {
     const paramsComuns = {
       closed_at_start: dataFormatada,
       closed_at_end: dataFormatada,
-      with: "customFields,company,owner,lostReason"
+      with: "customFields,company,owner,lostReason",
     };
 
     try {
       console.log(`\n======================================================`);
-      console.log(`[CRON 19:00] Iniciando Sincronização Diária: ${dataFormatada}`);
+      console.log(
+        `[CRON 19:00] Iniciando Sincronização Diária: ${dataFormatada}`,
+      );
       console.log(`======================================================`);
 
       const paramsGanhos = {
         pipeline_id: PIPELINE_GANHOS,
         stage_id: STAGE_GANHOS,
         status: 1,
-        ...paramsComuns
+        ...paramsComuns,
       };
 
-      const ganhosExtraidos = await buscarTodasAsPaginas("/deals", paramsGanhos);
+      const ganhosExtraidos = await buscarTodasAsPaginas(
+        "/deals",
+        paramsGanhos,
+      );
       dealsBrutos.push(...ganhosExtraidos);
 
       for (const pipelineId of FUNIS_PERDAS) {
         const paramsPerdas = {
           pipeline_id: pipelineId,
           status: 3,
-          ...paramsComuns
+          ...paramsComuns,
         };
-        const perdasExtraidas = await buscarTodasAsPaginas("/deals", paramsPerdas);
+        const perdasExtraidas = await buscarTodasAsPaginas(
+          "/deals",
+          paramsPerdas,
+        );
         dealsBrutos.push(...perdasExtraidas);
       }
 
@@ -83,7 +94,7 @@ export default class Piperun {
           const operadoraOriginal = obterCustomField(
             deal.customFields,
             631881,
-            "Operadora do Pedido"
+            "Operadora do Pedido",
           );
           let tipoServico = "CLARO";
 
@@ -94,7 +105,8 @@ export default class Piperun {
           }
 
           const isGanho = deal.status === 1 || deal.lost_reason_id === null;
-          const observacao = deal.observation || deal.description || "Sem detalhes";
+          const observacao =
+            deal.observation || deal.description || "Sem detalhes";
 
           dealsFormatados.push({
             cnpj: cnpj,
@@ -115,19 +127,26 @@ export default class Piperun {
             await this.servicoClaroService.atualizarServicosPiperun(dado);
             await delay(50);
           } catch (error: any) {
-            console.error(`Erro ao sincronizar CNPJ ${dado.cnpj}:`, error.message);
+            console.error(
+              `Erro ao sincronizar CNPJ ${dado.cnpj}:`,
+              error.message,
+            );
           }
         }
 
-        console.log(`[CRON 19:00] Dados sincronizados com sucesso. Processados: ${dealsFormatados.length}`);
+        console.log(
+          `[CRON 19:00] Dados sincronizados com sucesso. Processados: ${dealsFormatados.length}`,
+        );
       } else {
         console.log(`[CRON 19:00] Nenhum deal movimentado hoje.`);
       }
 
-      console.log(`[CRON 19:00] Disparando function de validação no PostgreSQL...`);
-      
+      console.log(
+        `[CRON 19:00] Disparando function de validação no PostgreSQL...`,
+      );
+
       const repo = new FunctionsDatabaseRepository();
-      
+
       await repo.executarValidacaoTemporarioClaro();
 
       console.log(`======================================================`);
