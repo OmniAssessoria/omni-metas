@@ -55,63 +55,19 @@ export function Sidebar() {
                         <span>Dash Subir Serviços</span>
                         <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                     </button>
-                </div>
-
-                {/* <div
-                    className="px-6 mb-2 flex items-center justify-between text-muted-foreground cursor-pointer hover:text-white transition-colors"
-                    onClick={() => setIsOpen(!isOpen)}
-                >
-                    <div className="flex items-center gap-2">
-                        <Users size={18} />
-                        <p onClick={() => navigate(`/consultores-dashboard`)} className={`text-xs font-semibold uppercase tracking-wider  ${location.pathname === "/consultores-dashboard"
-                            ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:bg-white/5 hover:text-white"
-                            }`}>
-                            Equipe
-                        </p>
-                    </div>
-                    <ChevronDown
-                        size={16}
-                        className={`transition-transform duration-200 ${isOpen ? "rotate-0" : "-rotate-90"}`}
-                    />
-                </div> */}
-
-                {/* {isOpen && (
-                    <ScrollArea className="flex-1 h-0 px-2 transition-all duration-300">
-                        <div className="flex flex-col gap-1">
-                            {consultores.map((c) => {
-                                const isActive = location.pathname === `/consultor/${c.seq_consultor}`
-
-                                return (
-                                    <button
-                                        key={c.seq_consultor}
-                                        onClick={() => navigate(`/consultor/${c.seq_consultor}`)}
-                                        className={`text-left px-4 py-2 rounded-xl transition-all duration-200 flex items-center justify-between group ${isActive
-                                            ? "bg-primary/10 text-primary font-medium border border-primary/20"
-                                            : "text-muted-foreground hover:bg-white/5 hover:text-white border border-transparent"
-                                            }`}
-                                    >
-                                        <span className="truncate text-sm">{c.nome}</span>
-
-                                        {isActive && (
-                                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                        )}
-                                    </button>
-                                )
-                            })}
-                        </div>
-
-                        <ScrollBar
-                            orientation="vertical"
-                            className="bg-muted/50 w-2 hover:bg-[#ffea00]"
-                        />
-                    </ScrollArea>
-                )} */}
-
-                {/* Espaço para futuras telas do menu lateral abaixo da equipe */}
-                <div className="px-6 mt-4">
-                    {/* Outros botões de navegação podem ser inseridos aqui */}
-                </div>
+                </div>         
+                <div className="px-6 mb-4 flex items-center gap-2 text-muted-foreground ">
+                    <button
+                        onClick={() => navigate(`/disparo`)}
+                        className={`text-left px-4 py-3 rounded-xl w-full transition-all duration-200 flex items-center justify-between group ${location.pathname === "/pipe-subi"
+                            ? "bg-primary/10 text-primary font-medium border border-primary/20"
+                            : "text-muted-foreground hover:bg-white/5 hover:text-white border border-transparent"
+                            }`}
+                    >
+                        <span>Disparo</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    </button>
+                </div> 
             </div >
         </aside >
     )
