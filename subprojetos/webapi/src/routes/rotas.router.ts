@@ -3,6 +3,7 @@ import RotasConsultor from "./consultor.router.js";
 import RotasServicoClaro from "./servico_claro.router.js";
 import RotasServicoOperadora from "./servico_operadora.router.js";
 import RotasDecisor from "./decisor.router.js";
+import RotasServicoOmni from "./servico_omni.router.js";
 
 class RouterController {
   private router: Router;
