@@ -6,6 +6,7 @@ import ConsultorDash from './pages/consultor_dash/ConsultorDash';
 import PipeSubirGeral from './pages/pipe/subirPipeGeral';
 import DashboardAnaliticoMultiView from './pages/dashboard/dashboard';
 import Disparo from './pages/disparo/disparo';
+import PainelBDR from './pages/bdr/bdr';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/consultor/:id" element={<ConsultorDash />} />
         <Route path="/pipe-subir" element={<PipeSubirGeral />} />
         <Route path="/disparo" element={<Disparo />} />
+        <Route path="/bdr" element={<PainelBDR />} />
         <Route path="*" element={<div className="flex h-screen items-center justify-center text-white bg-black">404 - Página não encontrada</div>} />
       </Routes>
     </HashRouter>
