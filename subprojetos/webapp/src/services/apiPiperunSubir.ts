@@ -16,7 +16,7 @@ import { apiPipeRunRest } from "@/configs/piperunConfigs.config";
 import { gerarEAnexarImagemPipeRun } from "./omniGeradorLayoutService";
 import {
   anexarImagemDecisorPipeRun,
-  extrairImagemDecisorDrive,
+  extrairImagemDecisorLocal,
 } from "./driveObterDecisor";
 
 export const API_PIPERUN = async ({
@@ -110,7 +110,10 @@ export const API_PIPERUN = async ({
 
       try {
         if (companyId) {
-          await apiPipeRunRest.put(`/companies/${companyId}`, payloadAtualizacao);
+          await apiPipeRunRest.put(
+            `/companies/${companyId}`,
+            payloadAtualizacao,
+          );
         } else {
           const payloadCriacao = {
             ...payloadAtualizacao,
@@ -150,11 +153,11 @@ export const API_PIPERUN = async ({
       const isConsultorCarolina =
         Number(servico.seq_consultor) === 8 ||
         emailConsultor === "carolina.souza@rennovatecnologia.com.br";
-      
+
       const isConsultorLeonardo =
         Number(servico.seq_consultor) === 15 ||
         emailConsultor === "leonardo.sousa@rennovatecnologia.com.br";
-      
+
       const isConsultorOtavio =
         emailConsultor === "otavio@rennovatecnologia.com.br";
 
@@ -299,7 +302,7 @@ export const API_PIPERUN = async ({
         }
 
         if (servico.servico_docdrive) {
-          const base64Decisor = await extrairImagemDecisorDrive(
+          const base64Decisor = await extrairImagemDecisorLocal(
             servico.servico_docdrive,
             cnpjLimpo,
           );

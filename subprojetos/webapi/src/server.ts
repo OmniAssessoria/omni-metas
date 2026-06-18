@@ -33,7 +33,7 @@ async function Servidor() {
     const piperunCron = new Piperun();
 
     // ====================================================================
-    // CRON JOB 1: ROTINA DAS 19:00
+    // CRON JOB 1: ROTINA DAS 19:00 - Extrair leads perdidos/ganhos piperun
     // ====================================================================
     cron.schedule(
       "0 19 * * *",

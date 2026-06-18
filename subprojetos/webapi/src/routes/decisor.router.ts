@@ -12,10 +12,9 @@ class RotasDecisor {
   }
 
   private registrarRotas() {
-    // Atenção: Alterado de GET para POST para receber o body da requisição
     this.router.post(
-      "/drive/buscar-decisor",
-      this.decisorController.buscarImagemDecisorDrive
+      "/armazenamento-local/buscar-decisor",
+      this.decisorController.buscarImagemDecisorLocal,
     );
   }
 

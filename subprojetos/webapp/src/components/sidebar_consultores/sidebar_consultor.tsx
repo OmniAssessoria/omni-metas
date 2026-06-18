@@ -1,28 +1,9 @@
-import { useEffect, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { Logo } from "../logo_layout/logo"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { Users, ChevronDown } from "lucide-react" // Adicionado ChevronDown
-import ConsultorBD from "@/interfaces/consutorDb.interface"
-import API from "@/services/api"
 
 export function Sidebar() {
     const navigate = useNavigate()
     const location = useLocation()
-    const [consultores, setConsultores] = useState<ConsultorBD[]>([])
-    const [isOpen, setIsOpen] = useState(true) // Estado para controlar a abertura da seção Equipe
-
-    useEffect(() => {
-        async function fetchConsultores() {
-            try {
-                const response = await API.get("/api/consultores")
-                setConsultores(response.data?.dados ?? [])
-            } catch (error) {
-                console.error("Erro ao buscar consultores", error)
-            }
-        }
-        fetchConsultores()
-    }, [])
 
     return (
         <aside className="h-full border-r border-border bg-card flex flex-col shadow-xl z-10">

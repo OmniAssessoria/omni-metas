@@ -3,24 +3,25 @@ import { URL_API_LOCAL } from "./api"; // Ajuste o caminho conforme seu projeto
 import { apiPipeRunRest, TOKEN_PIPERUN } from "@/configs/piperunConfigs.config";
 
 /**
- * 1) FUNÇÃO PARA EXTRAIR A IMAGEM DO DRIVE VIA BACKEND
- * Ela vai pedir para sua API acessar o Drive, buscar a imagem mais recente do decisor e devolver em Base64.
+ * 1) FUNÇÃO PARA EXTRAIR A IMAGEM DO ARMAZENAMENTO LOCAL VIA BACKEND
+ * Ela pede para a sua API Node.js contatar o servidor Python (10.0.0.106)
+ * e devolver a imagem Base64.
  */
-export const extrairImagemDecisorDrive = async (
-  docDriveUrl: string,
+export const extrairImagemDecisorLocal = async (
+  caminhoBancoUrl: string,
   cnpjLimpo: string,
 ): Promise<string | null> => {
   try {
-    if (!docDriveUrl) return null;
+    if (!caminhoBancoUrl) return null;
 
     console.log(
-      `[Drive] 🔎 Buscando imagem do Decisor no Drive para CNPJ: ${cnpjLimpo}...`,
+      `[Storage] 🔎 Buscando imagem do Decisor no Servidor Local para CNPJ: ${cnpjLimpo}...`,
     );
 
     const response = await axios.post(
-      `${URL_API_LOCAL}/api/drive/buscar-decisor`,
+      `${URL_API_LOCAL}/armazenamento-local/buscar-decisor`,
       {
-        url_pasta: docDriveUrl,
+        url_pasta: caminhoBancoUrl,
         cnpj: cnpjLimpo,
       },
     );
@@ -29,18 +30,18 @@ export const extrairImagemDecisorDrive = async (
 
     if (!base64) {
       console.log(
-        `[Drive] ⚠️ Nenhuma imagem de decisor encontrada para o CNPJ ${cnpjLimpo}.`,
+        `[Storage] ⚠️ Nenhuma imagem de decisor encontrada para o CNPJ ${cnpjLimpo}.`,
       );
       return null;
     }
 
     console.log(
-      `[Drive] ✅ Imagem do decisor encontrada e extraída com sucesso!`,
+      `[Storage] ✅ Imagem do decisor encontrada e extraída com sucesso do HD Local!`,
     );
     return base64;
   } catch (err: any) {
     console.error(
-      `[Drive] ❌ Erro ao buscar imagem do decisor no Drive:`,
+      `[Storage] ❌ Erro ao buscar imagem do decisor no Servidor Local:`,
       err.message,
     );
     return null;
@@ -49,6 +50,7 @@ export const extrairImagemDecisorDrive = async (
 
 /**
  * 2) FUNÇÃO PARA SUBIR A IMAGEM EXTRAÍDA NO PIPERUN
+ * (Mantida intacta, pois a lógica de manipulação de Blob para o PipeRun é impecável)
  */
 export const anexarImagemDecisorPipeRun = async (
   dealId: number,
@@ -60,6 +62,7 @@ export const anexarImagemDecisorPipeRun = async (
       `[Anexo] 📎 Fazendo upload do Decisor para o Deal ${dealId}...`,
     );
 
+    // Garante que o buffer tem o header mimeType do Base64
     const base64DataStr = base64Imagem.includes("data:image")
       ? base64Imagem
       : `data:image/png;base64,${base64Imagem}`;
@@ -95,10 +98,10 @@ export const anexarImagemDecisorPipeRun = async (
       const responseNota = await apiPipeRunRest.post("/notes", notePayload);
 
       if (responseNota.status === 200 || responseNota.status === 201) {
-        console.log(`[Anexo] ✅ Nota do Decisor anexada com sucesso!`);
+        console.log(`[Anexo] ✅ Nota do Decisor anexada com sucesso no PipeRun!`);
       } else {
         console.warn(
-          `[Anexo] ⚠️ A nota foi enviada, mas o status foi ${responseNota.status}`,
+          `[Anexo] ⚠️ A nota foi enviada, mas o status do PipeRun foi ${responseNota.status}`,
         );
       }
     }

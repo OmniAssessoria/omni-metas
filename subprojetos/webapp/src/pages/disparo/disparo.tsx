@@ -140,9 +140,9 @@ export default function Disparo() {
       };
 
       const [dadosR_brutos, dadosP_brutos, dadosE_brutos] = await Promise.all([
-        fetchSeguro("/api/servico-claro/piperun/renovacao"),
-        fetchSeguro("/api/servico-claro/piperun/portabilidade"),
-        fetchSeguro("/api/servico-claro/piperun/exclusivo"),
+        fetchSeguro("/servico-claro/piperun/renovacao"),
+        fetchSeguro("/servico-claro/piperun/portabilidade"),
+        fetchSeguro("/servico-claro/piperun/exclusivo"),
       ]);
 
       const dadosR = filtrarPorRegraGeral(dadosR_brutos, "RENOVACAO");
@@ -208,7 +208,7 @@ export default function Disparo() {
   useEffect(() => {
     async function loadConsultores() {
       try {
-        const response = await API.get("/api/consultores");
+        const response = await API.get("/consultores");
         const listaConsultores = response.data?.dados ?? [];
         if (Array.isArray(listaConsultores)) setConsultoresDB(listaConsultores);
       } catch (error) {
