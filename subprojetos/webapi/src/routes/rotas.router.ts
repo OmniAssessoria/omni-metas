@@ -15,15 +15,18 @@ class RouterController {
   private registrarRotas() {
     const rotasConsultor = new RotasConsultor();
     this.router.use("/api", rotasConsultor.retornarRotas());
-    
+
     const rotasServicoClaro = new RotasServicoClaro();
     this.router.use("/api", rotasServicoClaro.retornarRotas());
-    
+
     const rotasServicoOperadora = new RotasServicoOperadora();
     this.router.use("/api", rotasServicoOperadora.retornarRotas());
 
     const rotasDecisor = new RotasDecisor();
     this.router.use("/api", rotasDecisor.retornarRotas());
+
+    const rotasServicoOmni = new RotasServicoOmni();
+    this.router.use("/api", rotasServicoOmni.retornarRotas());
   }
 
   public retornarRotas(): Router {
