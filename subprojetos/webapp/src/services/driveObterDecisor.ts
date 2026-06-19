@@ -19,7 +19,7 @@ export const extrairImagemDecisorLocal = async (
     );
 
     const response = await axios.post(
-      `${URL_API_LOCAL}/armazenamento-local/buscar-decisor`,
+      `${URL_API_LOCAL}/api/armazenamento-local/buscar-decisor`,
       {
         url_pasta: caminhoBancoUrl,
         cnpj: cnpjLimpo,
