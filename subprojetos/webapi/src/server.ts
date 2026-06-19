@@ -4,6 +4,7 @@ import cron from "node-cron";
 import os from "os"; 
 import FunctionsDatabaseRepository from "./repositories/functions_database.repository.js";
 import Piperun from "./crons/cron_piperun_sincronizar.helper.js";
+import Bdr from "./crons/cron_servico_omni_sincronizar.helper.js";
 
 function obterIpLocal() {
   const interfaces = os.networkInterfaces();
@@ -31,15 +32,16 @@ async function Servidor() {
     console.log(`🌐 Acesso na Rede (outras máquinas): http://${ipRede}:3333\n`);
 
     const piperunCron = new Piperun();
+    const omniBdr = new Bdr();
 
     // ====================================================================
-    // CRON JOB 1: ROTINA DAS 19:00 - Extrair leads perdidos/ganhos piperun
+    // CRON JOB 1: ROTINA DAS 19:00 - Extrair leads perdidos/ganhos piperun (Serviços Legado)
     // ====================================================================
     cron.schedule(
       "0 19 * * *",
       async () => {
         try {
-          console.log("[SISTEMA] Iniciando trigger do Cron Job das 19h...");
+          console.log("[SISTEMA] Iniciando trigger do Cron Job das 19h (PipeRun Antigo)...");
           await piperunCron.executarRotinaNoturnaPipeRun();
         } catch (error) {
           console.error(
@@ -48,13 +50,11 @@ async function Servidor() {
           );
         }
       },
-      {
-        timezone: "America/Sao_Paulo",
-      },
+      { timezone: "America/Sao_Paulo" },
     );
 
     // ====================================================================
-    // CRON JOB 2: ROTINA DAS 00:30 - Verificação de Aquecendo/CPC
+    // CRON JOB 2: ROTINA DAS 00:30 - Limpeza de CPC e Temporários Omni
     // ====================================================================
     cron.schedule(
       "30 0 * * *",
@@ -62,10 +62,16 @@ async function Servidor() {
         try {
           console.log(`\n======================================================`);
           console.log("[CRON 00:30] Iniciando trigger do Cron Job da Madrugada...");
-          console.log("[CRON 00:30] Disparando function de verificação de aquecimento no PostgreSQL...");
-
+          
           const repoDB = new FunctionsDatabaseRepository();
+          
+          // Mantém a limpeza base antiga
+          console.log("[CRON 00:30] Executando fn_verificar_aquecendo()...");
           await repoDB.executarValidacaoLeituraCpcForaDoPrazo();
+          
+          // ADIÇÃO CRÍTICA: Chama a função que limpa os leads TEMPORARIOS da tabela nova após 30 dias
+          console.log("[CRON 00:30] Executando fn_validar_servico_omni_temporario()...");
+          await repoDB.executarValidacaoTemporarioOmni();
 
           console.log("[CRON 00:30] Processo noturno de recálculo finalizado com sucesso!");
           console.log(`======================================================\n`);
@@ -76,13 +82,32 @@ async function Servidor() {
           );
         }
       },
-      {
-        timezone: "America/Sao_Paulo",
-      },
+      { timezone: "America/Sao_Paulo" },
     );
 
-    console.log("✅ Cron Job ativado: Rotina do PipeRun agendada para 19:00 (Horário de SP).");
-    console.log("✅ Cron Job ativado: Rotina de Validação de Aquecimento agendada para 00:30 (Horário de SP).");
+
+    // ====================================================================
+    // CRON JOB 3: ROTINA DAS 2:30 - Sincronização BDR (Nova Tabela Omni)
+    // ====================================================================
+    cron.schedule(
+      "30 02 * * *",
+      async () => {
+        try {
+          console.log("[SISTEMA] Iniciando trigger do Cron Job das 02h30 (Omni BDR)...");
+          await omniBdr.executarRotinaNoturnaPipeBdr();
+        } catch (error) {
+          console.error(
+            "[SISTEMA] Erro fatal não tratado durante a execução do cron das 02:30:",
+            error,
+          );
+        }
+      },
+      { timezone: "America/Sao_Paulo" },
+    );
+
+    console.log("✅ Cron Job ativado: Rotina Legado (19:00 SP).");
+    console.log("✅ Cron Job ativado: Recálculo Temporário/CPC (00:30 SP).");
+    console.log("✅ Cron Job ativado: Sincronização BDR Omni (02:30 SP).");
   });
 
   server.setTimeout(300000);

@@ -15,6 +15,19 @@ export default class FunctionsDatabaseRepository {
     }
   }
 
+  async executarValidacaoTemporarioOmni() {
+    const query = `SELECT omni.fn_validar_servico_omni_temporario();`;
+    try {
+      console.log(`[DB] Executando rotina noturna: omni.fn_validar_servico_omni_temporario()...`);
+      const result = await pool.query(query);
+      console.log(`[DB] Rotina fn_validar_servico_omni_temporario executada com sucesso.`);
+      return result.rows;
+    } catch (error) {
+      console.error("[FunctionsDatabaseRepository] Erro Crítico ao executar fn_validar_servico_omni_temporario:", error);
+      throw error;
+    }
+  }
+
   async executarValidacaoLeituraCpcForaDoPrazo() {
     const query = `SELECT omni.fn_verificar_aquecendo();`;
     try {

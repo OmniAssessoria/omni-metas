@@ -1,4 +1,3 @@
-import { INovoHistoricoEmpresaConsultorServicoOmni } from "../interfaces/novo_historico_empresa_consultor.interface.js";
 import pool from "../module/postgresdb/conexao.js";
 
 export default class ServicoOmniRepository {
@@ -57,33 +56,33 @@ export default class ServicoOmniRepository {
     }
   }
 
-  async verificarHistoricoEmpresaConsultorExiste(seq_empresa: number, seq_consultor: number) {
+  async verificarHistoricoServicoOmniExiste(seq_empresa: number, seq_consultor: number) {
     const query = `
             SELECT COUNT(*) AS total 
-            FROM omni.historico_empresa_consultor 
+            FROM omni.historico_servico_omni 
             WHERE seq_empresa = $1 AND seq_consultor = $2;
         `;
     try {
       const result = await pool.query(query, [seq_empresa, seq_consultor]);
       return result.rows;
     } catch (error) {
-      console.error("[ServicoOmniRepository] Erro ao buscar historico_empresa_consultor:", error);
+      console.error("[ServicoOmniRepository] Erro ao buscar historico_servico_omni:", error);
       throw error;
     }
   }
 
-  async criarHistoricoEmpresaConsultor(dados: INovoHistoricoEmpresaConsultorServicoOmni) {
+  async criarHistoricoServicoOmni(dados: any) {
     const query = `
-            INSERT INTO omni.historico_empresa_consultor 
-            (seq_empresa, seq_consultor, data_inicio_atendimento, data_fim_atendimento, seq_motivo_declinio) 
+            INSERT INTO omni.historico_servico_omni 
+            (seq_empresa, seq_consultor, dt_inicio_atendimento, dt_fim_atendimento, seq_motivo_declinio) 
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *;
         `;
     const values = [
       dados.seq_empresa,
       dados.seq_consultor,
-      dados.data_inicio_atendimento,
-      dados.data_fim_atendimento,
+      dados.dt_inicio_atendimento,
+      dados.dt_fim_atendimento,
       dados.seq_motivo_declinio,
     ];
 
@@ -91,7 +90,7 @@ export default class ServicoOmniRepository {
       const result = await pool.query(query, values);
       return result.rows[0];
     } catch (error) {
-      console.error("[ServicoOmniRepository] Erro ao criar histórico:", error);
+      console.error("[ServicoOmniRepository] Erro ao criar histórico na historico_servico_omni:", error);
       throw error;
     }
   }
@@ -99,7 +98,7 @@ export default class ServicoOmniRepository {
   async atualizarEnvioCrmServicoOmni(seq_empresa: number, dt_crm: Date, codigo_crm: number) {
     const query = `
             UPDATE omni.servico_omni
-            SET crm = TRUE,  dt_crm = $2, codigo_crm = $3
+            SET crm = TRUE, dt_crm = $2, codigo_crm = $3
             WHERE seq_empresa = $1
             RETURNING *;
         `;
@@ -108,7 +107,7 @@ export default class ServicoOmniRepository {
       const result = await pool.query(query, [seq_empresa, dt_crm, codigo_crm]);
 
       if (result.rowCount === 0) {
-        console.warn(`[DB] UPDATE executado, mas nenhuma linha afetada. O seq_empresa ${seq_empresa} existe?`);
+        console.warn(`[DB] UPDATE executado, mas nenhuma linha afetada. O seq_empresa ${seq_empresa} existe na servico_omni?`);
         return null;
       }
       return result.rows[0];
@@ -135,7 +134,7 @@ export default class ServicoOmniRepository {
       const result = await pool.query(query, params);
       return result.rows[0];
     } catch (error) {
-      console.error("[ServicoOmniRepository] Erro ao atualizar serviço volta:", error);
+      console.error("[ServicoOmniRepository] Erro ao atualizar serviço de volta (Aberto/Perdido/Ganho):", error);
       throw error;
     }
   }

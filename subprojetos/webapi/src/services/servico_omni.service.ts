@@ -31,13 +31,10 @@ class ServicoOmniService {
     if (!seq_empresa) {
       throw new Error("O identificador do serviço (Seq_empresa) é obrigatório.");
     }
-
     const servicoAtualizado = await this.repository.atualizarEnvioCrmServicoOmni(seq_empresa, dt_crm, codigo_crm);
-
     if (!servicoAtualizado) {
-      throw new Error(`Serviço com seq_empresa ${seq_empresa} não encontrado.`);
+      throw new Error(`Serviço com seq_empresa ${seq_empresa} não encontrado na tabela servico_omni.`);
     }
-
     return servicoAtualizado;
   }
 
@@ -52,12 +49,12 @@ class ServicoOmniService {
     }
     const idEmpresa = seq_empresa[0].seq_empresa;
 
-    const servicosClaro = await this.repository.buscarSeqServicoOmniPorSeqEmpresa(idEmpresa);
+    const servicosOmni = await this.repository.buscarSeqServicoOmniPorSeqEmpresa(idEmpresa);
 
-    if (!servicosClaro || servicosClaro.length === 0) {
+    if (!servicosOmni || servicosOmni.length === 0) {
       return {
         ignorado: true,
-        motivo: `A empresa (CNPJ ${dados.cnpj}) existe, mas NÃO POSSUI nenhum registro na tabela servico_claro para ser atualizado.`,
+        motivo: `A empresa (CNPJ ${dados.cnpj}) existe, mas NÃO POSSUI nenhum registro na tabela servico_omni para ser atualizado.`,
       };
     }
 
@@ -73,15 +70,14 @@ class ServicoOmniService {
 
     const isGanho = dados.seq_motivo_declinio == null;
     const motivoDeclinioParaHistorico = isGanho ? 1 : dados.seq_motivo_declinio;
-
-    const buscarHistorico = await this.repository.verificarHistoricoEmpresaConsultorExiste(idEmpresa, idConsultor);
+    const buscarHistorico = await this.repository.verificarHistoricoServicoOmniExiste(idEmpresa, idConsultor);
 
     if (Number(buscarHistorico[0].total) === 0) {
-      await this.repository.criarHistoricoEmpresaConsultor({
+      await this.repository.criarHistoricoServicoOmni({
         seq_empresa: idEmpresa,
         seq_consultor: idConsultor,
-        data_inicio_atendimento: dados.data_inicio_atendimento,
-        data_fim_atendimento: dados.data_fim_atendimento,
+        dt_inicio_atendimento: dados.data_inicio_atendimento, 
+        dt_fim_atendimento: dados.data_fim_atendimento,       
         seq_motivo_declinio: motivoDeclinioParaHistorico,
       });
     }
@@ -106,7 +102,7 @@ class ServicoOmniService {
     if (!servicoAtualizado) {
       return {
         ignorado: true,
-        motivo: `Falha silenciosa no banco: O UPDATE foi acionado, mas nenhuma linha da servico_claro foi afetada para o CNPJ ${dados.cnpj}.`,
+        motivo: `Falha silenciosa no banco: O UPDATE foi acionado, mas nenhuma linha da servico_omni foi afetada para o CNPJ ${dados.cnpj}.`,
       };
     }
 
