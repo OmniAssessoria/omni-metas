@@ -9,26 +9,30 @@ class LocalStorageService {
 
   /**
    * Extrai e formata a subpasta alvo a partir da string bruta armazenada no banco.
-   * Cobre cenários em que o banco tem a URL inteira do PDF ou apenas o diretório raiz.
+   * Lida com barras do Windows, links do Drive e remove nomes de arquivos para isolar a pasta.
    */
   private normalizarSubpasta(caminhoBanco: string, cnpjLimpo: string): string {
-    if (caminhoBanco.includes("drive.google.com") || caminhoBanco.includes("folders/")) {
+    if (!caminhoBanco) return `Claro/${cnpjLimpo}`;
+    let caminhoNormalizado = caminhoBanco.replace(/\\/g, "/").trim();
+
+    if (caminhoNormalizado.includes("drive.google.com") || caminhoNormalizado.includes("folders/")) {
       return `Claro/${cnpjLimpo}`;
     }
 
-    if (caminhoBanco.toLowerCase().endsWith(".pdf") || caminhoBanco.includes(".")) {
-      const partes = caminhoBanco.split("/");
-      partes.pop(); // Remove o arquivo do final
-      return partes.join("/");
+    const segmentos = caminhoNormalizado.split("/");
+    const ultimoSegmento = segmentos[segmentos.length - 1];
+
+    const regexArquivo = /\.(pdf|docx?|xlsx?|png|jpe?g)$/i;
+    
+    if (regexArquivo.test(ultimoSegmento)) {
+      segmentos.pop(); 
+      caminhoNormalizado = segmentos.join("/");
     }
 
-    return caminhoBanco;
+    caminhoNormalizado = caminhoNormalizado.replace(/\/$/, "");
+    return caminhoNormalizado || `Claro/${cnpjLimpo}`;
   }
 
-  /**
-   * Comunica-se com a API do servidor local, lista a pasta, acha a imagem mais 
-   * recente do decisor, faz o download do binário e o converte para Base64.
-   */
   async buscarImagemDecisor(caminhoBanco: string, cnpj: string): Promise<string | null> {
     const cnpjLimpo = cnpj.replace(/\D/g, "");
     const subpasta = this.normalizarSubpasta(caminhoBanco, cnpjLimpo);
@@ -43,20 +47,34 @@ class LocalStorageService {
 
       const arquivos = resLista.data.conteudo;
       if (!arquivos || arquivos.length === 0) {
-        console.log(`[Storage API] ⚠️ Pasta vazia ou inexistente no servidor.`);
+        console.log(`[Storage API] ⚠️ Pasta vazia no servidor.`);
         return null;
       }
 
-      const imagensValidas = arquivos.filter((item: any) => {
+      const imagensDisponiveis = arquivos.filter((item: any) => {
         if (item.tipo !== "arquivo") return false;
-        
         const nomeUpper = item.nome.toUpperCase();
-        return nomeUpper.includes(`DECISOR_${cnpjLimpo}`) && 
-               (nomeUpper.endsWith(".PNG") || nomeUpper.endsWith(".JPG") || nomeUpper.endsWith(".JPEG"));
+        return nomeUpper.endsWith(".PNG") || nomeUpper.endsWith(".JPG") || nomeUpper.endsWith(".JPEG");
       });
 
+      if (imagensDisponiveis.length === 0) {
+         console.log(`[Storage API] ⚠️ Nenhuma imagem (PNG/JPG) localizada na pasta ${subpasta}.`);
+         return null;
+      }
+
+      let imagensValidas = imagensDisponiveis.filter((item: any) => 
+        item.nome.toUpperCase().includes(`DECISOR_${cnpjLimpo}`)
+      );
+
       if (imagensValidas.length === 0) {
-        console.log(`[Storage API] ⚠️ Nenhuma imagem de decisor encontrada para o CNPJ ${cnpjLimpo}.`);
+        console.log(`[Storage API] ⚠️ Arquivo DECISOR_${cnpjLimpo} não encontrado. Tentando fallback para 'DECISOR'...`);
+        imagensValidas = imagensDisponiveis.filter((item: any) => 
+          item.nome.toUpperCase().includes("DECISOR")
+        );
+      }
+
+      if (imagensValidas.length === 0) {
+        console.log(`[Storage API] ⚠️ Nenhuma imagem com a tag DECISOR encontrada para o CNPJ ${cnpjLimpo}.`);
         return null;
       }
 
@@ -85,7 +103,7 @@ class LocalStorageService {
 
     } catch (error: any) {
       if (error.response && error.response.status === 404) {
-         console.warn(`[Storage API] ⚠️ A pasta ou o arquivo solicitado não existem fisicamente no servidor local (Erro 404).`);
+         console.warn(`[Storage API] ⚠️ A pasta ou o arquivo solicitado não existem fisicamente no servidor local (Erro 404). Subpasta tentada: ${subpasta}`);
          return null;
       }
       
