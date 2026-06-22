@@ -149,7 +149,7 @@ export default class ServicoOmniRepository {
   async atualizarServicoOmniVolta(seq_empresa: number, situacao: string, nome_consultor: string, is_ganho: boolean) {
     const query = `
         UPDATE omni.servico_omni
-        SET situacao = $1, crm = false, codigo_crm = null, dt_crm = null
+        SET situacao = $1, crm = false, codigo_crm = null, dt_crm = null, seq_consultor = null
         WHERE seq_empresa = $2 RETURNING *
     `;
     const params: any[] = [situacao, seq_empresa];

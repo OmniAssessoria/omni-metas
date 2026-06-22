@@ -19,10 +19,15 @@ class ServicoOmniService {
 
   async listarEmpresasEnvio(seq_consultor: number, limit_busca: number = 50) {
     if (!seq_consultor) {
-      throw new Error("O identificador do consultor (seq_consultor) é obrigatório para essa busca.");
+      throw new Error(
+        "O identificador do consultor (seq_consultor) é obrigatório para essa busca.",
+      );
     }
-    const limite = limit_busca > 0 ? limit_busca : 50; 
-    const dados = await this.repository.buscarEmpresasEnvio(seq_consultor, limite);
+    const limite = limit_busca > 0 ? limit_busca : 50;
+    const dados = await this.repository.buscarEmpresasEnvio(
+      seq_consultor,
+      limite,
+    );
     return dados && dados.length > 0 ? dados : [];
   }
 
@@ -41,19 +46,34 @@ class ServicoOmniService {
     return dados && dados.length > 0 ? dados : [];
   }
 
-  async marcarComoEnviadoCrm(seq_empresa: number, dt_crm: Date, codigo_crm: number) {
+  async marcarComoEnviadoCrm(
+    seq_empresa: number,
+    dt_crm: Date,
+    codigo_crm: number,
+  ) {
     if (!seq_empresa) {
-      throw new Error("O identificador do serviço (Seq_empresa) é obrigatório.");
+      throw new Error(
+        "O identificador do serviço (Seq_empresa) é obrigatório.",
+      );
     }
-    const servicoAtualizado = await this.repository.atualizarEnvioCrmServicoOmni(seq_empresa, dt_crm, codigo_crm);
+    const servicoAtualizado =
+      await this.repository.atualizarEnvioCrmServicoOmni(
+        seq_empresa,
+        dt_crm,
+        codigo_crm,
+      );
     if (!servicoAtualizado) {
-      throw new Error(`Serviço com seq_empresa ${seq_empresa} não encontrado na tabela servico_omni.`);
+      throw new Error(
+        `Serviço com seq_empresa ${seq_empresa} não encontrado na tabela servico_omni.`,
+      );
     }
     return servicoAtualizado;
   }
 
   async atualizarServicosOmniHistorico(dados: any) {
-    const seq_empresa = await this.repository.buscarSeqEmpresaPorCnpj(dados.cnpj);
+    const seq_empresa = await this.repository.buscarSeqEmpresaPorCnpj(
+      dados.cnpj,
+    );
 
     if (!seq_empresa || seq_empresa.length === 0) {
       return {
@@ -63,7 +83,8 @@ class ServicoOmniService {
     }
     const idEmpresa = seq_empresa[0].seq_empresa;
 
-    const servicosOmni = await this.repository.buscarSeqServicoOmniPorSeqEmpresa(idEmpresa);
+    const servicosOmni =
+      await this.repository.buscarSeqServicoOmniPorSeqEmpresa(idEmpresa);
 
     if (!servicosOmni || servicosOmni.length === 0) {
       return {
@@ -72,7 +93,10 @@ class ServicoOmniService {
       };
     }
 
-    const dadosConsultor: IDadosConsultor = await this.repositoryConsultor.buscarSeqConsultorPorCodigoCrm(dados.codigo_crm);
+    const dadosConsultor: IDadosConsultor =
+      await this.repositoryConsultor.buscarSeqConsultorPorCodigoCrm(
+        dados.codigo_crm,
+      );
 
     if (!dadosConsultor || !dadosConsultor.seq_consultor) {
       return {
@@ -81,17 +105,23 @@ class ServicoOmniService {
       };
     }
     const idConsultor = dadosConsultor.seq_consultor;
+    const isGanho = dados.is_ganho === true;
+    const motivoDeclinioParaHistorico = isGanho
+      ? null
+      : dados.seq_motivo_declinio;
 
-    const isGanho = dados.seq_motivo_declinio == null;
-    const motivoDeclinioParaHistorico = isGanho ? 1 : dados.seq_motivo_declinio;
-    const buscarHistorico = await this.repository.verificarHistoricoServicoOmniExiste(idEmpresa, idConsultor);
+    const buscarHistorico =
+      await this.repository.verificarHistoricoServicoOmniExiste(
+        idEmpresa,
+        idConsultor,
+      );
 
     if (Number(buscarHistorico[0].total) === 0) {
       await this.repository.criarHistoricoServicoOmni({
         seq_empresa: idEmpresa,
         seq_consultor: idConsultor,
-        dt_inicio_atendimento: dados.data_inicio_atendimento, 
-        dt_fim_atendimento: dados.data_fim_atendimento,       
+        dt_inicio_atendimento: dados.data_inicio_atendimento,
+        dt_fim_atendimento: dados.data_fim_atendimento,
         seq_motivo_declinio: motivoDeclinioParaHistorico,
       });
     }
@@ -99,11 +129,19 @@ class ServicoOmniService {
     let situacaoAtendimento = "GANHO";
 
     if (!isGanho) {
-      const situacao = await this.repository.obterSituacaoPorSeqMotivoDeclinio(dados.seq_motivo_declinio);
+      const situacao = await this.repository.obterSituacaoPorSeqMotivoDeclinio(
+        dados.seq_motivo_declinio,
+      );
+
+      // 3. FALLBACK DE SEGURANÇA: Se o PipeRun mandar um ID que não existe na sua tabela, ele não quebra a aplicação inteira.
       if (!situacao || situacao.length === 0) {
-        throw new Error(`Situação não encontrada para o motivo declínio ${dados.seq_motivo_declinio}.`);
+        console.warn(
+          `[Service] Situação não mapeada para o motivo declínio ${dados.seq_motivo_declinio}. Usando fallback.`,
+        );
+        situacaoAtendimento = "TEMPORARIO";
+      } else {
+        situacaoAtendimento = situacao[0].situacao_atendimento;
       }
-      situacaoAtendimento = situacao[0].situacao_atendimento;
     }
 
     const servicoAtualizado = await this.repository.atualizarServicoOmniVolta(
@@ -124,7 +162,8 @@ class ServicoOmniService {
   }
 
   async listarTodosMotivosDeclinio() {
-    const dados: IMotivosDeclinio[] = await this.repository.buscarTodosMotivosDeclinio();
+    const dados: IMotivosDeclinio[] =
+      await this.repository.buscarTodosMotivosDeclinio();
     return dados && dados.length > 0 ? dados : [];
   }
 }
