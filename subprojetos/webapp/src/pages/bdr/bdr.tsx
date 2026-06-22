@@ -20,10 +20,14 @@ import {
   Loader2,
   TrendingUp,
   ServerCrash,
-  RefreshCw
+  RefreshCw,
+  FileJson,
+  X,
+  XCircle
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import API from "@/services/api";
+import { useIntegracaoPipeBdr } from "@/services/hookBdrSubir";
 
 interface IContagemResponse {
   total_disponiveis: string | number;
@@ -48,18 +52,24 @@ interface IBDRMetrics {
 export default function PainelBDR() {
   const [bdrSelecionado, setBdrSelecionado] = useState<string>("");
   const [quantidadeUpload, setQuantidadeUpload] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [notification, setNotification] = useState<string | null>(null);  
+  const [notification, setNotification] = useState<string | null>(null);
   const [leadsGlobais, setLeadsGlobais] = useState<number>(0);
   const [listaBDRs, setListaBDRs] = useState<IBDRMetrics[]>([]);
   const [loadingDados, setLoadingDados] = useState<boolean>(true);
+  
+  // Estados do Modal de Relatório
+  const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
+  const [syncLogs, setSyncLogs] = useState<{ sucessos: any[]; falhas: any[] } | null>(null);
+  const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
+
+  const { handleSubirServicos, isEnviando } = useIntegracaoPipeBdr();
 
   const carregarDados = async () => {
     setLoadingDados(true);
     try {
       const [resContagem, resIndicadores] = await Promise.all([
         API.get("/api/servico-omni/leads/contagem"),
-        API.get("/api/servico-omni/dashboard/indicadores")
+        API.get("/api/servico-omni/dashboard/indicadores"),
       ]);
 
       const dadosContagem: IContagemResponse = resContagem.data?.dados?.[0];
@@ -67,13 +77,13 @@ export default function PainelBDR() {
       setLeadsGlobais(totalGeral);
 
       const dadosConsultores: IPainelConsultorResponse[] = resIndicadores.data?.dados || [];
-      
+
       const bdrsMapeados: IBDRMetrics[] = dadosConsultores.map((item) => ({
         seq_consultor: Number(item.seq_consultor),
         nome_consultor: item.nome_consultor || "Consultor Sem Nome",
         total_ativo_crm: Number(item.total_ativo_crm || 0),
         total_ativo_crm_carteira: Number(item.total_ativo_crm_carteira || 0),
-        total_disponivel_envio: Number(item.total_disponivel_envio || 0)
+        total_disponivel_envio: Number(item.total_disponivel_envio || 0),
       }));
 
       bdrsMapeados.sort((a, b) => b.total_disponivel_envio - a.total_disponivel_envio);
@@ -91,20 +101,28 @@ export default function PainelBDR() {
   }, []);
 
   const handleDispararLeads = () => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      console.log("Payload que será enviado para a API:", {
-        seq_consultor: Number(bdrSelecionado),
-        quantidade: Number(quantidadeUpload),
-      });
-      setLeadsGlobais((prev) => Math.max(0, prev - Number(quantidadeUpload)));
-      setNotification(`Sucesso! ${quantidadeUpload} leads enviados para o consultor selecionado.`);
-      setIsSubmitting(false);
-      setQuantidadeUpload("");
-      setBdrSelecionado("");
+    handleSubirServicos({
+      seqConsultor: Number(bdrSelecionado),
+      limiteEnvio: Number(quantidadeUpload),
+      onSuccessCb: (logs) => {
+        if (logs) {
+          setSyncLogs(logs);
+          setLogTab(logs.falhas.length > 0 && logs.sucessos.length === 0 ? "falhas" : "sucessos");
+          setIsLogModalOpen(true);
+        }
 
-      setTimeout(() => setNotification(null), 5000);
-    }, 1500);
+        const totalSucessos = logs?.sucessos.length || 0;
+        const totalFalhas = logs?.falhas.length || 0;
+
+        setNotification(`Processamento concluído: ${totalSucessos} sucessos e ${totalFalhas} falhas.`);
+
+        setQuantidadeUpload("");
+        setBdrSelecionado("");
+        carregarDados();
+
+        setTimeout(() => setNotification(null), 7000);
+      },
+    });
   };
 
   return (
@@ -121,6 +139,83 @@ export default function PainelBDR() {
           </div>
         )}
 
+        {isLogModalOpen && syncLogs && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <FileJson className="h-6 w-6 text-primary" /> Relatório de Sincronização
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsLogModalOpen(false)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              <div className="flex border-b border-border bg-muted/10">
+                <button
+                  className={`flex-1 py-4 font-semibold flex items-center justify-center gap-2 transition-colors ${logTab === "sucessos" ? "bg-background border-b-2 border-green-500 text-green-600" : "text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setLogTab("sucessos")}
+                >
+                  <CheckCircle2 className="h-5 w-5" /> Sucessos ({syncLogs.sucessos.length})
+                </button>
+                <button
+                  className={`flex-1 py-4 font-semibold flex items-center justify-center gap-2 transition-colors ${logTab === "falhas" ? "bg-background border-b-2 border-red-500 text-red-600" : "text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setLogTab("falhas")}
+                >
+                  <XCircle className="h-5 w-5" /> Falhas ({syncLogs.falhas.length})
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 bg-muted/5">
+                {logTab === "sucessos" && syncLogs.sucessos.length === 0 && (
+                   <p className="text-center text-muted-foreground py-10">Nenhum sucesso registrado.</p>
+                )}
+                {logTab === "sucessos" &&
+                  syncLogs.sucessos.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-background border border-green-200 rounded-lg p-4 mb-4 flex flex-col gap-2 shadow-sm"
+                    >
+                      <div className="flex justify-between items-center border-b border-muted pb-2">
+                        <span className="font-bold text-green-700">
+                          CNPJ: {item.payload.cnpj}
+                        </span>
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                          ID CRM: {item.dealId}
+                        </span>
+                      </div>
+                      <div className="text-sm mt-1 text-green-800">
+                        Empresa: {item.payload.razao} sincronizada com sucesso.
+                      </div>
+                    </div>
+                  ))}
+                
+                {logTab === "falhas" && syncLogs.falhas.length === 0 && (
+                   <p className="text-center text-muted-foreground py-10">Nenhuma falha registrada.</p>
+                )}
+                {logTab === "falhas" &&
+                  syncLogs.falhas.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-background border border-red-200 rounded-lg p-4 mb-4 flex flex-col gap-2 shadow-sm"
+                    >
+                      <div className="flex justify-between items-center border-b border-muted pb-2">
+                        <span className="font-bold text-red-700">
+                          CNPJ/Ref: {item.payload.cnpj}
+                        </span>
+                      </div>
+                      <div className="text-sm mt-2 p-3 bg-red-50 text-red-800 rounded border border-red-100">
+                        <strong>Motivo:</strong> {item.erro}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="w-full max-w-7xl mx-auto space-y-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -132,7 +227,7 @@ export default function PainelBDR() {
                 Gestão de leads outbound, carteira e sincronização com CRM de prospecção.
               </p>
             </div>
-            
+
             <Button
               variant="outline"
               onClick={carregarDados}
@@ -146,7 +241,6 @@ export default function PainelBDR() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
             <Card className="bg-primary shadow-lg border-none flex flex-col justify-center">
               <CardContent className="p-8">
                 <div className="flex items-center justify-between">
@@ -179,20 +273,24 @@ export default function PainelBDR() {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row items-end gap-5">
-
                   <div className="space-y-2 w-full sm:w-[40%]">
-                    <Label className="font-semibold text-muted-foreground">Selecione o Consultor</Label>
+                    <Label className="font-semibold text-muted-foreground">
+                      Selecione o Consultor
+                    </Label>
                     <Select
                       value={bdrSelecionado}
                       onValueChange={setBdrSelecionado}
-                      disabled={isSubmitting || loadingDados || leadsGlobais === 0}
+                      disabled={isEnviando || loadingDados || leadsGlobais === 0}
                     >
                       <SelectTrigger className="h-12 bg-background">
                         <SelectValue placeholder="Escolha um consultor..." />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
                         {listaBDRs.map((bdr) => (
-                          <SelectItem key={`bdr-${bdr.seq_consultor}`} value={String(bdr.seq_consultor)}>
+                          <SelectItem
+                            key={`bdr-${bdr.seq_consultor}`}
+                            value={String(bdr.seq_consultor)}
+                          >
                             {bdr.nome_consultor}
                           </SelectItem>
                         ))}
@@ -201,7 +299,9 @@ export default function PainelBDR() {
                   </div>
 
                   <div className="space-y-2 w-full sm:w-[30%]">
-                    <Label className="font-semibold text-muted-foreground">Quantidade</Label>
+                    <Label className="font-semibold text-muted-foreground">
+                      Quantidade
+                    </Label>
                     <Input
                       type="number"
                       min="1"
@@ -209,7 +309,7 @@ export default function PainelBDR() {
                       placeholder="Ex: 150"
                       value={quantidadeUpload}
                       onChange={(e) => setQuantidadeUpload(e.target.value)}
-                      disabled={isSubmitting || loadingDados || leadsGlobais === 0}
+                      disabled={isEnviando || loadingDados || leadsGlobais === 0}
                       className="h-12 bg-background font-medium"
                     />
                   </div>
@@ -218,7 +318,7 @@ export default function PainelBDR() {
                     <Button
                       onClick={handleDispararLeads}
                       disabled={
-                        isSubmitting ||
+                        isEnviando ||
                         !bdrSelecionado ||
                         !quantidadeUpload ||
                         Number(quantidadeUpload) <= 0 ||
@@ -227,7 +327,7 @@ export default function PainelBDR() {
                       className="w-full h-12 text-base font-bold transition-all shadow-md"
                       size="lg"
                     >
-                      {isSubmitting ? (
+                      {isEnviando ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
                         <>
@@ -259,7 +359,10 @@ export default function PainelBDR() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 {listaBDRs.map((bdr) => (
-                  <Card key={`card-${bdr.seq_consultor}`} className="hover:border-primary/40 transition-colors group">
+                  <Card
+                    key={`card-${bdr.seq_consultor}`}
+                    className="hover:border-primary/40 transition-colors group"
+                  >
                     <CardHeader className="bg-muted/30 pb-3 border-b border-border/50">
                       <CardTitle className="text-base font-bold group-hover:text-primary transition-colors">
                         {bdr.nome_consultor}
@@ -267,7 +370,6 @@ export default function PainelBDR() {
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="divide-y divide-border/50">
-
                         <div className="flex items-center justify-between p-4 bg-background">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
                             <ServerCrash className="h-4 w-4 text-emerald-500" />
@@ -297,7 +399,6 @@ export default function PainelBDR() {
                             {bdr.total_disponivel_envio.toLocaleString("pt-BR")}
                           </span>
                         </div>
-
                       </div>
                     </CardContent>
                   </Card>
@@ -305,7 +406,6 @@ export default function PainelBDR() {
               </div>
             )}
           </div>
-
         </div>
       </main>
     </div>

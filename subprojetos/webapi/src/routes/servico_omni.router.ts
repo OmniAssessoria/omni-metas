@@ -29,6 +29,14 @@ class RotasServicoOmni {
       "/servico-omni/leads/motivos-declinio",
       this.servicoOmniController.obterTodosMotivosDeclinio,
     );
+    this.router.get(
+      "/servico-omni/leads/:seq_empresa",
+      this.servicoOmniController.buscarEmpresaPorSeq,
+    );
+       this.router.get(
+      "/servico-omni/empresas-envio",
+      this.servicoOmniController.buscarListaEmpresasEnvio
+    );
     this.router.patch(
       "/servico-omni/leads/sincronizar",
       this.servicoOmniController.sincronizarDados,

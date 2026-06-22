@@ -12,6 +12,24 @@ export default class ServicoOmniRepository {
     }
   }
 
+  async buscarEmpresasEnvio(seq_consultor: number, limit_busca: number) {
+    const query = `
+      SELECT seq_empresa 
+      FROM omni.servico_omni so 
+      WHERE so.crm = FALSE 
+        AND so.situacao = 'ABERTO' 
+        AND so.seq_consultor = $1 
+      LIMIT $2;
+    `;
+    try {
+      const result = await pool.query(query, [seq_consultor, limit_busca]);
+      return result.rows;
+    } catch (error) {
+      console.error("[ServicoOmniRepository] Erro ao buscar empresas para envio:", error);
+      throw error;
+    }
+  }
+
   async buscarSeqServicoOmniPorSeqEmpresa(seq_empresa: number) {
     const query = `SELECT seq_servico_omni FROM omni.servico_omni WHERE seq_empresa = $1;`;
     try {
@@ -19,6 +37,17 @@ export default class ServicoOmniRepository {
       return result.rows;
     } catch (error) {
       console.error("[ServicoOmniRepository] Erro ao buscar seq_servico por seq_empresa:", error);
+      throw error;
+    }
+  }
+
+  async buscarEmpresaInforPorSeq(seq_empresa: number) {
+    const query = `SELECT * FROM omni.fn_servico_omni_por_empresa($1);`;
+    try {
+      const result = await pool.query(query, [seq_empresa]);
+      return result.rows;
+    } catch (error) {
+      console.error("[ServicoOmniRepository] Erro ao buscar LEADS BDR:", error);
       throw error;
     }
   }

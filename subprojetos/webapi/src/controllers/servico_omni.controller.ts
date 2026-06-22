@@ -9,6 +9,8 @@ class ServicoOmniController {
   constructor() {
     this.servicoOmniService = new ServicoOmniService();
     this.geradorImagemLayoutService = new GeradorImagemLinhasService();
+    this.buscarEmpresaPorSeq = this.buscarEmpresaPorSeq.bind(this);
+    this.buscarListaEmpresasEnvio = this.buscarListaEmpresasEnvio.bind(this);
     this.buscarServicosOmniDisponiveis = this.buscarServicosOmniDisponiveis.bind(this);
     this.buscarContagemServicoOmniDisponivel = this.buscarContagemServicoOmniDisponivel.bind(this);
     this.buscarPainelIndicadoresConsultor = this.buscarPainelIndicadoresConsultor.bind(this);
@@ -16,6 +18,66 @@ class ServicoOmniController {
     this.sincronizarDados = this.sincronizarDados.bind(this);
     this.obterTodosMotivosDeclinio = this.obterTodosMotivosDeclinio.bind(this);
     this.gerarLayoutImagemLinhas = this.gerarLayoutImagemLinhas.bind(this);
+  }
+
+  async buscarEmpresaPorSeq(req: Request, res: Response): Promise<void> {
+    try {
+      const { seq_empresa } = req.params;
+      const idEmpresa = Number(seq_empresa);
+      if (isNaN(idEmpresa) || idEmpresa <= 0) {
+        res.status(400).json({
+          status: false,
+          mensagem: "Parâmetro seq_empresa inválido. Deve ser um número inteiro positivo.",
+        });
+        return;
+      }
+      const servicos = await this.servicoOmniService.listarEmpresaInfoPorSeq(idEmpresa);
+      
+      res.status(200).json({
+        status: true,
+        mensagem: "Serviços encontrados com sucesso.",
+        dados: servicos,
+      });
+    } catch (error: any) {
+      console.error(`[API GET ERROR] Falha ao buscar empresa ${req.params.seq_empresa}:`, error.message);
+      res.status(500).json({
+        status: false,
+        mensagem: "Erro ao buscar serviços para a empresa informada.",
+        detalhes: error.message,
+      });
+    }
+  }
+
+  async buscarListaEmpresasEnvio(req: Request, res: Response): Promise<void> {
+    try {
+      const { seq_consultor, limit } = req.query;
+      const idConsultor = Number(seq_consultor);
+      const limiteBusca = Number(limit) || 10;
+      if (isNaN(idConsultor) || idConsultor <= 0) {
+        res.status(400).json({
+          status: false,
+          mensagem: "Parâmetro 'seq_consultor' é obrigatório e deve ser um número inteiro positivo.",
+        });
+        return;
+      }
+
+      const empresas = await this.servicoOmniService.listarEmpresasEnvio(idConsultor, limiteBusca);
+      res.status(200).json({
+        status: true,
+        mensagem: empresas.length > 0 
+          ? "Lista de empresas encontrada com sucesso." 
+          : "Nenhuma empresa encontrada para envio com este consultor.",
+        total: empresas.length,
+        dados: empresas,
+      });
+    } catch (error: any) {
+      console.error(`[API GET ERROR] Falha ao buscar lista de empresas para envio:`, error.message);
+      res.status(500).json({
+        status: false,
+        mensagem: "Erro interno ao buscar a lista de empresas do consultor.",
+        detalhes: error.message,
+      });
+    }
   }
 
   async buscarServicosOmniDisponiveis(req: Request, res: Response): Promise<void> {

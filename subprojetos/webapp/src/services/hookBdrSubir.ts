@@ -1,119 +1,79 @@
 import { useState } from "react";
-import { IServicoPipeRun } from "@/interfaces/servicoPipeRun.interface";
-import { API_PIPERUN } from "@/services/apiPiperunSubir";
-import API from "./api";
-
+import API from "@/services/api";
+import { ILeadOmniResponse } from "@/interfaces/leadOmni.interface";
+import { enviarLeadPipeRun } from "./apiBdrSubir";
 
 interface UseIntegracaoProps {
-  tipoOperacao: "Renovação" | "Portabilidade" | "Exclusivo";
-  dadosGlobais: IServicoPipeRun[];
-  consultoresEnvio: number[];
-  empresasEnvio?: number[];
-  limiteEnvio: number | "";
-  onSuccessCb: (logs?: { sucessos: any[]; falhas: any[] }) => void; 
+  seqConsultor: number;
+  limiteEnvio: number;
+  onSuccessCb: (logs?: { sucessos: any[]; falhas: any[] }) => void;
 }
 
 export function useIntegracaoPipeBdr() {
   const [isEnviando, setIsEnviando] = useState(false);
 
-  const handleSubirServicos = async ({
-    tipoOperacao,
-    dadosGlobais,
-    consultoresEnvio,
-    empresasEnvio = [],
-    limiteEnvio,
-    onSuccessCb,
-  }: UseIntegracaoProps) => {
-    if (consultoresEnvio.length === 0 && empresasEnvio.length === 0) {
-      alert("Selecione pelo menos um consultor na lista ou marque empresas específicas na tabela para envio.");
+  const handleSubirServicos = async ({ seqConsultor, limiteEnvio, onSuccessCb }: UseIntegracaoProps) => {
+    if (!seqConsultor || !limiteEnvio) {
+      alert("Consultor e quantidade são obrigatórios.");
       return;
     }
 
     try {
       setIsEnviando(true);
+      let sucessosLogs: any[] = [];
+      let falhasLogs: any[] = [];
+      
+      const resEmpresas = await API.get(`/api/servico-omni/empresas-envio?seq_consultor=${seqConsultor}&limit=${limiteEnvio}`);
+      const listaEmpresas = resEmpresas.data?.dados || [];
 
-      if (!Array.isArray(dadosGlobais)) {
-        throw new Error(`Matriz principal de dados de ${tipoOperacao} está inválida/indisponível.`);
-      }
-
-      let servicosParaEnviar = dadosGlobais.filter((item) => {
-        try {
-          const pertenceAoConsultor = consultoresEnvio.includes(Number(item.seq_consultor));
-          const empresaSelecionada = empresasEnvio.includes(Number(item.seq_empresa));
-          return pertenceAoConsultor || empresaSelecionada;
-        } catch (filterError) {
-          console.error(`🚨 [Filtro] Avaliação de serviço falhou:`, item, filterError);
-          return false;
-        }
-      });
-
-      if (servicosParaEnviar.length === 0) {
-        alert(`Os filtros aplicados não possuem serviços de ${tipoOperacao} disponíveis.`);
+      if (listaEmpresas.length === 0) {
+        alert("Nenhum lead disponível para este consultor com os filtros atuais.");
         setIsEnviando(false);
         return;
       }
 
-      if (limiteEnvio && typeof limiteEnvio === "number" && limiteEnvio > 0) {
-        servicosParaEnviar = servicosParaEnviar.slice(0, limiteEnvio);
-      }
-
-      console.info(`🚀 Iniciando pipeline de ${tipoOperacao} com ${servicosParaEnviar.length} payloads ativos.`);
-
-      let sucessosLogs: any[] = [];
-      let falhasLogs: any[] = [];
-
-      for (const servico of servicosParaEnviar) {
+      console.info(`🚀 Iniciando processamento de ${listaEmpresas.length} leads.`);
+      for (const item of listaEmpresas) {
+        const seqEmpresa = item.seq_empresa;
+        let leadData: ILeadOmniResponse | null = null;
+        
         try {
-          if (!servico || !servico.seq_claro) {
-            falhasLogs.push({ payload: servico, erro: "Serviço inválido ou sem seq_claro" });
+          const resLead = await API.get(`/api/servico-omni/leads/${seqEmpresa}`);
+          leadData = resLead.data?.dados[0];
+
+          if (!leadData) {
+            falhasLogs.push({ 
+              payload: { cnpj: `SEQ-${seqEmpresa}` }, 
+              erro: "Dados detalhados do lead não encontrados no banco." 
+            });
             continue;
           }
 
-          console.info(`⏳ Transacionando ${tipoOperacao} - seq_claro: ${servico.seq_claro}`);
+          const pipeRunResult = await enviarLeadPipeRun(leadData);
 
-          const resultadoPipe = await API_PIPERUN({
-            servicos: [servico],
-            tipoOperacao: tipoOperacao, 
-          } as any);
+          if (pipeRunResult.success && pipeRunResult.dealId) {
+            await API.patch(`/api/servico-omni/leads/${seqEmpresa}`, {
+              dt_crm: new Date().toISOString(),
+              codigo_crm: pipeRunResult.dealId
+            });
 
-          if (resultadoPipe && resultadoPipe.sucessos > 0) {
-            try {
-              const axiosResult = await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
-              console.info(`✅ Commit absoluto no DB (Status ${axiosResult.status}). Seq_claro: ${servico.seq_claro}`);
-              
-              sucessosLogs.push({
-                payload: servico,
-                respostaApi: `Criado no PipeRun e Atualizado DB Local (Status: ${axiosResult.status})`
-              });
-            } catch (patchError: any) {
-              console.error(`\n🚨 FALHA AO REGISTRAR NO DB LOCAL [Seq: ${servico.seq_claro}]`);
-              
-              let msgErro = "Erro ao atualizar DB interno após sucesso no PipeRun.";
-              if (patchError.response) {
-                msgErro = `Rejeição da API Express. Status: ${patchError.response.status}`;
-              } else if (patchError.request) {
-                msgErro = "Requisição feita, mas sem resposta do servidor local.";
-              }
-              
-              falhasLogs.push({ payload: servico, erro: msgErro });
-            }
-          } else {
-            console.error(`🚨 Recusa pelo PipeRun. Serviço: ${servico.seq_claro}`, resultadoPipe);
-            falhasLogs.push({ payload: servico, erro: "Recusado pelas regras do PipeRun (ex: CPF/CNPJ inválido, regra de funil bloqueou, etc)" });
+            sucessosLogs.push({ payload: leadData, dealId: pipeRunResult.dealId });
+            console.info(`✅ Lead ${seqEmpresa} subido e banco atualizado.`);
           }
         } catch (error: any) {
-          console.error(`🚨 Crash na thread do seq_claro ${servico?.seq_claro}:`, error);
-          falhasLogs.push({ payload: servico, erro: error.message || "Erro estrutural inesperado" });
+          console.error(`🚨 Falha no processamento do lead ${seqEmpresa}:`, error);
+          falhasLogs.push({ 
+            payload: leadData ? leadData : { cnpj: `SEQ-${seqEmpresa}` }, 
+            erro: error.message || "Erro inesperado durante integração." 
+          });
         }
       }
 
       onSuccessCb({ sucessos: sucessosLogs, falhas: falhasLogs });
 
     } catch (error) {
-      console.error(`🚨 Exception sistêmica em ${tipoOperacao}:`, error);
-      alert("Ocorreu um erro estrutural durante a execução da integração.");
-      setIsEnviando(false);
-      onSuccessCb();
+      console.error(`🚨 Exception sistêmica no Hook:`, error);
+      alert("Ocorreu um erro estrutural durante a busca das empresas.");
     } finally {
       setIsEnviando(false);
     }

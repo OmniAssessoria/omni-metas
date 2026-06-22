@@ -12,6 +12,20 @@ class ServicoOmniService {
     this.repositoryConsultor = new ConsultorRepository();
   }
 
+  async listarEmpresaInfoPorSeq(seq_empresa: number) {
+    const dados = await this.repository.buscarEmpresaInforPorSeq(seq_empresa);
+    return dados && dados.length > 0 ? dados : [];
+  }
+
+  async listarEmpresasEnvio(seq_consultor: number, limit_busca: number = 50) {
+    if (!seq_consultor) {
+      throw new Error("O identificador do consultor (seq_consultor) é obrigatório para essa busca.");
+    }
+    const limite = limit_busca > 0 ? limit_busca : 50; 
+    const dados = await this.repository.buscarEmpresasEnvio(seq_consultor, limite);
+    return dados && dados.length > 0 ? dados : [];
+  }
+
   async listarbuscarServicosOmniDisponivel() {
     const dados = await this.repository.buscarServicosOmniDisponivel();
     return dados && dados.length > 0 ? dados : [];
