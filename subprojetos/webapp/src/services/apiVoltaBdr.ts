@@ -24,10 +24,6 @@ const apiInterna = axios.create({
   },
 });
 
-// ============================================================================
-// FUNÇÕES UTILITÁRIAS
-// ============================================================================
-
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const formatarCNPJ = (cnpj: string): string => {
@@ -85,7 +81,7 @@ const buscarTodasAsPaginas = async (urlBase: string, parametrosBasicos: any) => 
 
       todosOsResultados.push(...dadosPagina);
       paginaAtual++;
-      await delay(200); // Respeito ao limite de requisições do PipeRun
+      await delay(200); 
     } catch (error: any) {
       console.error(`[Erro na Paginação] Falha ao buscar página ${paginaAtual}`, error.response?.data || error.message);
       temMaisDados = false;
@@ -119,10 +115,6 @@ export interface IProgressState {
   percentual: number;
   ativo: boolean;
 }
-
-// ============================================================================
-// FUNÇÃO PRINCIPAL DE SINCRONIZAÇÃO
-// ============================================================================
 
 export const sincronizarDadosPipeRun = async (
   dataInicial: string,
@@ -162,7 +154,6 @@ export const sincronizarDadosPipeRun = async (
         with: "customFields,company,owner,lostReason"
       };
 
-      // 1. Busca Ganhos no funil 104307 (Status: 1)
       const paramsGanhos = {
         pipeline_id: PIPELINE_UNIFICADO,
         status: 1,
@@ -171,7 +162,6 @@ export const sincronizarDadosPipeRun = async (
       const ganhosExtraidos = await buscarTodasAsPaginas("/deals", paramsGanhos);
       dealsBrutos.push(...ganhosExtraidos);
 
-      // 2. Busca Perdas no funil 104307 (Status: 3)
       const paramsPerdas = {
         pipeline_id: PIPELINE_UNIFICADO,
         status: 3,
@@ -208,7 +198,7 @@ export const sincronizarDadosPipeRun = async (
         cnpj = await buscarCnpjPorCompanyId(deal.company_id);
       }
 
-      if (!cnpj) continue; // Ignora negócios sem CNPJ amarrado
+      if (!cnpj) continue; 
 
       const operadoraOriginal = obterCustomField(deal.customFields, 631881, "Operadora do Pedido");
       let tipoServico = "CLARO";
