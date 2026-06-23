@@ -85,21 +85,21 @@ async function Servidor() {
     // ====================================================================
     // CRON JOB 3: ROTINA DAS 2:30 - Sincronização BDR (Nova Tabela Omni)
     // ====================================================================
-    // cron.schedule(
-    //   "30 02 * * *",
-    //   async () => {
-    //     try {
-    //       console.log("[SISTEMA] Iniciando trigger do Cron Job das 02h30 (Omni BDR)...");
-    //       await omniBdr.executarRotinaNoturnaPipeBdr();
-    //     } catch (error) {
-    //       console.error(
-    //         "[SISTEMA] Erro fatal não tratado durante a execução do cron das 02:30:",
-    //         error,
-    //       );
-    //     }
-    //   },
-    //   { timezone: "America/Sao_Paulo" },
-    // );
+    cron.schedule(
+      "30 02 * * *",
+      async () => {
+        try {
+          console.log("[SISTEMA] Iniciando trigger do Cron Job das 02h30 (Omni BDR)...");
+          await omniBdr.executarRotinaNoturnaPipeBdr();
+        } catch (error) {
+          console.error(
+            "[SISTEMA] Erro fatal não tratado durante a execução do cron das 02:30:",
+            error,
+          );
+        }
+      },
+      { timezone: "America/Sao_Paulo" },
+    );
 
     console.log("✅ Cron Job ativado: Rotina Legado (19:00 SP).");
     console.log("✅ Cron Job ativado: Recálculo Temporário/CPC (00:30 SP).");
