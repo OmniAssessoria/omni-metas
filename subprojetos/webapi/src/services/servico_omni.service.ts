@@ -170,6 +170,12 @@ class ServicoOmniService {
       await this.repository.obterNumerosContatosSecundarioClientes(seq_empresa);
     return dados && dados.length > 0 ? dados : [];
   }
+
+  async atribuirEmpresasParaConsultor(seq_consultor: number, limit: number) {
+    const dados =
+      await this.repository.atribuirEmpresasParaConsultor(seq_consultor, limit);
+    return dados && dados.length > 0 ? dados : [];
+  }
 }
 
 export default ServicoOmniService;

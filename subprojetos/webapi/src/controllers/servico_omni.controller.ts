@@ -24,6 +24,8 @@ class ServicoOmniController {
     this.gerarLayoutImagemLinhas = this.gerarLayoutImagemLinhas.bind(this);
     this.listarNumerosContatosSecundarioClientes =
       this.listarNumerosContatosSecundarioClientes.bind(this);
+    this.atribuirEmpresasParaConsultor =
+      this.atribuirEmpresasParaConsultor.bind(this);
   }
 
   async buscarEmpresaPorSeq(req: Request, res: Response): Promise<void> {
@@ -347,6 +349,72 @@ class ServicoOmniController {
       res.status(500).json({
         status: false,
         mensagem: "Erro interno na renderização da proposta comercial.",
+        detalhes: error.message,
+      });
+    }
+  }
+
+  async atribuirEmpresasParaConsultor(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const { seq_consultor, limit } = req.body;
+
+      console.log(
+        `[API PATCH] Requisição recebida para atribuir empresas. Consultor: ${seq_consultor} | Limite: ${limit}`,
+      );
+
+      const idConsultor = Number(seq_consultor);
+      const limiteAtribuicao = Number(limit);
+
+      if (isNaN(idConsultor) || idConsultor <= 0) {
+        res.status(400).json({
+          status: false,
+          mensagem:
+            "O parâmetro 'seq_consultor' é obrigatório, deve ser numérico e maior que zero.",
+        });
+        return;
+      }
+
+      if (isNaN(limiteAtribuicao) || limiteAtribuicao <= 0) {
+        res.status(400).json({
+          status: false,
+          mensagem:
+            "O parâmetro 'limit' é obrigatório, deve ser numérico e maior que zero.",
+        });
+        return;
+      }
+
+      const empresasAtribuidas =
+        await this.servicoOmniService.atribuirEmpresasParaConsultor(
+          idConsultor,
+          limiteAtribuicao,
+        );
+
+      if (!empresasAtribuidas || empresasAtribuidas.length === 0) {
+        res.status(200).json({
+          status: true,
+          mensagem:
+            "Nenhuma nova empresa disponível para ser atribuída a este consultor no momento.",
+          dados: [],
+        });
+        return;
+      }
+
+      res.status(200).json({
+        status: true,
+        mensagem: `${empresasAtribuidas.length} empresa(s) atribuída(s) com sucesso ao consultor.`,
+        dados: empresasAtribuidas,
+      });
+    } catch (error: any) {
+      console.error(
+        `[API PATCH ERROR] Erro ao atribuir empresas para o consultor ${req.body.seq_consultor}:`,
+        error.message,
+      );
+      res.status(500).json({
+        status: false,
+        mensagem: "Erro interno no servidor ao tentar atribuir empresas.",
         detalhes: error.message,
       });
     }

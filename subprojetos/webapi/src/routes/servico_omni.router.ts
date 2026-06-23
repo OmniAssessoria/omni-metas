@@ -46,6 +46,10 @@ class RotasServicoOmni {
       this.servicoOmniController.sincronizarDados,
     );
     this.router.patch(
+      "/servico-omni/leads/atribuir-consultor",
+      this.servicoOmniController.atribuirEmpresasParaConsultor,
+    );
+    this.router.patch(
       "/servico-omni/leads/:seq_empresa",
       this.servicoOmniController.atualizarStatusCrm,
     );

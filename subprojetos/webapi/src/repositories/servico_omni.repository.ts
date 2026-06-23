@@ -256,4 +256,15 @@ export default class ServicoOmniRepository {
       throw error;
     }
   }
+
+  async atribuirEmpresasParaConsultor(seq_consultor: number, limit: number) {
+    const query = `SELECT * FROM omni.fn_atribuir_empresa_consultor($1, $2);`;
+    try {
+      const result = await pool.query(query, [seq_consultor, limit]);
+      return result.rows;
+    } catch (error) {
+      console.error("[ServicoOmniRepository] Erro ao atribuir LEADS BDR para o consultor:", error);
+      throw error;
+    }
+  }
 }

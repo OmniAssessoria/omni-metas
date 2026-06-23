@@ -26,6 +26,7 @@ import {
   XCircle,
   ArrowRightLeft,
   Calendar,
+  UserPlus,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import API from "@/services/api";
@@ -62,7 +63,6 @@ export default function PainelBDR() {
   const [leadsGlobais, setLeadsGlobais] = useState<number>(0);
   const [listaBDRs, setListaBDRs] = useState<IBDRMetrics[]>([]);
   const [loadingDados, setLoadingDados] = useState<boolean>(true);
-
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [dataInicial, setDataInicial] = useState<string>("");
   const [dataFinal, setDataFinal] = useState<string>("");
@@ -75,7 +75,10 @@ export default function PainelBDR() {
     mensagem: "",
     etapa: "iniciando",
   });
-
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
+  const [assignConsultorId, setAssignConsultorId] = useState<string>("");
+  const [assignLimit, setAssignLimit] = useState<string>("");
+  const [isAssigning, setIsAssigning] = useState<boolean>(false);
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [syncLogs, setSyncLogs] = useState<{
     sucessos: any[];
@@ -159,6 +162,44 @@ export default function PainelBDR() {
     });
   };
 
+  const handleAtribuirConsultor = async () => {
+    if (!assignConsultorId || !assignLimit || Number(assignLimit) <= 0) {
+      setNotification("Selecione um consultor e defina uma quantidade válida.");
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
+    setIsAssigning(true);
+    try {
+      const response = await API.patch(
+        "/api/servico-omni/leads/atribuir-consultor",
+        {
+          seq_consultor: Number(assignConsultorId),
+          limit: Number(assignLimit),
+        },
+      );
+
+      setNotification(
+        response.data.mensagem || "Atribuição realizada com sucesso.",
+      );
+
+      setIsAssignModalOpen(false);
+      setAssignConsultorId("");
+      setAssignLimit("");
+
+      await carregarDados();
+    } catch (error: any) {
+      console.error("Erro ao atribuir empresas para o consultor:", error);
+      setNotification(
+        error.response?.data?.mensagem ||
+          "Ocorreu um erro crítico ao atribuir os leads.",
+      );
+    } finally {
+      setIsAssigning(false);
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
+
   const sincronizarDados = async () => {
     if (!dataInicial) {
       setNotification("Por favor, selecione uma data inicial válida.");
@@ -214,9 +255,111 @@ export default function PainelBDR() {
 
       <main className="relative flex-1 h-full flex flex-col overflow-y-auto bg-muted/10 p-6 sm:p-10">
         {notification && (
-          <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
+          <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-3 bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
             <CheckCircle2 className="h-5 w-5" />
             <p className="font-medium">{notification}</p>
+          </div>
+        )}
+
+        {isAssignModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <UserPlus className="h-6 w-6 text-primary" />
+                  Atribuir Leads a Consultor
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-muted"
+                  onClick={() => !isAssigning && setIsAssignModalOpen(false)}
+                  disabled={isAssigning}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="p-6 flex flex-col gap-6">
+                <p className="text-sm text-muted-foreground">
+                  Selecione um consultor e a quantidade de leads que devem ser
+                  reservados e atribuídos à sua fila (que ainda não constam em
+                  seu histórico).
+                </p>
+
+                <div className="flex flex-col gap-4">
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-foreground">
+                      Consultor Destino
+                    </Label>
+                    <Select
+                      value={assignConsultorId}
+                      onValueChange={setAssignConsultorId}
+                      disabled={isAssigning || loadingDados}
+                    >
+                      <SelectTrigger className="h-12 bg-background border-input">
+                        <SelectValue placeholder="Selecione o consultor..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {listaBDRs.map((bdr) => (
+                          <SelectItem
+                            key={`assign-${bdr.seq_consultor}`}
+                            value={String(bdr.seq_consultor)}
+                          >
+                            {bdr.nome_consultor}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-foreground">
+                      Quantidade a Atribuir
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="Ex: 50"
+                      value={assignLimit}
+                      onChange={(e) => setAssignLimit(e.target.value)}
+                      disabled={isAssigning}
+                      className="h-12 bg-background font-medium border-input"
+                    />
+                    <p className="text-xs text-muted-foreground text-right mt-1">
+                      Leads Globais Disponíveis: {leadsGlobais}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 border-t border-border p-5 bg-muted/10">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAssignModalOpen(false)}
+                  disabled={isAssigning}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all"
+                  onClick={handleAtribuirConsultor}
+                  disabled={isAssigning || !assignConsultorId || !assignLimit}
+                >
+                  {isAssigning ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-5 w-5" />
+                      Confirmar Atribuição
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -435,7 +578,18 @@ export default function PainelBDR() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <Button
+                variant="secondary"
+                onClick={() => setIsAssignModalOpen(true)}
+                disabled={loadingDados || isEnviando || syncing}
+                className="flex items-center gap-2 shadow-sm transition-all flex-1 md:flex-none"
+                size="lg"
+              >
+                <UserPlus className="h-5 w-5" />
+                Atribuir Consultor
+              </Button>
+
               <Button
                 variant="default"
                 onClick={() => setIsSyncModalOpen(true)}
