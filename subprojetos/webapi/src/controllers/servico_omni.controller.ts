@@ -9,17 +9,21 @@ class ServicoOmniController {
   constructor() {
     this.servicoOmniService = new ServicoOmniService();
     this.geradorImagemLayoutService = new GeradorImagemLinhasService();
-    
+
     this.buscarEmpresaPorSeq = this.buscarEmpresaPorSeq.bind(this);
     this.buscarListaEmpresasEnvio = this.buscarListaEmpresasEnvio.bind(this);
-    this.buscarServicosOmniDisponiveis = this.buscarServicosOmniDisponiveis.bind(this);
-    this.buscarContagemServicoOmniDisponivel = this.buscarContagemServicoOmniDisponivel.bind(this);
-    this.buscarPainelIndicadoresConsultor = this.buscarPainelIndicadoresConsultor.bind(this);
+    this.buscarServicosOmniDisponiveis =
+      this.buscarServicosOmniDisponiveis.bind(this);
+    this.buscarContagemServicoOmniDisponivel =
+      this.buscarContagemServicoOmniDisponivel.bind(this);
+    this.buscarPainelIndicadoresConsultor =
+      this.buscarPainelIndicadoresConsultor.bind(this);
     this.atualizarStatusCrm = this.atualizarStatusCrm.bind(this);
     this.sincronizarDados = this.sincronizarDados.bind(this);
     this.obterTodosMotivosDeclinio = this.obterTodosMotivosDeclinio.bind(this);
     this.gerarLayoutImagemLinhas = this.gerarLayoutImagemLinhas.bind(this);
-    this.listarNumerosContatosSecundarioClientes = this.listarNumerosContatosSecundarioClientes.bind(this);
+    this.listarNumerosContatosSecundarioClientes =
+      this.listarNumerosContatosSecundarioClientes.bind(this);
   }
 
   async buscarEmpresaPorSeq(req: Request, res: Response): Promise<void> {
@@ -29,11 +33,13 @@ class ServicoOmniController {
       if (isNaN(idEmpresa) || idEmpresa <= 0) {
         res.status(400).json({
           status: false,
-          mensagem: "Parâmetro seq_empresa inválido. Deve ser um número inteiro positivo.",
+          mensagem:
+            "Parâmetro seq_empresa inválido. Deve ser um número inteiro positivo.",
         });
         return;
       }
-      const servicos = await this.servicoOmniService.listarEmpresaInfoPorSeq(idEmpresa);
+      const servicos =
+        await this.servicoOmniService.listarEmpresaInfoPorSeq(idEmpresa);
 
       res.status(200).json({
         status: true,
@@ -41,7 +47,10 @@ class ServicoOmniController {
         dados: servicos,
       });
     } catch (error: any) {
-      console.error(`[API GET ERROR] Falha ao buscar empresa ${req.params.seq_empresa}:`, error.message);
+      console.error(
+        `[API GET ERROR] Falha ao buscar empresa ${req.params.seq_empresa}:`,
+        error.message,
+      );
       res.status(500).json({
         status: false,
         mensagem: "Erro ao buscar serviços para a empresa informada.",
@@ -58,22 +67,30 @@ class ServicoOmniController {
       if (isNaN(idConsultor) || idConsultor <= 0) {
         res.status(400).json({
           status: false,
-          mensagem: "Parâmetro 'seq_consultor' é obrigatório e deve ser um número inteiro positivo.",
+          mensagem:
+            "Parâmetro 'seq_consultor' é obrigatório e deve ser um número inteiro positivo.",
         });
         return;
       }
 
-      const empresas = await this.servicoOmniService.listarEmpresasEnvio(idConsultor, limiteBusca);
+      const empresas = await this.servicoOmniService.listarEmpresasEnvio(
+        idConsultor,
+        limiteBusca,
+      );
       res.status(200).json({
         status: true,
-        mensagem: empresas.length > 0
+        mensagem:
+          empresas.length > 0
             ? "Lista de empresas encontrada com sucesso."
             : "Nenhuma empresa encontrada para envio com este consultor.",
         total: empresas.length,
         dados: empresas,
       });
     } catch (error: any) {
-      console.error(`[API GET ERROR] Falha ao buscar lista de empresas para envio:`, error.message);
+      console.error(
+        `[API GET ERROR] Falha ao buscar lista de empresas para envio:`,
+        error.message,
+      );
       res.status(500).json({
         status: false,
         mensagem: "Erro interno ao buscar a lista de empresas do consultor.",
@@ -82,9 +99,13 @@ class ServicoOmniController {
     }
   }
 
-  async buscarServicosOmniDisponiveis(req: Request, res: Response): Promise<void> {
+  async buscarServicosOmniDisponiveis(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
     try {
-      const servicos = await this.servicoOmniService.listarbuscarServicosOmniDisponivel();
+      const servicos =
+        await this.servicoOmniService.listarbuscarServicosOmniDisponivel();
       res.status(200).json({
         status: true,
         mensagem: "Serviços encontrados com sucesso.",
@@ -99,9 +120,13 @@ class ServicoOmniController {
     }
   }
 
-  async buscarContagemServicoOmniDisponivel(req: Request, res: Response): Promise<void> {
+  async buscarContagemServicoOmniDisponivel(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
     try {
-      const servicos = await this.servicoOmniService.listarContagemServicosOmniDisponivel();
+      const servicos =
+        await this.servicoOmniService.listarContagemServicosOmniDisponivel();
       res.status(200).json({
         status: true,
         mensagem: "Contagem de serviços encontrada com sucesso.",
@@ -116,9 +141,13 @@ class ServicoOmniController {
     }
   }
 
-  async buscarPainelIndicadoresConsultor(req: Request, res: Response): Promise<void> {
+  async buscarPainelIndicadoresConsultor(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
     try {
-      const servicos = await this.servicoOmniService.listarPainelIndicadoresConsultor();
+      const servicos =
+        await this.servicoOmniService.listarPainelIndicadoresConsultor();
       res.status(200).json({
         status: true,
         mensagem: "Painel de indicadores gerado com sucesso.",
@@ -133,19 +162,24 @@ class ServicoOmniController {
     }
   }
 
-  async listarNumerosContatosSecundarioClientes(req: Request, res: Response): Promise<void> {
+  async listarNumerosContatosSecundarioClientes(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
     try {
-      const contatos = await this.servicoOmniService.listarNumerosContatosSecundarioClientes(
-        Number(req.params.seq_empresa)
-      );
+      const contatos =
+        await this.servicoOmniService.listarNumerosContatosSecundarioClientes(
+          Number(req.params.seq_empresa),
+        );
 
       if (!contatos || contatos.length === 0) {
         res.status(200).json({
           status: true,
-          mensagem: "Sucesso ao buscar números de contatos, mas o cliente não possui números secundários vinculados.",
+          mensagem:
+            "Sucesso ao buscar números de contatos, mas o cliente não possui números secundários vinculados.",
           dados: [],
         });
-        return; 
+        return;
       }
 
       res.status(200).json({
@@ -154,7 +188,10 @@ class ServicoOmniController {
         dados: contatos,
       });
     } catch (error: any) {
-      console.error(`[API GET ERROR] Erro ao buscar contatos secundários para seq_empresa ${req.params.seq_empresa}:`, error.message);
+      console.error(
+        `[API GET ERROR] Erro ao buscar contatos secundários para seq_empresa ${req.params.seq_empresa}:`,
+        error.message,
+      );
       res.status(500).json({
         status: false,
         mensagem: "Erro interno ao buscar números de contatos.",
@@ -168,11 +205,18 @@ class ServicoOmniController {
       const { seq_empresa } = req.params;
       const { dt_crm, codigo_crm } = req.body;
 
-      console.log(`\n[API PATCH] Requisição recebida para atualizar DB. Params:`, req.params, `Body:`, req.body);
+      console.log(
+        `\n[API PATCH] Requisição recebida para atualizar DB. Params:`,
+        req.params,
+        `Body:`,
+        req.body,
+      );
 
       const idServico = Number(seq_empresa);
       if (isNaN(idServico) || idServico <= 0) {
-        res.status(400).json({ status: false, mensagem: "Parâmetro seq_empresa inválido." });
+        res
+          .status(400)
+          .json({ status: false, mensagem: "Parâmetro seq_empresa inválido." });
         return;
       }
 
@@ -184,11 +228,12 @@ class ServicoOmniController {
         return;
       }
 
-      const servicoAtualizado = await this.servicoOmniService.marcarComoEnviadoCrm(
-        idServico,
-        new Date(dt_crm),
-        Number(codigo_crm),
-      );
+      const servicoAtualizado =
+        await this.servicoOmniService.marcarComoEnviadoCrm(
+          idServico,
+          new Date(dt_crm),
+          Number(codigo_crm),
+        );
 
       res.status(200).json({
         status: true,
@@ -210,10 +255,13 @@ class ServicoOmniController {
       const dados = req.body;
       console.log(`[SYNC INICIADO] Processando CNPJ: ${dados.cnpj}`);
 
-      const resultadoSync = await this.servicoOmniService.atualizarServicosOmniHistorico(dados);
+      const resultadoSync =
+        await this.servicoOmniService.atualizarServicosOmniHistorico(dados);
 
       if (resultadoSync.ignorado) {
-        console.log(`[SYNC IGNORADO] CNPJ: ${dados.cnpj} - Motivo: ${resultadoSync.motivo}`);
+        console.log(
+          `[SYNC IGNORADO] CNPJ: ${dados.cnpj} - Motivo: ${resultadoSync.motivo}`,
+        );
         res.status(200).json({
           status: true,
           ignorado: true,
@@ -229,7 +277,10 @@ class ServicoOmniController {
         dados: resultadoSync.dados,
       });
     } catch (error: any) {
-      console.error(`[SYNC ERRO FATAL] Falha no CNPJ ${req.body?.cnpj}:`, error.message);
+      console.error(
+        `[SYNC ERRO FATAL] Falha no CNPJ ${req.body?.cnpj}:`,
+        error.message,
+      );
       res.status(500).json({
         status: false,
         mensagem: "Erro ao sincronizar serviços PipeRun com a base da Omni.",
@@ -240,7 +291,8 @@ class ServicoOmniController {
 
   async obterTodosMotivosDeclinio(req: Request, res: Response): Promise<void> {
     try {
-      const motivosDeclinio = await this.servicoOmniService.listarTodosMotivosDeclinio();
+      const motivosDeclinio =
+        await this.servicoOmniService.listarTodosMotivosDeclinio();
       res.status(200).json({
         status: true,
         mensagem: "Motivos de declínio encontrados com sucesso.",
@@ -259,21 +311,25 @@ class ServicoOmniController {
     try {
       const { seq_empresa, razao, cnpj } = req.body;
 
-      console.log(`[API POST] Gerando layout Base64 para Empresa SEQ: ${seq_empresa} | ${razao}`);
+      console.log(
+        `[API POST] Gerando layout Base64 para Empresa SEQ: ${seq_empresa} | ${razao}`,
+      );
 
       if (!seq_empresa || isNaN(Number(seq_empresa))) {
         res.status(400).json({
           status: false,
-          mensagem: "O parâmetro seq_empresa é obrigatório e deve ser numérico.",
+          mensagem:
+            "O parâmetro seq_empresa é obrigatório e deve ser numérico.",
         });
         return;
       }
 
-      const resultado = await this.geradorImagemLayoutService.gerarLayoutInfoLinhas(
-        Number(seq_empresa),
-        razao,
-        cnpj,
-      );
+      const resultado =
+        await this.geradorImagemLayoutService.gerarLayoutInfoLinhas(
+          Number(seq_empresa),
+          razao,
+          cnpj,
+        );
 
       res.status(200).json({
         status: true,
@@ -284,7 +340,10 @@ class ServicoOmniController {
         },
       });
     } catch (error: any) {
-      console.error(`[API POST ERROR] Falha ao gerar layout de linhas:`, error.message);
+      console.error(
+        `[API POST ERROR] Falha ao gerar layout de linhas:`,
+        error.message,
+      );
       res.status(500).json({
         status: false,
         mensagem: "Erro interno na renderização da proposta comercial.",

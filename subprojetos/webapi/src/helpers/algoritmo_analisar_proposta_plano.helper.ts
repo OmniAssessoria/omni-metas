@@ -75,9 +75,11 @@ export class AnalisadorPlanosHelper {
   public encontrarMelhorOfertaEconomica(analiseAtual: any) {
     const planos = PLANOS_DISPONIVEIS;
     const linhasReq = analiseAtual.linhas_requisitos as number[];
-    
+
     const limiteDescontoMaximo = analiseAtual.total_linhas * 3;
-    const valorMinimoPermitido = this.arredondarCentavos(analiseAtual.total_valor - limiteDescontoMaximo);
+    const valorMinimoPermitido = this.arredondarCentavos(
+      analiseAtual.total_valor - limiteDescontoMaximo,
+    );
 
     let totalValorOfertaGuloso = 0;
     let totalGbOfertaGuloso = 0;
@@ -89,7 +91,7 @@ export class AnalisadorPlanosHelper {
       const validos = planos
         .map((p, idx) => ({ ...p, originalIndex: idx }))
         .filter((p) => p.gb >= gbMinimoLinha);
-      
+
       validos.sort((a, b) => a.valor - b.valor);
       return validos;
     });
@@ -107,7 +109,9 @@ export class AnalisadorPlanosHelper {
         bonus: melhorPlano.bonus,
       });
 
-      totalValorOfertaGuloso = this.arredondarCentavos(totalValorOfertaGuloso + melhorPlano.valor);
+      totalValorOfertaGuloso = this.arredondarCentavos(
+        totalValorOfertaGuloso + melhorPlano.valor,
+      );
       totalGbOfertaGuloso += melhorPlano.gb;
       totalGbComBonusOfertaGuloso += melhorPlano.gb + melhorPlano.bonus;
 
@@ -137,13 +141,18 @@ export class AnalisadorPlanosHelper {
     const sufixoCustoMinimo = new Array(linhasReq.length).fill(0);
     let acumulado = 0;
     for (let i = linhasReq.length - 1; i >= 0; i--) {
-      acumulado = this.arredondarCentavos(acumulado + planosValidosPorLinha[i][0].valor);
+      acumulado = this.arredondarCentavos(
+        acumulado + planosValidosPorLinha[i][0].valor,
+      );
       sufixoCustoMinimo[i] = acumulado;
     }
 
     let melhorOfertaAlternativa: any = null;
 
-    const converterContagemParaCombo = (contagem: Record<number, number>, planosRef: any[]) => {
+    const converterContagemParaCombo = (
+      contagem: Record<number, number>,
+      planosRef: any[],
+    ) => {
       const combo = [];
       for (const idxStr in contagem) {
         const idx = Number(idxStr);
@@ -166,11 +175,17 @@ export class AnalisadorPlanosHelper {
       bonusAcumulado: number,
       valorAcumulado: number,
       contagemAtual: Record<number, number>,
-      planosEscolhidos: any[]
+      planosEscolhidos: any[],
     ) => {
-      const custoNecessarioRestante = indexLinha < linhasReq.length ? sufixoCustoMinimo[indexLinha] : 0;
-      const projecaoValorMinimo = this.arredondarCentavos(valorAcumulado + custoNecessarioRestante);
-      if (melhorOfertaAlternativa && projecaoValorMinimo >= melhorOfertaAlternativa.total_valor) {
+      const custoNecessarioRestante =
+        indexLinha < linhasReq.length ? sufixoCustoMinimo[indexLinha] : 0;
+      const projecaoValorMinimo = this.arredondarCentavos(
+        valorAcumulado + custoNecessarioRestante,
+      );
+      if (
+        melhorOfertaAlternativa &&
+        projecaoValorMinimo >= melhorOfertaAlternativa.total_valor
+      ) {
         return;
       }
 
@@ -186,10 +201,18 @@ export class AnalisadorPlanosHelper {
             total_valor: valorAcumulado,
           };
 
-          if (!melhorOfertaAlternativa || ofertaAtual.total_valor < melhorOfertaAlternativa.total_valor) {
+          if (
+            !melhorOfertaAlternativa ||
+            ofertaAtual.total_valor < melhorOfertaAlternativa.total_valor
+          ) {
             melhorOfertaAlternativa = ofertaAtual;
-          } else if (ofertaAtual.total_valor === melhorOfertaAlternativa.total_valor) {
-            if (ofertaAtual.total_gb_com_bonus > melhorOfertaAlternativa.total_gb_com_bonus) {
+          } else if (
+            ofertaAtual.total_valor === melhorOfertaAlternativa.total_valor
+          ) {
+            if (
+              ofertaAtual.total_gb_com_bonus >
+              melhorOfertaAlternativa.total_gb_com_bonus
+            ) {
               melhorOfertaAlternativa = ofertaAtual;
             }
           }
@@ -203,7 +226,8 @@ export class AnalisadorPlanosHelper {
         const plano = planosParaLinha[i];
         const planoOriginalIndex = plano.originalIndex;
 
-        contagemAtual[planoOriginalIndex] = (contagemAtual[planoOriginalIndex] || 0) + 1;
+        contagemAtual[planoOriginalIndex] =
+          (contagemAtual[planoOriginalIndex] || 0) + 1;
         planosEscolhidos.push({
           gb: plano.gb,
           valor: plano.valor,
@@ -216,7 +240,7 @@ export class AnalisadorPlanosHelper {
           bonusAcumulado + plano.bonus,
           this.arredondarCentavos(valorAcumulado + plano.valor),
           contagemAtual,
-          planosEscolhidos
+          planosEscolhidos,
         );
 
         planosEscolhidos.pop();
@@ -237,11 +261,15 @@ export class AnalisadorPlanosHelper {
     const linhasReq = analiseAtual.linhas_requisitos as number[];
 
     const valorEco = ofertaEconomica ? ofertaEconomica.total_valor : -1;
-    const gbTotalEco = ofertaEconomica ? ofertaEconomica.total_gb_com_bonus : -1;
+    const gbTotalEco = ofertaEconomica
+      ? ofertaEconomica.total_gb_com_bonus
+      : -1;
     const valorBaseParaMargem = Math.max(analiseAtual.total_valor, valorEco);
 
     const limiteDescontoMaximo = analiseAtual.total_linhas * 3;
-    const valorMinimoPermitido = this.arredondarCentavos(analiseAtual.total_valor - limiteDescontoMaximo);
+    const valorMinimoPermitido = this.arredondarCentavos(
+      analiseAtual.total_valor - limiteDescontoMaximo,
+    );
 
     const planosValidosPorLinha = linhasReq.map((gbMinimo) => {
       return planos.filter((p) => p.gb >= gbMinimo);

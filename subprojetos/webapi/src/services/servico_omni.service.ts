@@ -164,7 +164,7 @@ class ServicoOmniService {
       await this.repository.buscarTodosMotivosDeclinio();
     return dados && dados.length > 0 ? dados : [];
   }
-  
+
   async listarNumerosContatosSecundarioClientes(seq_empresa: number) {
     const dados =
       await this.repository.obterNumerosContatosSecundarioClientes(seq_empresa);

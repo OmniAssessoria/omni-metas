@@ -23,9 +23,13 @@ class GeradorImagemLinhasService {
     return linhas.map((linha) => {
       const planoStr = String(linha.plano || "").toUpperCase();
       const bonusStr = String(linha.bonus || "").toUpperCase();
-      
-      const ehPlano10GB = planoStr.includes("10GB") || planoStr.includes("10 GB");
-      const temBonus4GB = bonusStr.includes("4GB") || bonusStr.includes("4 GB") || bonusStr.trim() === "4";
+
+      const ehPlano10GB =
+        planoStr.includes("10GB") || planoStr.includes("10 GB");
+      const temBonus4GB =
+        bonusStr.includes("4GB") ||
+        bonusStr.includes("4 GB") ||
+        bonusStr.trim() === "4";
 
       if (ehPlano10GB && temBonus4GB) {
         return {
@@ -92,7 +96,7 @@ class GeradorImagemLinhasService {
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
-          "--disable-gpu" 
+          "--disable-gpu",
         ],
       });
 
@@ -143,14 +147,19 @@ class GeradorImagemLinhasService {
       );
     } finally {
       if (page) {
-        await page.close().catch((e: any) => console.error("Erro ao fechar page (linhas)", e));
+        await page
+          .close()
+          .catch((e: any) => console.error("Erro ao fechar page (linhas)", e));
       }
       if (browser) {
-        await browser.close().catch((e: any) => console.error("Erro ao fechar browser (linhas)", e));
+        await browser
+          .close()
+          .catch((e: any) =>
+            console.error("Erro ao fechar browser (linhas)", e),
+          );
       }
     }
   }
-
 }
 
 export default GeradorImagemLinhasService;

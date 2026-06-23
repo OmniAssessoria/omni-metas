@@ -1,11 +1,11 @@
 export const CORES = {
-  primaria: '#F5A800',
-  primaria_escura: '#D49200',
-  primaria_clara: '#FFD466',
-  preto: '#0A0A0A',
-  preto_suave: '#1A1A1A',
-  primaria_clara_bg: 'rgba(253, 230, 138, 0.2)',
-  primaria_bg: 'rgba(245, 168, 0, 0.2)'
+  primaria: "#F5A800",
+  primaria_escura: "#D49200",
+  primaria_clara: "#FFD466",
+  preto: "#0A0A0A",
+  preto_suave: "#1A1A1A",
+  primaria_clara_bg: "rgba(253, 230, 138, 0.2)",
+  primaria_bg: "rgba(245, 168, 0, 0.2)",
 };
 
 export interface IDadosLayoutHtml {

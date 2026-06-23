@@ -23,7 +23,7 @@ class ServicoClaroService {
         disp_cpc_edoc_e_docdrive: 0,
         edoc_sem_docdrive_sem_serv_cpc_null: 0,
         edoc_sem_docdrive_sem_serv_cpc_ok: 0,
-        data_hora_extracao: new Date().toISOString()
+        data_hora_extracao: new Date().toISOString(),
       };
     }
 

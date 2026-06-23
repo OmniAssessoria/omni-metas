@@ -20,23 +20,19 @@ class ServicoOperadoraController {
         await this.servicoOperadoraService.listarServisoOperadoraPorSeq(
           Number(seq_empresa),
         );
-      res
-        .status(200)
-        .json({
-          status: true,
-          mensagem:
-            "Serviços Operadora: Linhas telefonicas encontradas com sucesso.",
-          dados: servicos,
-        });
+      res.status(200).json({
+        status: true,
+        mensagem:
+          "Serviços Operadora: Linhas telefonicas encontradas com sucesso.",
+        dados: servicos,
+      });
     } catch (error: any) {
       console.log(error);
-      res
-        .status(500)
-        .json({
-          status: false,
-          mensagem: "Erro ao buscar serviços operadora.",
-          detalhes: error.message,
-        });
+      res.status(500).json({
+        status: false,
+        mensagem: "Erro ao buscar serviços operadora.",
+        detalhes: error.message,
+      });
     }
   }
 }

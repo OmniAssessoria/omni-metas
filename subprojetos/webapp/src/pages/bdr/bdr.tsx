@@ -25,13 +25,15 @@ import {
   X,
   XCircle,
   ArrowRightLeft,
-  Calendar
+  Calendar,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import API from "@/services/api";
 import { useIntegracaoPipeBdr } from "@/services/hookBdrSubir";
-import { IProgressState, sincronizarDadosPipeRun } from "@/services/apiVoltaBdr";
-
+import {
+  IProgressState,
+  sincronizarDadosPipeRun,
+} from "@/services/apiVoltaBdr";
 
 interface IContagemResponse {
   total_disponiveis: string | number;
@@ -71,11 +73,14 @@ export default function PainelBDR() {
     atual: 0,
     total: 0,
     mensagem: "",
-    etapa: "iniciando"
+    etapa: "iniciando",
   });
 
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
-  const [syncLogs, setSyncLogs] = useState<{ sucessos: any[]; falhas: any[] } | null>(null);
+  const [syncLogs, setSyncLogs] = useState<{
+    sucessos: any[];
+    falhas: any[];
+  } | null>(null);
   const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
   const { handleSubirServicos, isEnviando } = useIntegracaoPipeBdr();
 
@@ -88,10 +93,13 @@ export default function PainelBDR() {
       ]);
 
       const dadosContagem: IContagemResponse = resContagem.data?.dados?.[0];
-      const totalGeral = dadosContagem ? Number(dadosContagem.total_disponiveis) : 0;
+      const totalGeral = dadosContagem
+        ? Number(dadosContagem.total_disponiveis)
+        : 0;
       setLeadsGlobais(totalGeral);
 
-      const dadosConsultores: IPainelConsultorResponse[] = resIndicadores.data?.dados || [];
+      const dadosConsultores: IPainelConsultorResponse[] =
+        resIndicadores.data?.dados || [];
 
       const bdrsMapeados: IBDRMetrics[] = dadosConsultores.map((item) => ({
         seq_consultor: Number(item.seq_consultor),
@@ -101,11 +109,16 @@ export default function PainelBDR() {
         total_disponivel_envio: Number(item.total_disponivel_envio || 0),
       }));
 
-      bdrsMapeados.sort((a, b) => b.total_disponivel_envio - a.total_disponivel_envio);
+      bdrsMapeados.sort(
+        (a, b) => b.total_disponivel_envio - a.total_disponivel_envio,
+      );
 
       setListaBDRs(bdrsMapeados);
     } catch (error: any) {
-      console.error("[Painel BDR] Erro ao carregar dados das Views:", error.message);
+      console.error(
+        "[Painel BDR] Erro ao carregar dados das Views:",
+        error.message,
+      );
     } finally {
       setLoadingDados(false);
     }
@@ -122,14 +135,20 @@ export default function PainelBDR() {
       onSuccessCb: (logs) => {
         if (logs) {
           setSyncLogs(logs);
-          setLogTab(logs.falhas.length > 0 && logs.sucessos.length === 0 ? "falhas" : "sucessos");
+          setLogTab(
+            logs.falhas.length > 0 && logs.sucessos.length === 0
+              ? "falhas"
+              : "sucessos",
+          );
           setIsLogModalOpen(true);
         }
 
         const totalSucessos = logs?.sucessos.length || 0;
         const totalFalhas = logs?.falhas.length || 0;
 
-        setNotification(`Processamento concluído: ${totalSucessos} sucessos e ${totalFalhas} falhas.`);
+        setNotification(
+          `Processamento concluído: ${totalSucessos} sucessos e ${totalFalhas} falhas.`,
+        );
 
         setQuantidadeUpload("");
         setBdrSelecionado("");
@@ -146,7 +165,7 @@ export default function PainelBDR() {
       setTimeout(() => setNotification(null), 5000);
       return;
     }
-    
+
     setSyncing(true);
     setProgressState({
       ativo: true,
@@ -161,9 +180,9 @@ export default function PainelBDR() {
       const resultado = await sincronizarDadosPipeRun(
         dataInicial,
         dataFinal || dataInicial,
-        (progresso) => setProgressState({ ativo: true, ...progresso })
+        (progresso) => setProgressState({ ativo: true, ...progresso }),
       );
-      
+
       setNotification(resultado.mensagem);
       setTimeout(() => setNotification(null), 8000);
 
@@ -172,11 +191,13 @@ export default function PainelBDR() {
         setLogTab(resultado.detalhes.falhas.length > 0 ? "falhas" : "sucessos");
         setIsLogModalOpen(true);
       }
-      
-      await carregarDados(); 
+
+      await carregarDados();
     } catch (error: any) {
       console.error("Erro na sincronização reversa:", error);
-      setNotification(error.message || "Erro crítico ao sincronizar histórico.");
+      setNotification(
+        error.message || "Erro crítico ao sincronizar histórico.",
+      );
       setTimeout(() => setNotification(null), 5000);
     } finally {
       setSyncing(false);
@@ -192,7 +213,6 @@ export default function PainelBDR() {
       </div>
 
       <main className="relative flex-1 h-full flex flex-col overflow-y-auto bg-muted/10 p-6 sm:p-10">
-
         {notification && (
           <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
             <CheckCircle2 className="h-5 w-5" />
@@ -218,10 +238,12 @@ export default function PainelBDR() {
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              
+
               <div className="p-6 flex flex-col gap-6">
                 <p className="text-sm text-muted-foreground">
-                  Busque e atualize no banco local os negócios "Ganhos" e "Perdidos" do funil de Vendas do PipeRun, baseando-se na data de fechamento.
+                  Busque e atualize no banco local os negócios "Ganhos" e
+                  "Perdidos" do funil de Vendas do PipeRun, baseando-se na data
+                  de fechamento.
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
@@ -261,27 +283,29 @@ export default function PainelBDR() {
                   <div className="mt-4 p-4 bg-muted/30 rounded-xl border border-border">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-medium text-primary animate-pulse flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" /> {progressState.mensagem}
+                        <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                        {progressState.mensagem}
                       </span>
                       <span className="text-xs font-bold text-muted-foreground">
                         {progressState.percentual}%
                       </span>
                     </div>
                     <div className="w-full bg-border rounded-full h-2.5 overflow-hidden">
-                      <div 
-                        className="bg-primary h-2.5 rounded-full transition-all duration-300 ease-in-out" 
+                      <div
+                        className="bg-primary h-2.5 rounded-full transition-all duration-300 ease-in-out"
                         style={{ width: `${progressState.percentual}%` }}
                       ></div>
                     </div>
                     {progressState.total > 0 && (
                       <p className="text-xs text-muted-foreground mt-2 text-right">
-                        {progressState.atual} de {progressState.total} registros.
+                        {progressState.atual} de {progressState.total}{" "}
+                        registros.
                       </p>
                     )}
                   </div>
                 )}
               </div>
-              
+
               <div className="flex items-center justify-end gap-3 border-t border-border p-5 bg-muted/10">
                 <Button
                   variant="outline"
@@ -296,9 +320,15 @@ export default function PainelBDR() {
                   disabled={syncing || !dataInicial}
                 >
                   {syncing ? (
-                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processando...</>
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />{" "}
+                      Processando...
+                    </>
                   ) : (
-                    <><ArrowRightLeft className="mr-2 h-5 w-5" /> Iniciar Sincronização</>
+                    <>
+                      <ArrowRightLeft className="mr-2 h-5 w-5" /> Iniciar
+                      Sincronização
+                    </>
                   )}
                 </Button>
               </div>
@@ -311,7 +341,8 @@ export default function PainelBDR() {
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
               <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                  <FileJson className="h-6 w-6 text-primary" /> Relatório da Operação
+                  <FileJson className="h-6 w-6 text-primary" /> Relatório da
+                  Operação
                 </h3>
                 <Button
                   variant="ghost"
@@ -326,18 +357,22 @@ export default function PainelBDR() {
                   className={`flex-1 py-4 font-semibold flex items-center justify-center gap-2 transition-colors ${logTab === "sucessos" ? "bg-background border-b-2 border-green-500 text-green-600" : "text-muted-foreground hover:bg-muted/50"}`}
                   onClick={() => setLogTab("sucessos")}
                 >
-                  <CheckCircle2 className="h-5 w-5" /> Sucessos ({syncLogs.sucessos.length})
+                  <CheckCircle2 className="h-5 w-5" /> Sucessos (
+                  {syncLogs.sucessos.length})
                 </button>
                 <button
                   className={`flex-1 py-4 font-semibold flex items-center justify-center gap-2 transition-colors ${logTab === "falhas" ? "bg-background border-b-2 border-red-500 text-red-600" : "text-muted-foreground hover:bg-muted/50"}`}
                   onClick={() => setLogTab("falhas")}
                 >
-                  <XCircle className="h-5 w-5" /> Falhas ({syncLogs.falhas.length})
+                  <XCircle className="h-5 w-5" /> Falhas (
+                  {syncLogs.falhas.length})
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6 bg-muted/5">
                 {logTab === "sucessos" && syncLogs.sucessos.length === 0 && (
-                   <p className="text-center text-muted-foreground py-10">Nenhum sucesso registrado.</p>
+                  <p className="text-center text-muted-foreground py-10">
+                    Nenhum sucesso registrado.
+                  </p>
                 )}
                 {logTab === "sucessos" &&
                   syncLogs.sucessos.map((item, idx) => (
@@ -347,10 +382,12 @@ export default function PainelBDR() {
                     >
                       <div className="flex justify-between items-center border-b border-muted pb-2">
                         <span className="font-bold text-green-700">
-                          CNPJ: {item.payload?.cnpj || item.cnpj || 'N/A'}
+                          CNPJ: {item.payload?.cnpj || item.cnpj || "N/A"}
                         </span>
                         <span className="text-xs font-semibold text-green-800 bg-green-100 px-3 py-1 rounded-full">
-                          {item.payload?.is_ganho ? "MARCADO COMO GANHO" : "MARCADO COMO PERDA"}
+                          {item.payload?.is_ganho
+                            ? "MARCADO COMO GANHO"
+                            : "MARCADO COMO PERDA"}
                         </span>
                       </div>
                       <div className="text-sm mt-1 text-muted-foreground">
@@ -358,9 +395,11 @@ export default function PainelBDR() {
                       </div>
                     </div>
                   ))}
-                
+
                 {logTab === "falhas" && syncLogs.falhas.length === 0 && (
-                   <p className="text-center text-muted-foreground py-10">Nenhuma falha registrada.</p>
+                  <p className="text-center text-muted-foreground py-10">
+                    Nenhuma falha registrada.
+                  </p>
                 )}
                 {logTab === "falhas" &&
                   syncLogs.falhas.map((item, idx) => (
@@ -370,7 +409,7 @@ export default function PainelBDR() {
                     >
                       <div className="flex justify-between items-center border-b border-muted pb-2">
                         <span className="font-bold text-red-700">
-                          CNPJ: {item.payload?.cnpj || item.cnpj || 'N/A'}
+                          CNPJ: {item.payload?.cnpj || item.cnpj || "N/A"}
                         </span>
                       </div>
                       <div className="text-sm mt-2 p-3 bg-red-50 text-red-800 rounded border border-red-100 font-medium">
@@ -384,7 +423,6 @@ export default function PainelBDR() {
         )}
 
         <div className="w-full max-w-7xl mx-auto space-y-8">
-
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
@@ -392,7 +430,8 @@ export default function PainelBDR() {
                 Operação BDR
               </h1>
               <p className="text-muted-foreground mt-1 text-base">
-                Gestão de leads outbound, envios para o CRM e sincronização de fechamentos.
+                Gestão de leads outbound, envios para o CRM e sincronização de
+                fechamentos.
               </p>
             </div>
 
@@ -415,7 +454,9 @@ export default function PainelBDR() {
                 className="flex items-center gap-2 bg-background shadow-sm hover:bg-muted transition-all flex-1 md:flex-none"
                 size="lg"
               >
-                <RefreshCw className={`h-5 w-5 text-muted-foreground ${loadingDados ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`h-5 w-5 text-muted-foreground ${loadingDados ? "animate-spin" : ""}`}
+                />
                 Atualizar
               </Button>
             </div>
@@ -431,7 +472,9 @@ export default function PainelBDR() {
                     </p>
                     <div className="flex items-baseline gap-2">
                       <span className="text-5xl font-extrabold text-primary-foreground">
-                        {loadingDados ? "..." : leadsGlobais.toLocaleString("pt-BR")}
+                        {loadingDados
+                          ? "..."
+                          : leadsGlobais.toLocaleString("pt-BR")}
                       </span>
                     </div>
                     <p className="text-primary-foreground/70 text-sm mt-2">
@@ -461,7 +504,12 @@ export default function PainelBDR() {
                     <Select
                       value={bdrSelecionado}
                       onValueChange={setBdrSelecionado}
-                      disabled={isEnviando || syncing || loadingDados || leadsGlobais === 0}
+                      disabled={
+                        isEnviando ||
+                        syncing ||
+                        loadingDados ||
+                        leadsGlobais === 0
+                      }
                     >
                       <SelectTrigger className="h-12 bg-background border-input">
                         <SelectValue placeholder="Escolha um consultor..." />
@@ -490,7 +538,12 @@ export default function PainelBDR() {
                       placeholder="Ex: 150"
                       value={quantidadeUpload}
                       onChange={(e) => setQuantidadeUpload(e.target.value)}
-                      disabled={isEnviando || syncing || loadingDados || leadsGlobais === 0}
+                      disabled={
+                        isEnviando ||
+                        syncing ||
+                        loadingDados ||
+                        leadsGlobais === 0
+                      }
                       className="h-12 bg-background font-medium border-input"
                     />
                   </div>
@@ -568,7 +621,9 @@ export default function PainelBDR() {
                             Carteira
                           </div>
                           <span className="font-bold text-lg tabular-nums text-foreground/80">
-                            {bdr.total_ativo_crm_carteira.toLocaleString("pt-BR")}
+                            {bdr.total_ativo_crm_carteira.toLocaleString(
+                              "pt-BR",
+                            )}
                           </span>
                         </div>
 
