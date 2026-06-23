@@ -132,8 +132,6 @@ class ServicoOmniService {
       const situacao = await this.repository.obterSituacaoPorSeqMotivoDeclinio(
         dados.seq_motivo_declinio,
       );
-
-      // 3. FALLBACK DE SEGURANÇA: Se o PipeRun mandar um ID que não existe na sua tabela, ele não quebra a aplicação inteira.
       if (!situacao || situacao.length === 0) {
         console.warn(
           `[Service] Situação não mapeada para o motivo declínio ${dados.seq_motivo_declinio}. Usando fallback.`,
@@ -164,6 +162,12 @@ class ServicoOmniService {
   async listarTodosMotivosDeclinio() {
     const dados: IMotivosDeclinio[] =
       await this.repository.buscarTodosMotivosDeclinio();
+    return dados && dados.length > 0 ? dados : [];
+  }
+  
+  async listarNumerosContatosSecundarioClientes(seq_empresa: number) {
+    const dados =
+      await this.repository.obterNumerosContatosSecundarioClientes(seq_empresa);
     return dados && dados.length > 0 ? dados : [];
   }
 }

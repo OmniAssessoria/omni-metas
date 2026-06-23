@@ -9,6 +9,7 @@ class ServicoOmniController {
   constructor() {
     this.servicoOmniService = new ServicoOmniService();
     this.geradorImagemLayoutService = new GeradorImagemLinhasService();
+    
     this.buscarEmpresaPorSeq = this.buscarEmpresaPorSeq.bind(this);
     this.buscarListaEmpresasEnvio = this.buscarListaEmpresasEnvio.bind(this);
     this.buscarServicosOmniDisponiveis = this.buscarServicosOmniDisponiveis.bind(this);
@@ -18,6 +19,7 @@ class ServicoOmniController {
     this.sincronizarDados = this.sincronizarDados.bind(this);
     this.obterTodosMotivosDeclinio = this.obterTodosMotivosDeclinio.bind(this);
     this.gerarLayoutImagemLinhas = this.gerarLayoutImagemLinhas.bind(this);
+    this.listarNumerosContatosSecundarioClientes = this.listarNumerosContatosSecundarioClientes.bind(this);
   }
 
   async buscarEmpresaPorSeq(req: Request, res: Response): Promise<void> {
@@ -32,7 +34,7 @@ class ServicoOmniController {
         return;
       }
       const servicos = await this.servicoOmniService.listarEmpresaInfoPorSeq(idEmpresa);
-      
+
       res.status(200).json({
         status: true,
         mensagem: "Serviços encontrados com sucesso.",
@@ -64,9 +66,9 @@ class ServicoOmniController {
       const empresas = await this.servicoOmniService.listarEmpresasEnvio(idConsultor, limiteBusca);
       res.status(200).json({
         status: true,
-        mensagem: empresas.length > 0 
-          ? "Lista de empresas encontrada com sucesso." 
-          : "Nenhuma empresa encontrada para envio com este consultor.",
+        mensagem: empresas.length > 0
+            ? "Lista de empresas encontrada com sucesso."
+            : "Nenhuma empresa encontrada para envio com este consultor.",
         total: empresas.length,
         dados: empresas,
       });
@@ -131,10 +133,40 @@ class ServicoOmniController {
     }
   }
 
+  async listarNumerosContatosSecundarioClientes(req: Request, res: Response): Promise<void> {
+    try {
+      const contatos = await this.servicoOmniService.listarNumerosContatosSecundarioClientes(
+        Number(req.params.seq_empresa)
+      );
+
+      if (!contatos || contatos.length === 0) {
+        res.status(200).json({
+          status: true,
+          mensagem: "Sucesso ao buscar números de contatos, mas o cliente não possui números secundários vinculados.",
+          dados: [],
+        });
+        return; 
+      }
+
+      res.status(200).json({
+        status: true,
+        mensagem: "Número de contatos buscado com sucesso.",
+        dados: contatos,
+      });
+    } catch (error: any) {
+      console.error(`[API GET ERROR] Erro ao buscar contatos secundários para seq_empresa ${req.params.seq_empresa}:`, error.message);
+      res.status(500).json({
+        status: false,
+        mensagem: "Erro interno ao buscar números de contatos.",
+        detalhes: error.message,
+      });
+    }
+  }
+
   async atualizarStatusCrm(req: Request, res: Response): Promise<void> {
     try {
       const { seq_empresa } = req.params;
-      const { dt_crm, codigo_crm } = req.body; 
+      const { dt_crm, codigo_crm } = req.body;
 
       console.log(`\n[API PATCH] Requisição recebida para atualizar DB. Params:`, req.params, `Body:`, req.body);
 
@@ -145,14 +177,17 @@ class ServicoOmniController {
       }
 
       if (!dt_crm || !codigo_crm) {
-        res.status(400).json({ status: false, mensagem: "Parâmetros dt_crm e codigo_crm são obrigatórios no body." });
+        res.status(400).json({
+          status: false,
+          mensagem: "Parâmetros dt_crm e codigo_crm são obrigatórios no body.",
+        });
         return;
       }
 
       const servicoAtualizado = await this.servicoOmniService.marcarComoEnviadoCrm(
-        idServico, 
-        new Date(dt_crm), 
-        Number(codigo_crm)
+        idServico,
+        new Date(dt_crm),
+        Number(codigo_crm),
       );
 
       res.status(200).json({

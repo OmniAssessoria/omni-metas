@@ -33,9 +33,13 @@ class RotasServicoOmni {
       "/servico-omni/leads/:seq_empresa",
       this.servicoOmniController.buscarEmpresaPorSeq,
     );
-       this.router.get(
+    this.router.get(
       "/servico-omni/empresas-envio",
-      this.servicoOmniController.buscarListaEmpresasEnvio
+      this.servicoOmniController.buscarListaEmpresasEnvio,
+    );
+    this.router.get(
+      "/servico-omni/empresa/numeros/:seq_empresa",
+      this.servicoOmniController.listarNumerosContatosSecundarioClientes,
     );
     this.router.patch(
       "/servico-omni/leads/sincronizar",

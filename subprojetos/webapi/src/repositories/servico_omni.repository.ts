@@ -193,4 +193,15 @@ export default class ServicoOmniRepository {
       throw error;
     }
   }
+
+    async obterNumerosContatosSecundarioClientes(seq_empresa: number) {
+    const query = `SELECT numero_linha FROM omni.servico_operadora where seq_empresa = $1;`;
+    try {
+      const result = await pool.query(query, [seq_empresa]);
+      return result.rows;
+    } catch (error) {
+      console.error("[ServicoOmniRepository] Erro ao buscar numeros de contato secundario por seq_empresa:", error);
+      throw error;
+    }
+  }
 }
