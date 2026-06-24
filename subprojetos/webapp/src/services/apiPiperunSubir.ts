@@ -235,6 +235,7 @@ export const API_PIPERUN = async ({
         DDD: dddFinal,
         "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
         DOCDRIVE: servico.servico_docdrive,
+        "link_docdrive": servico.servico_docdrive? 'http://10.0.0.106:8090' : "N/A",
         Observacao: formatarObservacaoPlanosLinhas(servico.observacao),
         Indicacao: isExclusivo
           ? `DDD 11: ${servico.indicacao || "N/A"}`
