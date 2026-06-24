@@ -96,7 +96,8 @@ export const enviarLeadPipeRun = async (lead: ILeadOmniResponse) => {
           probability: 10,
           custom_fields: {
             "Número Claro": lead.numero_claro ?? "N/A",
-            DOCDRIVE: lead.docdrive ?? "N/A",
+            "DOCDRIVE": lead.docdrive ?? "N/A",
+            "link_docdrive": 'http://10.0.0.106:8090',
             "Nome Decisor": lead.nome_decisor ?? "N/A",
             "Telefone Decisor": lead.numero_decisor ?? "N/A",
             "Email Decisor": lead.email_decisor ?? "N/A",
