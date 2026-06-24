@@ -39,7 +39,7 @@ export const enviarLeadPipeRun = async (lead: ILeadOmniResponse) => {
     const cnpjLimpo = limparPontuacao(lead.cnpj);
     const cnpjFormatado = formatarCNPJ(lead.cnpj);
     let companyId = null;
-    
+
     if (cnpjFormatado) {
       const resCompany = await apiPipeRunRest.get("/companies", {
         params: { cnpj: cnpjFormatado },
@@ -52,7 +52,7 @@ export const enviarLeadPipeRun = async (lead: ILeadOmniResponse) => {
     const payloadEmpresa = {
       name: lead.razao,
       cnpj: cnpjFormatado,
-      contactPhones: lead.numero_decisor || lead.numero_claro || null
+      contactPhones: lead.numero_decisor || lead.numero_claro || null,
     };
 
     if (companyId) {
@@ -72,9 +72,20 @@ export const enviarLeadPipeRun = async (lead: ILeadOmniResponse) => {
       );
       const listaNumeros = resNumeros.data?.dados || [];
       obs_numeros_secundarios = formatarObsNumerosSecundarios(listaNumeros);
-      console.log(`[PipeRun] Números secundários formatados: ${obs_numeros_secundarios}`);
+      console.log(
+        `[PipeRun] Números secundários formatados: ${obs_numeros_secundarios}`,
+      );
     } catch (apiError: any) {
-      console.warn(`[PipeRun] Aviso: Falha ao buscar números secundários para ${lead.razao}. Continuando...`);
+      console.warn(
+        `[PipeRun] Aviso: Falha ao buscar números secundários para ${lead.razao}. Continuando...`,
+      );
+    }
+    let link_db;
+
+    if (lead.docdrive) {
+      link_db = "http://10.0.0.106:8090";
+    } else {
+      link_db = "N/A";
     }
 
     const HASH_ETAPA = "f7b51f6e-d692-4e2b-a272-630044fef80c";
@@ -97,7 +108,7 @@ export const enviarLeadPipeRun = async (lead: ILeadOmniResponse) => {
           custom_fields: {
             "Número Claro": lead.numero_claro ?? "N/A",
             DOCDRIVE: lead.docdrive ?? "N/A",
-            "link_docdrive": lead.docdrive? 'http://10.0.0.106:8090' : "N/A",
+            "link_docdrive": link_db,
             "Nome Decisor": lead.nome_decisor ?? "N/A",
             "Telefone Decisor": lead.numero_decisor ?? "N/A",
             "Email Decisor": lead.email_decisor ?? "N/A",
