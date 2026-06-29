@@ -1,4 +1,3 @@
-import FunctionsDatabaseRepository from "../repositories/functions_database.repository.js";
 import ServicoOmniService from "../services/servico_omni.service.js";
 import {
   buscarCnpjPorCompanyId,
