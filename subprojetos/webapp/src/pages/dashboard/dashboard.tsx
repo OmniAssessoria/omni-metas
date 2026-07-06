@@ -35,7 +35,7 @@ import {
 import {
   compilarRelatorioPerdas,
   compilarOportunidadesDinamico,
-} from "@/services/hookApiRunTotalServicoConsultor";
+} from "@/services/hook/hookApiRunTotalServicoConsultor";
 import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
 import DashCrm from "@/components/dash_crm/dash_crm";
 import DashHistorico from "@/components/dash_historico/dash_historico";

@@ -39,7 +39,7 @@ import {
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
-import { compilarOportunidadesDinamico } from "@/services/hookApiRunTotalServicoConsultor";
+import { compilarOportunidadesDinamico } from "@/services/hook/hookApiRunTotalServicoConsultor";
 import { PipeSubirExclusivo } from "./subir_pipe/subirPipeExclusivos";
 
 export interface ITelaDetalhesProps {

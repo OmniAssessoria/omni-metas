@@ -1,8 +1,6 @@
 import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
-import {
-  buscarOportunidadesGenericaPorPeriodo,
-  buscarTodasOportunidadesPipeline,
-} from "./apiPieperunTotalServicoConsultor";
+import { buscarOportunidadesGenericaPorPeriodo, buscarTodasOportunidadesPipeline } from "../apiPieperunTotalServicoConsultor";
+
 
 const PIPELINE_IDS = {
   CARTEIRA: 93990,

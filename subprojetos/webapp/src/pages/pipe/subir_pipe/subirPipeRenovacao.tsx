@@ -60,7 +60,7 @@ import {
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
-import { useIntegracaoPipeRun } from "@/services/hookApiRunSubir";
+import { useIntegracaoOmni } from "@/services/hook/hookUseIntegration";
 import DialogHistoricoRenovacao, {
   IHistoricoEmpresa,
 } from "@/components/historico_empresa_consultor/historico_renovacao";
@@ -125,7 +125,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
     totalRequerido: number;
   } | null>(null);
 
-  const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
+  const { handleSubirServicos, isEnviando } = useIntegracaoOmni();
 
   const [syncLogs, setSyncLogs] = useState<{
     sucessos: any[];
@@ -514,7 +514,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
           sucesso: qtdSucesso,
           totalRequerido: qtdAlvo,
         });
-        continue; 
+        continue;
       }
 
       if (item.seq_consultor === idConsultorAlvo) {
@@ -791,7 +791,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
                       <span className="font-semibold">{nomeConsultor}</span>
                       <span
                         className="flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-blue-900 rounded-full shadow-sm min-w-[24px]"
-                        title="Quantidade de serviços que serão enviados ao Pipe"
+                        title="Quantidade de serviços que serão enviados ao CRM Omni"
                       >
                         {qtdParaEnviar}
                       </span>
@@ -1719,7 +1719,7 @@ export function PipeSubirRenovacao({ dados, onBack }: ITelaDetalhesProps) {
               <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   <FileJson className="h-6 w-6 text-primary" />
-                  Relatório de Envio ao PipeRun
+                  Relatório de Envio (Omni CRM)
                 </h3>
                 <Button
                   variant="ghost"

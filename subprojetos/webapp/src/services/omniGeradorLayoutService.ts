@@ -1,17 +1,113 @@
 import axios from "axios";
-import { URL_API_LOCAL } from "./api";
-import { apiPipeRunRest, TOKEN_PIPERUN } from "@/configs/piperunConfigs.config";
+import { URL_API_LOCAL } from "./api"; 
 
+export const URL_OMNI_API = "https://omniassessoria.online/api/local/v1";
+export const TOKEN_AXION = "axn_-jjcxVoIlR7NgWNPsszE_0mc9LIVGTBwxgKTNqL_iSM";
 
-export const gerarEAnexarImagemPipeRun = async (
-  dealId: number,
-  servico: any,
-  cnpjFormatado: string,
-  tipoLayout: "linhas" | "proposta",
-  tituloNota: string
+/**
+ * Motor genérico de upload para a API Omni Local (Intenção -> Transferência -> Confirmação)
+ */
+export const uploadFileToOmni = async (
+  dealId: string,
+  blobArquivo: Blob,
+  fileName: string,
+  contentType: string = "image/png"
+): Promise<boolean> => {
+  try {
+    const sizeBytes = blobArquivo.size;
+    const initResponse = await axios.post(
+      `${URL_OMNI_API}/deals/${dealId}/files`,
+      { fileName, contentType, sizeBytes },
+      {
+        headers: {
+          Authorization: `Bearer ${TOKEN_AXION}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const { data: fileData, upload } = initResponse.data;
+
+    await axios({
+      method: upload.method,
+      url: upload.url,
+      headers: upload.headers, 
+      data: blobArquivo, 
+    });
+
+    const completeResponse = await axios.post(
+      `${URL_OMNI_API}/files/${fileData.id}/complete`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${TOKEN_AXION}`,
+        },
+      }
+    );
+
+    return completeResponse.data?.ok === true;
+  } catch (error: any) {
+    console.error(`❌ [Storage Omni] Falha no ciclo de upload para Deal [${dealId}] - Arquivo: ${fileName}`);
+    if (error.response) console.error("Detalhes:", error.response.data);
+    return false;
+  }
+};
+
+/**
+ * Função responsável por extrair a imagem do Python Local e enviar para o Omni CRM
+ */
+export const extrairEAnexarDecisorOmni = async (
+  dealId: string,
+  caminhoBancoUrl: string,
+  cnpjLimpo: string,
+  seqEmpresa: string | number
 ) => {
   try {
-    console.log(`[Anexo] 📸 Solicitando imagem (${tipoLayout}) para ${servico.razao}...`);
+    if (!caminhoBancoUrl) return;
+
+    console.log(`[Storage] 🔎 Buscando imagem do Decisor no Servidor Local para CNPJ: ${cnpjLimpo}...`);
+    const response = await axios.post(
+      `${URL_API_LOCAL}/api/armazenamento-local/buscar-decisor`,
+      { url_pasta: caminhoBancoUrl, cnpj: cnpjLimpo }
+    );
+
+    const base64 = response.data?.imagemBase64;
+    if (!base64) {
+      console.log(`[Storage] ⚠️ Nenhuma imagem de decisor encontrada para o CNPJ ${cnpjLimpo}.`);
+      return;
+    }
+
+    const base64DataStr = base64.includes("data:image") ? base64 : `data:image/png;base64,${base64}`;
+    const responseFetch = await fetch(base64DataStr);
+    const blobImagem = await responseFetch.blob();
+
+    console.log(`[Anexo] 📎 Fazendo upload do Decisor para o Deal ${dealId} no Omni...`);
+    const sucesso = await uploadFileToOmni(
+      dealId,
+      blobImagem,
+      `DECISOR_${seqEmpresa}.png`,
+      "image/png"
+    );
+
+    if (sucesso) {
+      console.log(`[Anexo Omni] ✅ Imagem do Decisor anexada com sucesso!`);
+    }
+  } catch (err: any) {
+    console.error(`[Anexo Omni] ❌ Erro na cadeia do Decisor (Deal ${dealId}):`, err.message);
+  }
+};
+
+/**
+ * Função que gera os layouts analíticos locais (Puppeteer/Node) e anexa na Omni
+ */
+export const gerarEAnexarImagemOmni = async (
+  dealId: string, 
+  servico: any,
+  cnpjFormatado: string,
+  tipoLayout: "linhas" | "proposta"
+) => {
+  try {
+    console.log(`[Anexo] 📸 Solicitando renderização da imagem (${tipoLayout}) para ${servico.razao}...`);
     
     const endpoint = tipoLayout === "linhas" 
       ? "/api/servico-claro/layout/imagem-linhas" 
@@ -26,11 +122,11 @@ export const gerarEAnexarImagemPipeRun = async (
     const imagemLayoutBase64 = responseImagem.data?.dados?.imagem;
     
     if (!imagemLayoutBase64) {
-      console.warn(`[Anexo] ⚠️ Falha ao gerar imagem ${tipoLayout}. Retorno vazio.`);
+      console.warn(`[Anexo] ⚠️ Falha ao gerar imagem ${tipoLayout}. Retorno local vazio.`);
       return;
     }
 
-    console.log(`[Anexo] 📎 Fazendo upload da imagem (${tipoLayout}) para o Deal ${dealId}...`);
+    console.log(`[Anexo] 📎 Fazendo upload da imagem (${tipoLayout}) para o Deal ${dealId} na Omni...`);
     
     const base64DataStr = imagemLayoutBase64.includes("data:image")
       ? imagemLayoutBase64
@@ -38,47 +134,15 @@ export const gerarEAnexarImagemPipeRun = async (
 
     const responseFetch = await fetch(base64DataStr);
     const blobImagem = await responseFetch.blob();
+    const fileName = `${tipoLayout}_${servico.seq_empresa}.png`;
+    const sucesso = await uploadFileToOmni(dealId, blobImagem, fileName, "image/png");
 
-    const formData = new FormData();
-    formData.append("files[]", blobImagem, `${tipoLayout}_${servico.seq_empresa}.png`);
-    formData.append("deal_id", String(dealId));
-
-    const uploadResp = await axios.post(
-      `${apiPipeRunRest.defaults.baseURL}/files/upload/deal/note/image`,
-      formData,
-      {
-        headers: {
-          "token": TOKEN_PIPERUN,
-          "accept": "application/json"
-        }
-      }
-    );
-
-    if (uploadResp.data?.success && uploadResp.data?.data?.length > 0) {
-      const urlResource = uploadResp.data.data[0].url_resource;
-      console.log(`[Anexo] ✅ Upload concluído! URL: ${urlResource}`);
-      
-      const imgHtml = `<img src="${urlResource}" alt="${tipoLayout}" style="max-width:100%; height:auto;"/>`;
-      
-      const notePayload = {
-        text: `<strong>${tituloNota}</strong><br><br>${imgHtml}`,
-        deal_id: Number(dealId)
-      };
-
-      const responseNota = await apiPipeRunRest.post("/notes", notePayload);
-
-      if (responseNota.status === 200 || responseNota.status === 201) {
-        console.log(`[Anexo] ✅ Nota de ${tipoLayout} anexada com sucesso no Deal!`);
-      } else {
-        console.warn(`[Anexo] ⚠️ A nota foi enviada, mas o status foi ${responseNota.status}`);
-      }
+    if (sucesso) {
+      console.log(`[Anexo Omni] ✅ Layout de ${tipoLayout} anexado com sucesso no Deal!`);
     } else {
-      console.warn(`[Anexo] ⚠️ Upload OK, mas sem 'success: true' na resposta do PipeRun.`);
+      console.warn(`[Anexo Omni] ⚠️ Falha na confirmação de upload do layout ${tipoLayout}.`);
     }
   } catch (err: any) {
-    console.error(`[Anexo] ❌ Erro ao processar a imagem (${tipoLayout}) no Deal ${dealId}:`, err.message);
-    if (err.response?.data) {
-      console.error("Detalhes da Recusa PipeRun:", JSON.stringify(err.response.data));
-    }
+    console.error(`[Anexo Omni] ❌ Erro ao processar a imagem (${tipoLayout}) no Deal ${dealId}:`, err.message);
   }
 };

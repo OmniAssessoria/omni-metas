@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { API_OMNI_SINGLE } from "@/services/apiOmniIntegracao";
-import API from "./api"; 
+import API from "../api";
+
 
 interface UseIntegracaoProps {
   tipoOperacao: "Renovação" | "Portabilidade" | "Exclusivo";

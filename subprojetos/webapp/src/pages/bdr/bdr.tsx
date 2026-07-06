@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import API from "@/services/api";
-import { useIntegracaoPipeBdr } from "@/services/hookBdrSubir";
+import { useIntegracaoPipeBdr } from "@/services/hook/hookBdrSubir";
 import {
   IProgressState,
   sincronizarDadosPipeRun,

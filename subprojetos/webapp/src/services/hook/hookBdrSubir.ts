@@ -1,7 +1,7 @@
 import { useState } from "react";
 import API from "@/services/api";
 import { ILeadOmniResponse } from "@/interfaces/leadOmni.interface";
-import { enviarLeadPipeRun } from "./apiBdrSubir";
+import { enviarLeadPipeRun } from "../apiBdrSubir";
 
 interface UseIntegracaoProps {
   seqConsultor: number;

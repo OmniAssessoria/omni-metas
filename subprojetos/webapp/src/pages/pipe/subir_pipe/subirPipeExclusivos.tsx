@@ -60,13 +60,13 @@ import {
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
-import { useIntegracaoPipeRun } from "@/services/hookApiRunSubir";
 import DialogHistoricoExclusivo, {
   IHistoricoEmpresa,
 } from "@/components/historico_empresa_consultor/historico_exclusivo";
 import { DadosServicoOperadora } from "@/interfaces/servico_operadora.interface";
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
+import { useIntegracaoOmni } from "@/services/hook/hookUseIntegration";
 
 export interface IConsultorDisponivel {
   seq_consultor: number;
@@ -116,7 +116,7 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
     useState<string>("");
   const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
 
-  const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
+  const { handleSubirServicos, isEnviando } = useIntegracaoOmni();
 
   const [syncLogs, setSyncLogs] = useState<{
     sucessos: any[];

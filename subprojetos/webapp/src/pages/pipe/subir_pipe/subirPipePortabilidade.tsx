@@ -58,7 +58,6 @@ import {
 import { ITelaDetalhesProps } from "../subirPipeGeral";
 import ConsultorBD from "@/interfaces/consutorDb.interface";
 import API from "@/services/api";
-import { useIntegracaoPipeRun } from "@/services/hookApiRunSubir";
 
 import DialogHistoricoPortabilidade, {
   IHistoricoEmpresa,
@@ -66,6 +65,7 @@ import DialogHistoricoPortabilidade, {
 import { DadosServicoOperadora } from "@/interfaces/servico_operadora.interface";
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
+import { useIntegracaoOmni } from "@/services/hook/hookUseIntegration";
 
 export interface IConsultorDisponivel {
   seq_consultor: number;
@@ -111,7 +111,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const [consultorSelecionadoAtribuicao, setConsultorSelecionadoAtribuicao] =
     useState<string>("");
   const [isSalvandoAtribuicao, setIsSalvandoAtribuicao] = useState(false);
-  const { handleSubirServicos, isEnviando } = useIntegracaoPipeRun();
+  const { handleSubirServicos, isEnviando } = useIntegracaoOmni();
 
   const [syncLogs, setSyncLogs] = useState<{
     sucessos: any[];
@@ -632,7 +632,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                       <span className="font-semibold">{nomeConsultor}</span>
                       <span
                         className="flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-blue-900 rounded-full shadow-sm min-w-[24px]"
-                        title="Quantidade de serviços que serão enviados ao Pipe"
+                        title="Quantidade de serviços que serão enviados ao CRM Omni"
                       >
                         {qtdParaEnviar}
                       </span>
@@ -1310,7 +1310,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
               <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   <FileJson className="h-6 w-6 text-primary" />
-                  Relatório de Envio ao PipeRun
+                  Relatório de Envio (Omni CRM)
                 </h3>
                 <Button
                   variant="ghost"
