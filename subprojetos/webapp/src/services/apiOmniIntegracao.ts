@@ -57,19 +57,110 @@ export const API_OMNI_SINGLE = async ({
       const isCarteira = servico.carteira && String(servico.carteira).trim() !== "";
       const emailConsultor = servico.consultor_email ? String(servico.consultor_email).trim().toLowerCase() : "";
 
-      const phonesArray = [];
-      if (resultDecisor.telefonesFormatados) {
-        phonesArray.push({ number: resultDecisor.telefonesFormatados, label: "celular principal", isMain: true });
-      } else if (servico.decisor_numero) {
-        phonesArray.push({ number: servico.decisor_numero, label: "celular", isMain: true });
+      const decisorNome = servico.decisor_nome && servico.decisor_nome.trim() !== "" 
+        ? servico.decisor_nome.trim().toUpperCase() 
+        : null;
+      const decisorCpf = servico.decisor_cpf ? formatarCPF(servico.decisor_cpf.trim()) : "";
+      const decisorEmail = servico.decisor_email && servico.decisor_email.trim() !== "" 
+        ? servico.decisor_email.trim() 
+        : null;
+
+      const decisorPhonesArray: any[] = [];
+      const numeroDecisorBruto = resultDecisor.telefonesFormatados || servico.decisor_numero;
+      
+      if (numeroDecisorBruto) {
+        const numeroLimpoDecisor = String(numeroDecisorBruto).replace(/\D/g, "");
+        if (numeroLimpoDecisor) {
+          decisorPhonesArray.push({
+            number: numeroLimpoDecisor,
+            label: "celular decisor",
+            isMain: true
+          });
+        }
       }
 
-      const decisorNome = servico.decisor_nome ? servico.decisor_nome.trim().toUpperCase() : "";
-      const decisorCpf = servico.decisor_cpf ? formatarCPF(servico.decisor_cpf.trim()) : "";
-      
+      const temDecisor = Boolean(decisorNome || decisorPhonesArray.length > 0 || decisorEmail);
+      const linhasPhonesArray: any[] = [];
+      const linhasServico = Array.isArray(servico.linhas) ? servico.linhas : []; 
+
+      if (linhasServico.length > 0) {
+        linhasServico.forEach((linha: any, index: number) => {
+          const numeroBrutoLinha = String(linha.numero_linha || linha.numero || "");
+          const numeroLimpoLinha = numeroBrutoLinha.replace(/\D/g, "");
+
+          if (numeroLimpoLinha) {
+            linhasPhonesArray.push({
+              number: numeroLimpoLinha,
+              label: linha.plano || "Linha Móvel Claro",
+              isMain: index === 0
+            });
+          }
+        });
+      }
+
+      if (linhasPhonesArray.length === 0 && servico.observacao) {
+        const matchLinhas = servico.observacao.match(/Linhas:\s*(.*?)(?:\|\|\|\||$)/i);
+        if (matchLinhas && matchLinhas[1]) {
+          const pedacos = matchLinhas[1].split("::");
+          pedacos.forEach((pedaco: any, idx: any) => {
+            const numLimpo = pedaco.replace(/\D/g, "");
+            if (numLimpo.length >= 10 && numLimpo.length <= 11) {
+              linhasPhonesArray.push({
+                number: numLimpo,
+                label: "Linha Móvel Claro",
+                isMain: idx === 0
+              });
+            }
+          });
+        }
+      }
+
+      if (linhasPhonesArray.length === 0 && resultEmpresa?.telefonesFormatados) {
+        if (Array.isArray(resultEmpresa.telefonesFormatados)) {
+          resultEmpresa.telefonesFormatados.forEach((item: any, idx: number) => {
+            const num = typeof item === "object" ? String(item.number).replace(/\D/g, "") : String(item).replace(/\D/g, "");
+            if (num) {
+              linhasPhonesArray.push({
+                number: num,
+                label: typeof item === "object" && item.label ? item.label : "Linha Móvel Claro",
+                isMain: idx === 0
+              });
+            }
+          });
+        } else {
+          const num = String(resultEmpresa.telefonesFormatados).replace(/\D/g, "");
+          if (num) {
+            linhasPhonesArray.push({ number: num, label: "Linha Móvel Claro", isMain: true });
+          }
+        }
+      }
+
+      const contactsPayload: any[] = [];
+
+      if (temDecisor) {
+        contactsPayload.push({
+          name: decisorNome || "Decisor Não Informado",
+          email: decisorEmail,
+          roleHint: "Decisor",
+          isPrimary: true,
+          isDecisionMaker: true,
+          phones: decisorPhonesArray.length > 0 ? decisorPhonesArray : null
+        });
+      }
+
+      if (linhasPhonesArray.length > 0) {
+        contactsPayload.push({
+          name: "Linhas da Empresa",
+          roleHint: "Linhas móveis Claro",
+          isPrimary: contactsPayload.length === 0,
+          isDecisionMaker: false,
+          phones: linhasPhonesArray
+        });
+      }
+
       let infoDecisorStr = "";
-      if (decisorNome || decisorCpf || phonesArray.length > 0) {
-        infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > CPF: ${decisorCpf || "NÃO INFORMADO"} < ||||| > TELEFONES: ${phonesArray.map(p => p.number).join(', ') || "NÃO INFORMADO"} ||||| EMAILS: ${servico.decisor_email || "NÃO INFORMADO"}`;
+      if (temDecisor) {
+        infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > CPF: ${decisorCpf || "NÃO INFORMADO"} < ||||| > TELEFONES: ${decisorPhonesArray.map(p => p.number).join(', ') || "NÃO INFORMADO"} ||||| EMAILS: ${decisorEmail || "NÃO INFORMADO"}`;
       }
 
       const link_db = servico.servico_docdrive ? "http://10.0.0.106:8090" : "N/A";
@@ -106,15 +197,7 @@ export const API_OMNI_SINGLE = async ({
         stageId: stageDefinido,       
         user: emailConsultor !== "" ? emailConsultor : undefined,
         customFields: JSON.stringify(rawCustomFieldsObj), 
-        contacts: decisorNome || servico.decisor_email ? [
-          {
-            name: decisorNome || "Contato Não Identificado",
-            email: servico.decisor_email || "",
-            roleHint: "Decisor",
-            isDecisionMaker: true,
-            phones: phonesArray
-          }
-        ] : []
+        contacts: contactsPayload
       };
 
       console.log(`[Passo 1] 🚀 Criando Negócio na API Omni (Pipeline Local, Etapa: Entrada)...`);
