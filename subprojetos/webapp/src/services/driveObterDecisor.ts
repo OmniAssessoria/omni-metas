@@ -1,5 +1,5 @@
 import axios from "axios";
-import { URL_API_LOCAL } from "./api"; // Ajuste o caminho conforme seu projeto
+import { URL_API_LOCAL } from "./api"; 
 import { apiPipeRunRest, TOKEN_PIPERUN } from "@/configs/piperunConfigs.config";
 
 /**
@@ -62,7 +62,6 @@ export const anexarImagemDecisorPipeRun = async (
       `[Anexo] 📎 Fazendo upload do Decisor para o Deal ${dealId}...`,
     );
 
-    // Garante que o buffer tem o header mimeType do Base64
     const base64DataStr = base64Imagem.includes("data:image")
       ? base64Imagem
       : `data:image/png;base64,${base64Imagem}`;

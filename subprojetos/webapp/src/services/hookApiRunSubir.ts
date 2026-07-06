@@ -1,19 +1,17 @@
 import { useState } from "react";
-import { IServicoPipeRun } from "@/interfaces/servicoPipeRun.interface";
-import { API_PIPERUN } from "@/services/apiPiperunSubir";
-import API from "./api";
-
+import { API_OMNI_SINGLE } from "@/services/apiOmniIntegracao";
+import API from "./api"; 
 
 interface UseIntegracaoProps {
   tipoOperacao: "Renovação" | "Portabilidade" | "Exclusivo";
-  dadosGlobais: IServicoPipeRun[];
+  dadosGlobais: any[];
   consultoresEnvio: number[];
   empresasEnvio?: number[];
   limiteEnvio: number | "";
   onSuccessCb: (logs?: { sucessos: any[]; falhas: any[] }) => void; 
 }
 
-export function useIntegracaoPipeRun() {
+export function useIntegracaoOmni() {
   const [isEnviando, setIsEnviando] = useState(false);
 
   const handleSubirServicos = async ({
@@ -24,6 +22,7 @@ export function useIntegracaoPipeRun() {
     limiteEnvio,
     onSuccessCb,
   }: UseIntegracaoProps) => {
+    
     if (consultoresEnvio.length === 0 && empresasEnvio.length === 0) {
       alert("Selecione pelo menos um consultor na lista ou marque empresas específicas na tabela para envio.");
       return;
@@ -57,7 +56,7 @@ export function useIntegracaoPipeRun() {
         servicosParaEnviar = servicosParaEnviar.slice(0, limiteEnvio);
       }
 
-      console.info(`🚀 Iniciando pipeline de ${tipoOperacao} com ${servicosParaEnviar.length} payloads ativos.`);
+      console.info(`🚀 Iniciando pipeline individual (Single) de ${tipoOperacao} com ${servicosParaEnviar.length} payloads ativos.`);
 
       let sucessosLogs: any[] = [];
       let falhasLogs: any[] = [];
@@ -69,49 +68,48 @@ export function useIntegracaoPipeRun() {
             continue;
           }
 
-          console.info(`⏳ Transacionando ${tipoOperacao} - seq_claro: ${servico.seq_claro}`);
+          console.info(`⏳ Transacionando Unidade ${tipoOperacao} - seq_claro: ${servico.seq_claro}`);
 
-          const resultadoPipe = await API_PIPERUN({
+          const resultadoOmni = await API_OMNI_SINGLE({
             servicos: [servico],
             tipoOperacao: tipoOperacao, 
-          } as any);
+          });
 
-          if (resultadoPipe && resultadoPipe.sucessos > 0) {
+          if (resultadoOmni && resultadoOmni.sucessos > 0) {
             try {
               const axiosResult = await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
-              console.info(`✅ Commit absoluto no DB (Status ${axiosResult.status}). Seq_claro: ${servico.seq_claro}`);
+              console.info(`✅ Commit no DB Interno efetuado (Status ${axiosResult.status}). Seq_claro: ${servico.seq_claro}`);
               
               sucessosLogs.push({
                 payload: servico,
-                respostaApi: `Criado no PipeRun e Atualizado DB Local (Status: ${axiosResult.status})`
+                respostaApi: `Criado no CRM Omni e Atualizado DB Local (Status: ${axiosResult.status})`
               });
             } catch (patchError: any) {
               console.error(`\n🚨 FALHA AO REGISTRAR NO DB LOCAL [Seq: ${servico.seq_claro}]`);
               
-              let msgErro = "Erro ao atualizar DB interno após sucesso no PipeRun.";
+              let msgErro = "Erro ao atualizar DB interno após sucesso no CRM Omni.";
               if (patchError.response) {
                 msgErro = `Rejeição da API Express. Status: ${patchError.response.status}`;
               } else if (patchError.request) {
                 msgErro = "Requisição feita, mas sem resposta do servidor local.";
               }
-              
               falhasLogs.push({ payload: servico, erro: msgErro });
             }
           } else {
-            console.error(`🚨 Recusa pelo PipeRun. Serviço: ${servico.seq_claro}`, resultadoPipe);
-            falhasLogs.push({ payload: servico, erro: "Recusado pelas regras do PipeRun (ex: CPF/CNPJ inválido, regra de funil bloqueou, etc)" });
+            console.error(`🚨 Recusa pela API Omni. Serviço: ${servico.seq_claro}`);
+            falhasLogs.push({ payload: servico, erro: "Recusado ou falha na integração com a API Omni" });
           }
         } catch (error: any) {
-          console.error(`🚨 Crash na thread do seq_claro ${servico?.seq_claro}:`, error);
-          falhasLogs.push({ payload: servico, erro: error.message || "Erro estrutural inesperado" });
+          console.error(`🚨 Crash sistêmico na thread do seq_claro ${servico?.seq_claro}:`, error);
+          falhasLogs.push({ payload: servico, erro: error.message || "Erro estrutural inesperado no laço individual" });
         }
       }
 
       onSuccessCb({ sucessos: sucessosLogs, falhas: falhasLogs });
 
     } catch (error) {
-      console.error(`🚨 Exception sistêmica em ${tipoOperacao}:`, error);
-      alert("Ocorreu um erro estrutural durante a execução da integração.");
+      console.error(`🚨 Exception global em ${tipoOperacao}:`, error);
+      alert("Ocorreu um erro crítico durante a execução da integração individual.");
       setIsEnviando(false);
       onSuccessCb();
     } finally {
