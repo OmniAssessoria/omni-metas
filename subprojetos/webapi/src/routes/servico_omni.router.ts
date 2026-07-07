@@ -57,6 +57,10 @@ class RotasServicoOmni {
       "/servico-omni/layout/imagem-linhas",
       this.servicoOmniController.gerarLayoutImagemLinhas,
     );
+    this.router.patch(
+      "/servico-omni/leads/marcar-enviado/:seq_empresa",
+      this.servicoOmniController.marcarLeadComoEnviadoCrm,
+    );
   }
 
   public retornarRotas(): Router {

@@ -26,6 +26,7 @@ class ServicoOmniController {
       this.listarNumerosContatosSecundarioClientes.bind(this);
     this.atribuirEmpresasParaConsultor =
       this.atribuirEmpresasParaConsultor.bind(this);
+    this.marcarLeadComoEnviadoCrm = this.marcarLeadComoEnviadoCrm.bind(this);
   }
 
   async buscarEmpresaPorSeq(req: Request, res: Response): Promise<void> {
@@ -304,6 +305,58 @@ class ServicoOmniController {
       res.status(500).json({
         status: false,
         mensagem: "Erro ao buscar motivos de declínio.",
+        detalhes: error.message,
+      });
+    }
+  }
+
+  async marcarLeadComoEnviadoCrm(req: Request, res: Response): Promise<void> {
+    try {
+      const { seq_empresa } = req.params;
+      const { dt_crm, codigo_crm } = req.body;
+
+      console.log(
+        `[API PATCH] Marcar Lead BDR Enviado. Empresa: ${seq_empresa} | Consultor: ${codigo_crm}`,
+      );
+
+      const idEmpresa = Number(seq_empresa);
+      if (isNaN(idEmpresa) || idEmpresa <= 0) {
+        res
+          .status(400)
+          .json({ status: false, mensagem: "Parâmetro seq_empresa inválido." });
+        return;
+      }
+
+      if (!dt_crm || !codigo_crm) {
+        res.status(400).json({
+          status: false,
+          mensagem:
+            "Os parâmetros dt_crm e codigo_crm são obrigatórios no body.",
+        });
+        return;
+      }
+
+      const servicoAtualizado =
+        await this.servicoOmniService.marcarComoEnviadoCrm(
+          idEmpresa,
+          new Date(dt_crm),
+          Number(codigo_crm),
+        );
+
+      res.status(200).json({
+        status: true,
+        mensagem: "Lead BDR marcado como enviado ao CRM Omni com sucesso.",
+        dados: servicoAtualizado,
+      });
+    } catch (error: any) {
+      console.error(
+        `[API PATCH ERROR] Falha no controller ao atualizar status de envio BDR:`,
+        error.message,
+      );
+      res.status(500).json({
+        status: false,
+        mensagem:
+          "Erro ao atualizar o status do CRM no banco de dados da Omni.",
         detalhes: error.message,
       });
     }

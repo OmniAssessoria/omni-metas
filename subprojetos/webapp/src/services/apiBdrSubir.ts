@@ -1,174 +1,183 @@
 import axios from "axios";
-import { apiPipeRunRest } from "@/configs/piperunConfigs.config";
-import {
-  anexarImagemDecisorPipeRun,
-  extrairImagemDecisorLocal,
-} from "./driveObterDecisor";
 import { ILeadOmniResponse } from "@/interfaces/leadOmni.interface";
 import API from "./api";
+import { 
+  formatarCNPJ,
+  limparPontuacao 
+} from "@/utils/formataDados.util";
+import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
+import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
+import { 
+  extrairEAnexarDecisorOmni, 
+  gerarEAnexarImagemOmni
+} from "./omniGeradorLayoutService";
 
-const limparPontuacao = (str: string) => str.replace(/\D/g, "");
-
-const formatarCNPJ = (cnpj: string) => {
-  const c = limparPontuacao(cnpj);
-  if (c.length === 14)
-    return c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
-  return cnpj;
-};
+const TOKEN_OMNI_CRM = "axn_-jjcxVoIlR7NgWNPsszE_0mc9LIVGTBwxgKTNqL_iSM";
+const apiOmniCrm = axios.create({
+  baseURL: "https://omniassessoria.online/api/local/v1",
+  headers: {
+    accept: "application/json",
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${TOKEN_OMNI_CRM}`,
+  },
+});
 
 const formatarObsNumerosSecundarios = (numeros: any[]): string => {
-  if (!numeros || numeros.length === 0) {
-    return "";
-  }
-
-  const obs_numeros = numeros
+  if (!numeros || numeros.length === 0) return "";
+  return numeros
     .map((item) => {
       const numeroLimpo = String(item.numero_linha || "").replace(/\D/g, "");
       return numeroLimpo ? `55${numeroLimpo}` : "";
     })
     .filter((num) => num !== "")
-    .join(",");
-
-  return obs_numeros;
+    .join(", ");
 };
 
-export const enviarLeadPipeRun = async (lead: ILeadOmniResponse) => {
-  console.log(`\n[PipeRun] Iniciando subida do Lead: ${lead.razao}`);
+export const enviarLeadOmniCrmBdr = async (lead: ILeadOmniResponse, tipoOperacao?: string) => {
+  console.log(`\n================================================================`);
+  console.log(`[Omni CRM BDR] Iniciando processamento do Lead: ${lead.razao}`);
 
   try {
+    const isExclusivo = tipoOperacao === "Exclusivo";
     const cnpjLimpo = limparPontuacao(lead.cnpj);
     const cnpjFormatado = formatarCNPJ(lead.cnpj);
-    let companyId = null;
-
-    if (cnpjFormatado) {
-      const resCompany = await apiPipeRunRest.get("/companies", {
-        params: { cnpj: cnpjFormatado },
-      });
-      if (resCompany.data?.data && resCompany.data.data.length > 0) {
-        companyId = resCompany.data.data[0].id;
-      }
-    }
-
-    const payloadEmpresa = {
-      name: lead.razao,
-      cnpj: cnpjFormatado,
-      contactPhones: lead.numero_decisor || lead.numero_claro || null,
-    };
-
-    if (companyId) {
-      await apiPipeRunRest.put(`/companies/${companyId}`, payloadEmpresa);
-    } else {
-      const createCompany = await apiPipeRunRest.post(
-        "/companies",
-        payloadEmpresa,
-      );
-      companyId = createCompany.data?.data?.id || null;
-    }
+    const resultDecisor = extrairEFormatarTelefonesDecisor(lead.numero_decisor, "");
+    const resultEmpresa = extrairTelefonesEmpresaDaObservacao(""); 
+    const dddFinal = resultEmpresa.dddPrincipal !== "00" ? resultEmpresa.dddPrincipal
+      : resultDecisor.dddPrincipal !== "00" ? resultDecisor.dddPrincipal : "00";
 
     let obs_numeros_secundarios = "";
+
     try {
-      const resNumeros = await API.get(
-        `/api/servico-omni/empresa/numeros/${Number(lead.seq_empresa)}`,
-      );
+      const resNumeros = await API.get(`/api/servico-omni/empresa/numeros/${Number(lead.seq_empresa)}`);
       const listaNumeros = resNumeros.data?.dados || [];
       obs_numeros_secundarios = formatarObsNumerosSecundarios(listaNumeros);
-      console.log(
-        `[PipeRun] Números secundários formatados: ${obs_numeros_secundarios}`,
-      );
     } catch (apiError: any) {
-      console.warn(
-        `[PipeRun] Aviso: Falha ao buscar números secundários para ${lead.razao}. Continuando...`,
-      );
-    }
-    let link_db;
-
-    if (lead.docdrive) {
-      link_db = "http://10.0.0.106:8090";
-    } else {
-      link_db = "N/A";
+      console.warn(`[Omni BDR] Aviso: Falha ao buscar números secundários para ${lead.razao}. Continuando...`);
     }
 
-    const HASH_ETAPA = "f7b51f6e-d692-4e2b-a272-630044fef80c";
-    const payloadWebhook = {
-      rules: {
-        update: true,
-        equal_pipeline: 104307,
-        stage_id: 672347,
-        status: "open",
-      },
-      leads: [
-        {
-          title: `${cnpjFormatado} - ${lead.razao}`,
-          company: lead.razao,
-          cnpj: cnpjFormatado,
-          user: lead.email_consultor
-            ? lead.email_consultor.trim().toLowerCase()
-            : undefined,
-          probability: 10,
-          custom_fields: {
-            "Nomes Fantasias": lead.google_fontes_nomes_fantasia,
-            "Número Claro": lead.numero_claro ?? "N/A",
-            DOCDRIVE: lead.docdrive ?? "N/A",
-            "link_docdrive": link_db,
-            "Nome Decisor": lead.nome_decisor ?? "N/A",
-            "Telefone Decisor": lead.numero_decisor ?? "N/A",
-            "Email Decisor": lead.email_decisor ?? "N/A",
-            "Números Secundário (Linhas)": obs_numeros_secundarios || "N/A",
-            "Números (Google e outras Fontes)": lead.google_fontes_telefones,
-            "Emails (Google e outras Fontes)": lead.google_fontes_emails,
-            "Sites (Google e outras Fontes)": lead.google_fontes_sites,
-          },
-        },
-      ],
-    };
-
-    const responseWebhook = await axios.post(
-      `https://app.pipe.run/webservice/integradorJson`,
-      payloadWebhook,
-      {
-        params: { hash: HASH_ETAPA },
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-
-    let dealIdCriado = null;
-    if (responseWebhook.status === 200 || responseWebhook.data?.success) {
-      const respData = responseWebhook.data?.data;
-      if (Array.isArray(respData) && respData.length > 0)
-        dealIdCriado = respData[0].id;
-      else if (respData?.id) dealIdCriado = respData.id;
-      else if (responseWebhook.data?.id) dealIdCriado = responseWebhook.data.id;
-    }
-
-    if (!dealIdCriado) {
-      throw new Error(
-        "Oportunidade criada, mas o PipeRun não retornou o ID do Deal.",
-      );
-    }
-
-    if (lead.docdrive) {
-      console.log(`[PipeRun] Buscando imagem do decisor no driveLocal...`);
-      const base64Decisor = await extrairImagemDecisorLocal(
-        lead.docdrive,
-        cnpjLimpo,
-      );
-
-      if (base64Decisor) {
-        await anexarImagemDecisorPipeRun(
-          dealIdCriado,
-          base64Decisor,
-          lead.seq_empresa,
-        );
-        console.log(`[PipeRun] Imagem do decisor anexada com sucesso.`);
+    const emailConsultor = lead.email_consultor ? String(lead.email_consultor).trim().toLowerCase() : "";
+    const link_db = lead.docdrive ? "http://10.0.0.106:8090" : "N/A";
+    const decisorNome = lead.nome_decisor && lead.nome_decisor.trim() !== "" 
+      ? lead.nome_decisor.trim().toUpperCase() 
+      : null;
+    const decisorEmail = lead.email_decisor && lead.email_decisor.trim() !== "" ? lead.email_decisor.trim() : null;
+    const decisorPhonesArray: any[] = [];
+    const numeroDecisorBruto = resultDecisor.telefonesFormatados || lead.numero_decisor;
+    
+    if (numeroDecisorBruto) {
+      const numeroLimpoDecisor = String(numeroDecisorBruto).replace(/\D/g, "");
+      if (numeroLimpoDecisor) {
+        decisorPhonesArray.push({ number: numeroLimpoDecisor, label: "celular decisor", isMain: true });
       }
     }
 
-    return { success: true, dealId: dealIdCriado };
+    const temDecisor = Boolean(decisorNome || decisorPhonesArray.length > 0 || decisorEmail);
+    const contactsPayload: any[] = [];
+
+    if (temDecisor) {
+      contactsPayload.push({
+        name: decisorNome || "Decisor Não Informado",
+        email: decisorEmail,
+        roleHint: "Decisor",
+        isPrimary: true,
+        isDecisionMaker: true,
+        phones: decisorPhonesArray.length > 0 ? decisorPhonesArray : null
+      });
+    }
+
+    const linesPhonesArray: any[] = [];
+    if (lead.numero_claro) {
+      const numClaroLimpo = String(lead.numero_claro).replace(/\D/g, "");
+      if (numClaroLimpo) {
+        linesPhonesArray.push({ number: numClaroLimpo, label: "Linha Móvel Claro", isMain: true });
+      }
+    }
+
+    if (linesPhonesArray.length > 0) {
+      contactsPayload.push({
+        name: "Linhas da Empresa",
+        roleHint: "Linhas móveis Claro",
+        isPrimary: contactsPayload.length === 0,
+        isDecisionMaker: false,
+        phones: linesPhonesArray
+      });
+    }
+
+    let infoDecisorStr = "";
+    if (temDecisor) {
+      infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > TELEFONES: ${decisorPhonesArray.map(p => p.number).join(', ') || "NÃO INFORMADO"} ||||| EMAILS: ${decisorEmail || "NÃO INFORMADO"}`;
+    }
+
+    const titleCard = `(${dddFinal}) BDR >> ${lead.razao}`;
+
+    const rawCustomFieldsObj = {
+      "Título do Negócio": titleCard,
+      "Origem": "BDR Interno",
+      "DDD": dddFinal,
+      "DOCDRIVE": lead.docdrive || "",
+      "link_docdrive": link_db,
+      "Indicacao": "BDR",
+      "Informações DECISOR (Possível decisor)": infoDecisorStr,
+      "Nomes Fantasias": lead.google_fontes_nomes_fantasia || "N/A",
+      "Número Claro": lead.numero_claro ?? "N/A",
+      "Nome Decisor": lead.nome_decisor ?? "N/A",
+      "Telefone Decisor": lead.numero_decisor ?? "N/A",
+      "Email Decisor": lead.email_decisor ?? "N/A",
+      "Números Secundário (Linhas)": obs_numeros_secundarios || "N/A",
+      "Números (Google e outras Fontes)": lead.google_fontes_telefones || "N/A",
+      "Emails (Google e outras Fontes)": lead.google_fontes_emails || "N/A",
+      "Sites (Google e outras Fontes)": lead.google_fontes_sites || "N/A",
+    };
+
+    const pipelineDefinido = "wm2n294u8vgp31duczik6iak"; 
+    const stageDefinido = "n1e91tv7a124cgepguadjn8t";   
+
+    const payloadSingleCreation = {
+      companyName: lead.razao,
+      companyCnpj: cnpjFormatado,
+      externalKey: `seq_omni_${lead.seq_servico_omni}`,
+      value: 0,
+      pipelineId: pipelineDefinido,
+      stageId: stageDefinido,
+      user: emailConsultor !== "" ? emailConsultor : undefined, 
+      customFields: JSON.stringify(rawCustomFieldsObj),
+      contacts: contactsPayload
+    };
+
+    console.log(`[Passo 1] 🚀 Criando Negócio no CRM Omni pelo fluxo BDR...`);
+    
+    const responseCreation = await apiOmniCrm.post("/deals", payloadSingleCreation);
+    const dealIdCriado = responseCreation.data?.data?.id || responseCreation.data?.id;
+
+    if (dealIdCriado) {
+      console.log(`[Passo 2] ✅ Negócio criado (ID: ${dealIdCriado}). Processando Anexos e Atualização DB Local...`);
+      await gerarEAnexarImagemOmni(dealIdCriado, lead, cnpjFormatado, "linhas");
+
+      if (lead.docdrive) {
+        await extrairEAnexarDecisorOmni(dealIdCriado, lead.docdrive, cnpjLimpo, lead.seq_empresa);
+      }
+
+      await API.patch(`/api/servico-omni/leads/marcar-enviado/${lead.seq_empresa}`, {
+        dt_crm: new Date().toISOString(),
+        codigo_crm: Number(lead.codigo_crm) || lead.seq_consultor 
+      });
+
+      return { success: true, dealId: dealIdCriado };
+    } else {
+      throw new Error("A API Omni retornou sucesso, mas não devolveu o UUID do Deal.");
+    }
+
   } catch (error: any) {
-    console.error(
-      `[PipeRun ERRO] Falha ao processar a empresa: ${lead.razao}`,
-      error.message,
-    );
+    console.error(`[Omni BDR ERRO] Falha ao processar a empresa: ${lead.razao}`);
+    
+    if (error.response) {
+      console.error(`Status HTTP: ${error.response.status}`);
+      console.error(`Mensagem da API:`, JSON.stringify(error.response.data, null, 2));
+    } else {
+      console.error(`Detalhes:`, error.message);
+    }
+    
     throw error;
   }
 };
