@@ -30,6 +30,42 @@ export default class ServicoClaroRepository {
     }
   }
 
+  async buscarMotivoDeclinioPorNome(motivo_str: string) {
+    const query = `
+      SELECT seq_motivo_declinio, situacao_atendimento 
+      FROM omni.motivo_declinio 
+      WHERE motivo_declinio ILIKE $1;
+    `;
+    try {
+      const result = await pool.query(query, [motivo_str]);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar motivo de declinio por nome:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async buscarMotivoDeclinioPorIdCrm(id_motivo_str: string) {
+    const query = `
+        SELECT seq_motivo_declinio, situacao_atendimento 
+        FROM omni.motivo_declinio 
+        WHERE id_motivo_declinio = $1;
+      `;
+    try {
+      const result = await pool.query(query, [id_motivo_str]);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar motivo de declinio por id_motivo_declinio:",
+        error,
+      );
+      throw error;
+    }
+  }
+
   async buscarSeqEmpresaPorCnpj(cnpj: string) {
     const query = `SELECT seq_empresa FROM omni.empresa WHERE cnpj = $1;`;
     try {

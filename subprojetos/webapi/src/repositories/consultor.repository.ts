@@ -35,6 +35,21 @@ export default class ConsultorRepository {
     }
   }
 
+  async buscarSeqConsultorPorEmail(email: string) {
+    const query = `
+      SELECT seq_consultor, codigo_crm, nome, email, perfil_indicacao, perfil_qtd_linhas_min, perfil_qtd_linhas_max, meta_mensal 
+      FROM omni.consultor 
+      WHERE email = $1;
+    `;
+    try {
+      const result = await pool.query(query, [email]);
+      return result.rows[0];
+    } catch (error) {
+      console.error("[ServicoClaroRepository] Erro ao buscar seq_consultor por email:", error);
+      throw error;
+    }
+  }
+
   async buscarHistoricoPorSeqEmpresa(seq_empresa: number) {
     const query = `
             SELECT 

@@ -20,6 +20,7 @@ import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { PipeSubirPortabilidade } from "./subir_pipe/subirPipePortabilidade";
 import { PipeSubirRenovacao } from "./subir_pipe/subirPipeRenovacao";
 import { IServicoPipeRun } from "@/interfaces/servicoPipeRun.interface";
+import { sincronizarDadosOmniCrm } from "@/services/apiOmniVolta";
 import {
   PieChart,
   Pie,
@@ -28,7 +29,7 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 import { Calendar } from "lucide-react";
-import { sincronizarDadosPipeRun } from "@/services/apiPiperunVolta";
+
 import {
   CheckCircle2,
   XCircle,
@@ -192,7 +193,7 @@ export default function PipeSubirGeral() {
           return res.data?.dados || [];
         } catch (error) {
           console.error(`[Aviso] Falha silenciosa ao buscar ${url}:`, error);
-          return []; 
+          return [];
         }
       };
 
@@ -443,7 +444,7 @@ export default function PipeSubirGeral() {
     });
 
     try {
-      const resultado = await sincronizarDadosPipeRun(
+      const resultado = await sincronizarDadosOmniCrm(
         dataInicial,
         dataFinal || dataInicial,
         (progresso) => setProgressState({ ativo: true, ...progresso }),
@@ -539,7 +540,7 @@ export default function PipeSubirGeral() {
               <div className="flex items-center justify-between border-b border-border p-5">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   <ArrowRightLeft className="h-5 w-5 text-primary" />{" "}
-                  Sincronizar PipeRun
+                  Sincronizar CRM Omni
                 </h3>
                 <Button
                   variant="ghost"

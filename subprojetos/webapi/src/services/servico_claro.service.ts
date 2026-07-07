@@ -84,25 +84,43 @@ class ServicoClaroService {
     if (!servicosClaro || servicosClaro.length === 0) {
       return {
         ignorado: true,
-        motivo: `A empresa (CNPJ ${dados.cnpj}) existe, mas NÃO POSSUI nenhum registro na tabela servico_claro para ser atualizado.`,
+        motivo: `A empresa (CNPJ ${dados.cnpj}) existe, mas NÃO POSSUI nenhum registro na tabela servico_claro.`,
       };
     }
 
     const dadosConsultor: IDadosConsultor =
-      await this.repositoryConsultor.buscarSeqConsultorPorCodigoCrm(
-        dados.codigo_crm,
+      await this.repositoryConsultor.buscarSeqConsultorPorEmail(
+        dados.email_consultor,
       );
 
     if (!dadosConsultor || !dadosConsultor.seq_consultor) {
       return {
         ignorado: true,
-        motivo: `Consultor com código CRM ${dados.codigo_crm} não encontrado.`,
+        motivo: `Consultor com e-mail ${dados.email_consultor} não encontrado na base.`,
       };
     }
     const idConsultor = dadosConsultor.seq_consultor;
 
-    const isGanho = dados.seq_motivo_declinio == null;
-    const motivoDeclinioParaHistorico = isGanho ? 1 : dados.seq_motivo_declinio;
+    const isGanho = dados.is_ganho === true;
+
+    let seqMotivoDeclinioNumerico = 1;
+    let situacaoAtendimento = "GANHO";
+
+    if (!isGanho && dados.id_motivo_declinio) {
+      const motivoMapeado = await this.repository.buscarMotivoDeclinioPorIdCrm(
+        dados.id_motivo_declinio,
+      );
+
+      if (motivoMapeado && motivoMapeado.length > 0) {
+        seqMotivoDeclinioNumerico = motivoMapeado[0].seq_motivo_declinio;
+        situacaoAtendimento = motivoMapeado[0].situacao_atendimento;
+      } else {
+        console.warn(
+          `[Service] ID de declínio "${dados.id_motivo_declinio}" não localizado na tabela omni.motivo_declinio.`,
+        );
+        situacaoAtendimento = "TEMPORARIO";
+      }
+    }
 
     const buscarHistorico =
       await this.repository.verificarHistoricoEmpresaConsultorExiste(
@@ -117,22 +135,8 @@ class ServicoClaroService {
         tipo_servico: dados.tipo_servico,
         data_inicio_atendimento: dados.data_inicio_atendimento,
         data_fim_atendimento: dados.data_fim_atendimento,
-        seq_motivo_declinio: motivoDeclinioParaHistorico,
+        seq_motivo_declinio: seqMotivoDeclinioNumerico,
       });
-    }
-
-    let situacaoAtendimento = "GANHO";
-
-    if (!isGanho) {
-      const situacao = await this.repository.obterSituacaoPorSeqMotivoDeclinio(
-        dados.seq_motivo_declinio,
-      );
-      if (!situacao || situacao.length === 0) {
-        throw new Error(
-          `Situação não encontrada para o motivo declínio ${dados.seq_motivo_declinio}.`,
-        );
-      }
-      situacaoAtendimento = situacao[0].situacao_atendimento;
     }
 
     const servicoAtualizado =
@@ -148,7 +152,7 @@ class ServicoClaroService {
     if (!servicoAtualizado) {
       return {
         ignorado: true,
-        motivo: `Falha silenciosa no banco: O UPDATE foi acionado, mas nenhuma linha da servico_claro foi afetada para o CNPJ ${dados.cnpj}.`,
+        motivo: `Falha silenciosa no banco: UPDATE acionado, mas nenhuma linha afetada para o CNPJ ${dados.cnpj}.`,
       };
     }
 

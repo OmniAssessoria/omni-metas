@@ -106,9 +106,25 @@ class ServicoOmniService {
     }
     const idConsultor = dadosConsultor.seq_consultor;
     const isGanho = dados.is_ganho === true;
-    const motivoDeclinioParaHistorico = isGanho
-      ? null
-      : dados.seq_motivo_declinio;
+    let seqMotivoDeclinioNumerico: number | null = null;
+    let situacaoAtendimento = "GANHO";
+
+    if (!isGanho && dados.id_motivo_declinio) {
+      const motivoMapeado =
+        await this.repository.buscarMotivoDeclinioPorIdString(
+          dados.id_motivo_declinio,
+        );
+
+      if (motivoMapeado && motivoMapeado.length > 0) {
+        seqMotivoDeclinioNumerico = motivoMapeado[0].seq_motivo_declinio;
+        situacaoAtendimento = motivoMapeado[0].situacao_atendimento;
+      } else {
+        console.warn(
+          `[Service] ID String de declínio "${dados.id_motivo_declinio}" não localizado na tabela omni.motivo_declinio.`,
+        );
+        situacaoAtendimento = "TEMPORARIO";
+      }
+    }
 
     const buscarHistorico =
       await this.repository.verificarHistoricoServicoOmniExiste(
@@ -122,24 +138,8 @@ class ServicoOmniService {
         seq_consultor: idConsultor,
         dt_inicio_atendimento: dados.data_inicio_atendimento,
         dt_fim_atendimento: dados.data_fim_atendimento,
-        seq_motivo_declinio: motivoDeclinioParaHistorico,
+        seq_motivo_declinio: seqMotivoDeclinioNumerico, // Inserindo o INTEIRO AUTOINCREMENTAL correto aqui
       });
-    }
-
-    let situacaoAtendimento = "GANHO";
-
-    if (!isGanho) {
-      const situacao = await this.repository.obterSituacaoPorSeqMotivoDeclinio(
-        dados.seq_motivo_declinio,
-      );
-      if (!situacao || situacao.length === 0) {
-        console.warn(
-          `[Service] Situação não mapeada para o motivo declínio ${dados.seq_motivo_declinio}. Usando fallback.`,
-        );
-        situacaoAtendimento = "TEMPORARIO";
-      } else {
-        situacaoAtendimento = situacao[0].situacao_atendimento;
-      }
     }
 
     const servicoAtualizado = await this.repository.atualizarServicoOmniVolta(
@@ -172,8 +172,10 @@ class ServicoOmniService {
   }
 
   async atribuirEmpresasParaConsultor(seq_consultor: number, limit: number) {
-    const dados =
-      await this.repository.atribuirEmpresasParaConsultor(seq_consultor, limit);
+    const dados = await this.repository.atribuirEmpresasParaConsultor(
+      seq_consultor,
+      limit,
+    );
     return dados && dados.length > 0 ? dados : [];
   }
 }

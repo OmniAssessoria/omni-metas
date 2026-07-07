@@ -1,6 +1,38 @@
 import pool from "../module/postgresdb/conexao.js";
 
 export default class ServicoOmniRepository {
+  async buscarMotivoDeclinioPorIdString(id_motivo_declinio: string) {
+    const query = `
+      SELECT seq_motivo_declinio, situacao_atendimento 
+      FROM omni.motivo_declinio 
+      WHERE id_motivo_declinio = $1;
+    `;
+    try {
+      const result = await pool.query(query, [id_motivo_declinio]);
+      return result.rows; 
+    } catch (error) {
+      console.error(
+        "[ServicoOmniRepository] Erro ao buscar motivo por id_motivo_declinio string:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async obterSituacaoPorSeqMotivoDeclinio(seq_motivo_declinio: number) {
+    const query = `SELECT situacao_atendimento FROM omni.motivo_declinio WHERE seq_motivo_declinio = $1;`;
+    try {
+      const result = await pool.query(query, [seq_motivo_declinio]);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoOmniRepository] Erro ao buscar situacao por seq_motivo_declinio:",
+        error,
+      );
+      throw error;
+    }
+  }
+
   async buscarSeqEmpresaPorCnpj(cnpj: string) {
     const query = `SELECT seq_empresa FROM omni.empresa WHERE cnpj = $1;`;
     try {
@@ -229,20 +261,6 @@ export default class ServicoOmniRepository {
     }
   }
 
-  async obterSituacaoPorSeqMotivoDeclinio(seq_motivo_declinio: number) {
-    const query = `SELECT situacao_atendimento FROM omni.motivo_declinio WHERE seq_motivo_declinio = $1;`;
-    try {
-      const result = await pool.query(query, [seq_motivo_declinio]);
-      return result.rows;
-    } catch (error) {
-      console.error(
-        "[ServicoOmniRepository] Erro ao buscar situacao por seq_motivo_declinio:",
-        error,
-      );
-      throw error;
-    }
-  }
-
   async obterNumerosContatosSecundarioClientes(seq_empresa: number) {
     const query = `SELECT numero_linha FROM omni.servico_operadora where seq_empresa = $1;`;
     try {
@@ -263,7 +281,10 @@ export default class ServicoOmniRepository {
       const result = await pool.query(query, [seq_consultor, limit]);
       return result.rows;
     } catch (error) {
-      console.error("[ServicoOmniRepository] Erro ao atribuir LEADS BDR para o consultor:", error);
+      console.error(
+        "[ServicoOmniRepository] Erro ao atribuir LEADS BDR para o consultor:",
+        error,
+      );
       throw error;
     }
   }
