@@ -182,7 +182,12 @@ export const API_OMNI_SINGLE = async ({
         "Observacao": formatarObservacaoPlanosLinhas(servico.observacao),
         "Indicacao": isExclusivo ? `DDD 11: ${servico.indicacao || "N/A"}` : servico.indicacao,
         "Carteira": servico.carteira || "",
-        "Informações DECISOR (Possível decisor)": infoDecisorStr
+        "Informações DECISOR (Possível decisor)": infoDecisorStr,
+        "Número Válido Decisor WhatsApp": servico.decisor_numero_valido_meta || null,
+        "Google Fontes Nome Fantasia": servico.decisor_google_fontes_nomes_fantasia || "",
+        "Google Fontes Telefones": servico.decisor_google_fontes_telefones || "",
+        "Google Fontes Emails": servico.decisor_google_fontes_emails || "",
+        "Google Fontes Sites da Empresa": servico.decisor_google_fontes_emails
       };
 
       const pipelineDefinido = "wm2n294u8vgp31duczik6iak"; 
