@@ -3,7 +3,8 @@ import "dotenv/config";
 import cron from "node-cron";
 import os from "os"; 
 import FunctionsDatabaseRepository from "./repositories/functions_database.repository.js";
-import Piperun from "./crons/cron_piperun_sincronizar.helper.js";
+// ATUALIZADO: Importando a nova classe do CRM Omni
+import CronOmniCrmSincronizar from "./crons/cron_omni_crm_sincronizar.helper.js";
 import Bdr from "./crons/cron_servico_omni_sincronizar.helper.js";
 
 function obterIpLocal() {
@@ -30,18 +31,18 @@ async function Servidor() {
     console.log(`📡 Acesso Local (sua máquina): http://localhost:3333`);
     console.log(`🌐 Acesso na Rede (outras máquinas): http://${ipRede}:3333\n`);
 
-    const piperunCron = new Piperun();
+    const omniCrmCron = new CronOmniCrmSincronizar();
     const omniBdr = new Bdr();
 
     // ====================================================================
-    // CRON JOB 1: ROTINA DAS 19:00 - Extrair leads perdidos/ganhos piperun (Serviços Legado)
+    // CRON JOB 1: ROTINA DAS 19:00 - Extrair leads perdidos/ganhos Omni CRM (Serviços Atuais)
     // ====================================================================
     cron.schedule(
       "0 19 * * *",
       async () => {
         try {
-          console.log("[SISTEMA] Iniciando trigger do Cron Job das 19h (PipeRun Antigo)...");
-          await piperunCron.executarRotinaNoturnaPipeRun();
+          console.log("[SISTEMA] Iniciando trigger do Cron Job das 19h (Novo CRM Omni)...");
+          await omniCrmCron.executarRotinaNoturnaOmniCrm();
         } catch (error) {
           console.error(
             "[SISTEMA] Erro fatal não tratado durante a execução do cron das 19h:",
@@ -101,7 +102,7 @@ async function Servidor() {
       { timezone: "America/Sao_Paulo" },
     );
 
-    console.log("✅ Cron Job ativado: Rotina Legado (19:00 SP).");
+    console.log("✅ Cron Job ativado: Rotina CRM Omni (19:00 SP).");
     console.log("✅ Cron Job ativado: Recálculo Temporário/CPC (00:30 SP).");
     console.log("✅ Cron Job ativado: Sincronização BDR Omni (02:30 SP).");
   });
