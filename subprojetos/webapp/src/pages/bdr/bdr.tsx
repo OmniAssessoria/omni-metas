@@ -33,7 +33,7 @@ import API from "@/services/api";
 import { useIntegracaoPipeBdr } from "@/services/hook/hookBdrSubir";
 import {
   IProgressState,
-  sincronizarDadosPipeRun,
+  sincronizarDadosOmniCrmBdr,
 } from "@/services/apiVoltaBdr";
 
 interface IContagemResponse {
@@ -214,14 +214,14 @@ export default function PainelBDR() {
       percentual: 0,
       atual: 0,
       total: 0,
-      mensagem: "Iniciando extração do PipeRun...",
+      mensagem: "Iniciando varredura no CRM Omni...",
     });
 
     try {
-      const resultado = await sincronizarDadosPipeRun(
+      const resultado = await sincronizarDadosOmniCrmBdr(
         dataInicial,
         dataFinal || dataInicial,
-        (progresso) => setProgressState({ ativo: true, ...progresso }),
+        (progresso) => setProgressState({ ativo: true, ...progresso }), // Sem erros TypeScript
       );
 
       setNotification(resultado.mensagem);
@@ -369,7 +369,7 @@ export default function PainelBDR() {
               <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                   <ArrowRightLeft className="h-6 w-6 text-primary" />{" "}
-                  Sincronizar Histórico PipeRun
+                  Sincronizar CRM Omni BDR
                 </h3>
                 <Button
                   variant="ghost"
@@ -385,8 +385,8 @@ export default function PainelBDR() {
               <div className="p-6 flex flex-col gap-6">
                 <p className="text-sm text-muted-foreground">
                   Busque e atualize no banco local os negócios "Ganhos" e
-                  "Perdidos" do funil de Vendas do PipeRun, baseando-se na data
-                  de fechamento.
+                  "Perdidos" do funil de Vendas, baseando-se na data de
+                  fechamento.
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
@@ -528,13 +528,14 @@ export default function PainelBDR() {
                           CNPJ: {item.payload?.cnpj || item.cnpj || "N/A"}
                         </span>
                         <span className="text-xs font-semibold text-green-800 bg-green-100 px-3 py-1 rounded-full">
-                          {item.payload?.is_ganho
-                            ? "MARCADO COMO GANHO"
-                            : "MARCADO COMO PERDA"}
+                          {item.payload?.is_ganho || item.dealId
+                            ? "OPERACIONALIZADO COM SUCESSO"
+                            : "REGISTRO PROCESSADO"}
                         </span>
                       </div>
                       <div className="text-sm mt-1 text-muted-foreground">
-                        Atualizado com sucesso no banco local.
+                        {item.respostaApi?.mensagem ||
+                          `UUID do Deal atrelado: ${item.dealId}`}
                       </div>
                     </div>
                   ))}
