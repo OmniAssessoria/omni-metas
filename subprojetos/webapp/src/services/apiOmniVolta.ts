@@ -2,7 +2,8 @@ import axios from "axios";
 import { URL_API_LOCAL } from "./api";
 
 const TOKEN_OMNI_CRM = "axn_-jjcxVoIlR7NgWNPsszE_0mc9LIVGTBwxgKTNqL_iSM";
-const PIPELINE_LOCAL_ID = "wm2n294u8vgp31duczik6iak"; 
+const PIPELINE_BDR_CARTEIRA = "wm2n294u8vgp31duczik6iak"; 
+const PIPELINE_BDR_COMERCIAL = ''
 
 const apiOmniCrm = axios.create({
   baseURL: "https://omniassessoria.online/api/local/v1",
@@ -116,7 +117,7 @@ export const sincronizarDadosOmniCrm = async (
     emitirProgresso("iniciando", `Conectando ao CRM Omni. Período: ${dataInicial} até ${dataFinal || dataInicial}`);
 
     const filtrosComuns = {
-      pipelineId: PIPELINE_LOCAL_ID,
+      pipelineId: PIPELINE_BDR_CARTEIRA,
       closedFrom: dataInicial,
       closedTo: dataFinal || dataInicial,
     };

@@ -130,8 +130,15 @@ export const enviarLeadOmniCrmBdr = async (lead: ILeadOmniResponse, tipoOperacao
       "Sites (Google e outras Fontes)": lead.google_fontes_sites || "N/A",
     };
 
-    const pipelineDefinido = "wm2n294u8vgp31duczik6iak"; 
-    const stageDefinido = "n1e91tv7a124cgepguadjn8t";   
+    // Pipeline e stage do otavio e nathalha 
+    const pipelineDefinido = ""; 
+    const stageDefinido = "";   
+    // email otavio: otavio.souza@omniassessoria.com.br
+    // email nathalia: nathalia.dadalte@omniassessoria.com.br
+
+    // pipeline  e stage para todos os restantes consultores
+    const pipelineBdrComercial = ""; 
+    const stageBdrComercial = "";   
 
     const payloadSingleCreation = {
       companyName: lead.razao,
