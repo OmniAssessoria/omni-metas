@@ -190,8 +190,8 @@ export const API_OMNI_SINGLE = async ({
         "Google Fontes Sites da Empresa": servico.decisor_google_fontes_emails
       };
 
-      const pipelineDefinido = "wm2n294u8vgp31duczik6iak"; 
-      const stageDefinido = "n1e91tv7a124cgepguadjn8t";    
+      const pipelineDefinido = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
+      const stageDefinido = "manual_12342f70-1730-43eb-8ee8-ea9cf8674637";
 
       const payloadSingleCreation = {
         companyName: servico.razao,
