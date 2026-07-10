@@ -17,6 +17,7 @@ export interface IServicoPipeRun {
   servico_claro_cpc: boolean | null;
   servico_claro_crm: string | number | null;
   servico_claro_ativo: boolean | null;
+  fixa: string | null;
   cnpj: string;
   razao: string;
   qtd_servico_claro: number | null;
@@ -27,6 +28,7 @@ export interface IServicoPipeRun {
   empresa_qtd_servico_onvox: number | null;
   empresa_docdrive: string | null;
   empresa_cliente_ativo: boolean | null;
+  endereco: string | null;
   decisor_nome: string | null;
   decisor_cpf: string | null;
   decisor_numero: string | null;

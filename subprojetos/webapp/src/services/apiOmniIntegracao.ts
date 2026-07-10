@@ -177,6 +177,8 @@ export const API_OMNI_SINGLE = async ({
         "Tempo de Contrato": String(mesesContrato),
         "DDD": dddFinal,
         "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
+        "Endereço": String(servico.endereco) || "",
+        "FIXA": String(servico.fixa) || "",
         "DOCDRIVE": servico.servico_docdrive || "",
         "link_docdrive": link_db,
         "Observacao": formatarObservacaoPlanosLinhas(servico.observacao),
