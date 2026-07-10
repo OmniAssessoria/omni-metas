@@ -1,7 +1,7 @@
 import axios from "axios";
 
 class LocalStorageService {
-  private readonly BASE_API_URL = "http://10.0.0.106:5000/api";
+  private readonly BASE_API_URL = "http://10.0.0.195:5000/api";
 
   constructor() {
     console.log(
