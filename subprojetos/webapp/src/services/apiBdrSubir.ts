@@ -57,7 +57,7 @@ export const enviarLeadOmniCrmBdr = async (lead: ILeadOmniResponse, tipoOperacao
     }
 
     const emailConsultor = lead.email_consultor ? String(lead.email_consultor).trim().toLowerCase() : "";
-    const link_db = lead.docdrive ? "http://10.0.0.106:8090" : "N/A";
+    const link_db = lead.docdrive ? "http://10.0.0.195:8090" : "N/A";
     const decisorNome = lead.nome_decisor && lead.nome_decisor.trim() !== "" 
       ? lead.nome_decisor.trim().toUpperCase() 
       : null;
