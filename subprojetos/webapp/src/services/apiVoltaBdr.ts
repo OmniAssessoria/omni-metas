@@ -5,7 +5,7 @@ import { URL_API_LOCAL } from "./api";
 // CONFIGURAÇÕES E CONSTANTES DO NOVO CRM OMNI
 // ============================================================================
 const TOKEN_OMNI_CRM = "axn_-jjcxVoIlR7NgWNPsszE_0mc9LIVGTBwxgKTNqL_iSM";
-const PIPELINE_BDR_ID = "wm2n294u8vgp31duczik6iak"; // Funil exclusivo do BDR
+const PIPELINE_BDR_ID = "wm2n294u8vgp31duczik6iak";
 
 const apiOmniCrm = axios.create({
   baseURL: "https://omniassessoria.online/api/local/v1",
