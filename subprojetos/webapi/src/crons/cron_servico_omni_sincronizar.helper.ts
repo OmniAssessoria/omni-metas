@@ -1,156 +1,207 @@
-// import ServicoOmniService from "../services/servico_omni.service.js";
-// import {
-//   buscarCnpjPorCompanyId,
-//   buscarTodasAsPaginas,
-//   obterCustomField,
-//   formatarCNPJ,
-//   delay,
-// } from "../helpers/piperun_auxiliares.helper.js";
+import axios from "axios";
+import ServicoOmniService from "../services/servico_omni.service.js";
 
-// import { PIPELINE_UNIFICADO } from "../configs/piperun_funis_bdr.js";
+const TOKEN_OMNI_CRM = "axn_-jjcxVoIlR7NgWNPsszE_0mc9LIVGTBwxgKTNqL_iSM";
+const PIPELINE_LOCAL_ID = "wm2n294u8vgp31duczik6iak";
 
-// export default class Bdr {
-//   private servicoOmniService: ServicoOmniService;
+export default class CronServicoOmniSincronizar {
+  private servicoOmniService: ServicoOmniService;
+  private apiOmniCrm: any;
 
-//   constructor() {
-//     this.servicoOmniService = new ServicoOmniService();
-//     this.executarRotinaNoturnaPipeBdr =
-//       this.executarRotinaNoturnaPipeBdr.bind(this);
-//   }
+  constructor() {
+    this.servicoOmniService = new ServicoOmniService();
+    this.apiOmniCrm = axios.create({
+      baseURL: "https://omniassessoria.online/api/local/v1",
+      headers: {
+        accept: "application/json",
+        Authorization: `Bearer ${TOKEN_OMNI_CRM}`,
+      },
+    });
 
-//   async executarRotinaNoturnaPipeBdr() {
-//     const dataAtual = new Date();
-//     dataAtual.setDate(dataAtual.getDate() - 1);
+    this.executarRotinaNoturnaPipeBdr =
+      this.executarRotinaNoturnaPipeBdr.bind(this);
+  }
+  
+  private delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
-//     const dataOntemFormatada = new Intl.DateTimeFormat("fr-CA", {
-//       timeZone: "America/Sao_Paulo",
-//       year: "numeric",
-//       month: "2-digit",
-//       day: "2-digit",
-//     }).format(dataAtual);
+  private formatarCNPJ(cnpj: string): string {
+    if (!cnpj) return "";
+    const numeros = cnpj.replace(/\D/g, "");
+    if (numeros.length !== 14) return cnpj;
+    return numeros.replace(
+      /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+      "$1.$2.$3/$4-$5",
+    );
+  }
 
-//     const dealsBrutos: any[] = [];
+  private async buscarTodosOsDealsPorCursor(
+    parametrosBasicos: any,
+  ): Promise<any[]> {
+    let cursorAtual: string | null = null;
+    let temMaisDados = true;
+    const todosOsDeals: any[] = [];
 
-//     const paramsComuns = {
-//       closed_at_start: dataOntemFormatada,
-//       closed_at_end: dataOntemFormatada,
-//       with: "customFields,company,owner,lostReason",
-//     };
+    while (temMaisDados) {
+      try {
+        const params: any = {
+          ...parametrosBasicos,
+          limit: 200,
+          sort: "closedAt:desc",
+        };
 
-//     try {
-//       console.log(`\n======================================================`);
-//       console.log(
-//         `[CRON 02:30 BDR] Iniciando Sincronização. Data de Busca: ${dataOntemFormatada}`,
-//       );
-//       console.log(`======================================================`);
+        if (cursorAtual) {
+          params.cursor = cursorAtual;
+        }
 
-//       const paramsGanhos = {
-//         pipeline_id: PIPELINE_UNIFICADO,
-//         status: 1,
-//         ...paramsComuns,
-//       };
-//       console.log(`[CRON 02:30 BDR] Extraindo Ganhos...`);
-//       const ganhosExtraidos = await buscarTodasAsPaginas(
-//         "/deals",
-//         paramsGanhos,
-//       );
-//       dealsBrutos.push(...ganhosExtraidos);
+        const response = await this.apiOmniCrm.get("/deals", { params });
 
-//       const paramsPerdas = {
-//         pipeline_id: PIPELINE_UNIFICADO,
-//         status: 3,
-//         ...paramsComuns,
-//       };
-//       console.log(`[CRON 02:30 BDR] Extraindo Perdas...`);
-//       const perdasExtraidas = await buscarTodasAsPaginas(
-//         "/deals",
-//         paramsPerdas,
-//       );
-//       dealsBrutos.push(...perdasExtraidas);
+        if (response.data && response.data.ok) {
+          const dadosPagina = response.data.data || [];
 
-//       if (dealsBrutos.length > 0) {
-//         const dealsFormatados = [];
+          if (dadosPagina.length === 0) {
+            temMaisDados = false;
+            break;
+          }
 
-//         console.log(
-//           `[CRON 02:30 BDR] Estruturando ${dealsBrutos.length} negócios extraídos...`,
-//         );
+          todosOsDeals.push(...dadosPagina);
+          cursorAtual = response.data.nextCursor;
 
-//         for (const deal of dealsBrutos) {
-//           let cnpjBruto = obterCustomField(deal.customFields, 592065, "CNPJ");
-//           let cnpj = cnpjBruto ? formatarCNPJ(String(cnpjBruto)) : null;
+          if (!cursorAtual) {
+            temMaisDados = false;
+          }
+        } else {
+          temMaisDados = false;
+        }
 
-//           if (!cnpj && deal.company_id) {
-//             cnpj = await buscarCnpjPorCompanyId(deal.company_id);
-//           }
+        await this.delay(150);
+      } catch (error: any) {
+        console.error(
+          `[CRON BDR - Erro na Paginação] Falha ao processar requisição. Cursor: ${cursorAtual}`,
+          error.response?.data || error.message,
+        );
+        temMaisDados = false;
+      }
+    }
 
-//           if (!cnpj) continue;
+    return todosOsDeals;
+  }
 
-//           const operadoraOriginal = obterCustomField(
-//             deal.customFields,
-//             631881,
-//             "Operadora do Pedido",
-//           );
-//           let tipoServico = "CLARO";
+  async executarRotinaNoturnaPipeBdr() {
+    const dataAtual = new Date();
+    dataAtual.setDate(dataAtual.getDate() - 1);
 
-//           if (Array.isArray(operadoraOriginal) && operadoraOriginal[0]) {
-//             tipoServico = String(operadoraOriginal[0]).toUpperCase();
-//           } else if (typeof operadoraOriginal === "string") {
-//             tipoServico = operadoraOriginal.toUpperCase();
-//           }
+    const dataOntemFormatada = new Intl.DateTimeFormat("fr-CA", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(dataAtual);
 
-//           const isGanho = deal.status === 1;
+    const dealsBrutos: any[] = [];
 
-//           dealsFormatados.push({
-//             cnpj: cnpj,
-//             codigo_crm: deal.owner_id,
-//             tipo_servico: tipoServico,
-//             data_inicio_atendimento: deal.created_at,
-//             data_fim_atendimento: deal.closed_at,
-//             seq_motivo_declinio: isGanho ? null : deal.lost_reason_id,
-//             is_ganho: isGanho,
-//           });
-//         }
+    console.log(`\n======================================================`);
+    console.log(
+      `[CRON 02:30 BDR] Sincronização Iniciada. Data Base: ${dataOntemFormatada}`,
+    );
+    console.log(`======================================================`);
 
-//         console.log(
-//           `[CRON 02:30 BDR] Gravando ${dealsFormatados.length} dados no banco interno...`,
-//         );
+    const filtrosComuns = {
+      pipelineId: PIPELINE_LOCAL_ID,
+      closedFrom: dataOntemFormatada,
+      closedTo: dataOntemFormatada,
+    };
 
-//         let sucessos = 0;
-//         let falhas = 0;
+    try {
+      console.log(
+        `[CRON 02:30 BDR] Coletando registros [GANHO] do funil BDR...`,
+      );
+      const ganhos = await this.buscarTodosOsDealsPorCursor({
+        status: "won",
+        ...filtrosComuns,
+      });
+      dealsBrutos.push(...ganhos);
 
-//         for (const dado of dealsFormatados) {
-//           try {
-//             const resultado =
-//               await this.servicoOmniService.atualizarServicosOmniHistorico(
-//                 dado,
-//               );
-//             if (resultado.sucesso) sucessos++;
-//             if (resultado.ignorado) falhas++;
+      console.log(
+        `[CRON 02:30 BDR] Coletando registros [PERDIDO] do funil BDR...`,
+      );
+      const perdas = await this.buscarTodosOsDealsPorCursor({
+        status: "lost",
+        ...filtrosComuns,
+      });
+      dealsBrutos.push(...perdas);
 
-//             await delay(50);
-//           } catch (error: any) {
-//             falhas++;
-//             console.error(
-//               `[CRON 02:30 BDR] Erro ao sincronizar CNPJ ${dado.cnpj}:`,
-//               error.message,
-//             );
-//           }
-//         }
+      if (dealsBrutos.length === 0) {
+        console.log(
+          `[CRON 02:30 BDR] Nenhum negócio (Ganho/Perdido) movimentado em ${dataOntemFormatada}.`,
+        );
+        console.log(`======================================================\n`);
+        return;
+      }
 
-//         console.log(
-//           `[CRON 02:30 BDR] Processamento concluído. Sucessos: ${sucessos} | Falhas/Ignorados: ${falhas}`,
-//         );
-//       } else {
-//         console.log(
-//           `[CRON 02:30 BDR] Nenhum negócio (Ganho/Perdido) movimentado em ${dataOntemFormatada}.`,
-//         );
-//       }
+      console.log(
+        `[CRON 02:30 BDR] Estruturando ${dealsBrutos.length} negócios extraídos...`,
+      );
+      const dealsFormatados = [];
 
-//       console.log(`======================================================`);
-//       console.log(`[CRON 02:30 BDR] Processo noturno finalizado com sucesso!`);
-//       console.log(`======================================================\n`);
-//     } catch (error) {
-//       console.error("[CRON 02:30 BDR] Falha geral na execução noturna:", error);
-//     }
-//   }
-// }
+      for (const deal of dealsBrutos) {
+        if (!deal.companyCnpj) continue;
+
+        const cnpj = this.formatarCNPJ(String(deal.companyCnpj));
+        const isGanho = deal.status === "won";
+        const codigoCrm = deal.ownerId || (deal.owner ? deal.owner.id : null);
+        const idMotivoDeclinioCrm = isGanho ? null : deal.lostReasonId;
+
+        dealsFormatados.push({
+          cnpj: cnpj,
+          codigo_crm: codigoCrm,
+          data_inicio_atendimento: deal.createdAt,
+          data_fim_atendimento: deal.closedAt,
+          id_motivo_declinio: idMotivoDeclinioCrm,
+          is_ganho: isGanho,
+        });
+      }
+
+      console.log(
+        `[CRON 02:30 BDR] Iniciando persistência no PostgreSQL para tabela OMNI (${dealsFormatados.length} registros)...`,
+      );
+      let sucessos = 0;
+      let falhas = 0;
+
+      for (const dado of dealsFormatados) {
+        try {
+          const resultado =
+            await this.servicoOmniService.atualizarServicosOmniHistorico(dado);
+
+          if (resultado.sucesso) sucessos++;
+          if (resultado.ignorado) {
+            falhas++;
+
+            console.warn(`[CRON 02:30 BDR] Ignorado: ${resultado.motivo}`);
+          }
+
+          await this.delay(50);
+        } catch (error: any) {
+          falhas++;
+          console.error(
+            `[CRON 02:30 BDR] Falha grave ao persistir CNPJ ${dado.cnpj}:`,
+            error.message,
+          );
+        }
+      }
+
+      console.log(
+        `[CRON 02:30 BDR] Processamento concluído. Sucessos: ${sucessos} | Falhas/Ignorados: ${falhas}`,
+      );
+      console.log(`======================================================`);
+      console.log(`[CRON 02:30 BDR] Processo noturno finalizado com sucesso!`);
+      console.log(`======================================================\n`);
+    } catch (error: any) {
+      console.error(
+        "[CRON 02:30 BDR] Erro fatal não tratado na rotina noturna:",
+        error.message || error,
+      );
+    }
+  }
+}
