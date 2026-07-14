@@ -94,16 +94,17 @@ class ServicoOmniService {
     }
 
     const dadosConsultor: IDadosConsultor =
-      await this.repositoryConsultor.buscarSeqConsultorPorCodigoCrm(
-        dados.codigo_crm,
+      await this.repositoryConsultor.buscarSeqConsultorPorEmail(
+        dados.email_consultor,
       );
 
     if (!dadosConsultor || !dadosConsultor.seq_consultor) {
       return {
         ignorado: true,
-        motivo: `Consultor com código CRM ${dados.codigo_crm} não encontrado.`,
+        motivo: `Consultor com o email "${dados.email_consultor}" não foi encontrado na base de dados. Dados do payload: ${JSON.stringify(dados)}`,
       };
     }
+
     const idConsultor = dadosConsultor.seq_consultor;
     const isGanho = dados.is_ganho === true;
     let seqMotivoDeclinioNumerico: number | null = null;
@@ -138,7 +139,7 @@ class ServicoOmniService {
         seq_consultor: idConsultor,
         dt_inicio_atendimento: dados.data_inicio_atendimento,
         dt_fim_atendimento: dados.data_fim_atendimento,
-        seq_motivo_declinio: seqMotivoDeclinioNumerico, // Inserindo o INTEIRO AUTOINCREMENTAL correto aqui
+        seq_motivo_declinio: seqMotivoDeclinioNumerico,
       });
     }
 

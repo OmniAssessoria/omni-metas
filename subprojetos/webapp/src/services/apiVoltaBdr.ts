@@ -163,12 +163,12 @@ export const sincronizarDadosOmniCrmBdr = async (
       if (!deal.companyCnpj) continue;
       const cnpj = formatarCNPJ(String(deal.companyCnpj));
       const isGanho = deal.status === "won";
-      const codigoCrmConsultor = deal.ownerId || (deal.owner ? deal.owner.id : null);
+      const emailConsultor = deal.owner?.email || null;
       const idMotivoDeclinioStr = isGanho ? null : deal.lostReasonId;
 
       dealsFormatados.push({
         cnpj: cnpj,
-        codigo_crm: codigoCrmConsultor,
+        email_consultor: emailConsultor,
         data_inicio_atendimento: deal.createdAt,
         data_fim_atendimento: deal.closedAt,
         id_motivo_declinio: idMotivoDeclinioStr,
@@ -188,10 +188,18 @@ export const sincronizarDadosOmniCrmBdr = async (
 
       try {
         const response = await apiInterna.patch("/servico-omni/leads/sincronizar", dado);
-        sucessosProcessados.push({
-          payload: dado,
-          respostaApi: response.data || "OK",
-        });
+        
+        if (response.data && response.data.ignorado) {
+          falhasProcessadas.push({
+            payload: dado,
+            erro: response.data.mensagem 
+          });
+        } else {
+          sucessosProcessados.push({
+            payload: dado,
+            respostaApi: response.data || "OK",
+          });
+        }
       } catch (error: any) {
         falhasProcessadas.push({
           payload: dado,
