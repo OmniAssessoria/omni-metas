@@ -160,7 +160,7 @@ export default class CronOmniCrmSincronizar {
 
       for (const dado of dealsFormatados) {
         try {
-          const resultado = await this.servicoClaroService.atualizarServicosPiperun(dado);
+          const resultado = await this.servicoClaroService.sincronizarHistoricoClaro(dado);
           if (resultado.sucesso) sucessos++;
           if (resultado.ignorado) falhas++;
           

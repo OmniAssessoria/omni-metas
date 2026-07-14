@@ -136,7 +136,7 @@ class ServicoClaroController {
       );
 
       const resultadoSync =
-        await this.servicoClaroService.atualizarServicosPiperun(dados);
+        await this.servicoClaroService.sincronizarHistoricoClaro(dados);
 
       if (resultadoSync.ignorado) {
         console.log(

@@ -1,3 +1,4 @@
+import AtualizarBaseMotivosDecliniomniCrm from "../helpers/atualizar_base_motivos_declinio.helper.js";
 import { IDadosConsultor } from "../interfaces/dados_consultor.interface.js";
 import { IMotivosDeclinio } from "../interfaces/motivo_declinio.interface.js";
 import ConsultorRepository from "../repositories/consultor.repository.js";
@@ -71,6 +72,7 @@ class ServicoOmniService {
   }
 
   async atualizarServicosOmniHistorico(dados: any) {
+    await AtualizarBaseMotivosDecliniomniCrm()
     const seq_empresa = await this.repository.buscarSeqEmpresaPorCnpj(
       dados.cnpj,
     );
