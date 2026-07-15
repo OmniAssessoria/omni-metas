@@ -64,7 +64,7 @@ class DecisorController {
       res.status(500).json({
         status: false,
         mensagem:
-          "Erro interno ao processar comunicação com a API de Arquivos Local (10.0.0.106).",
+          "Erro interno ao processar comunicação com a API de Arquivos Local (192.168.0.168:8090).",
         detalhes: error.message,
       });
     }

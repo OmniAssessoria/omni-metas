@@ -4,7 +4,7 @@ import { apiPipeRunRest, TOKEN_PIPERUN } from "@/configs/piperunConfigs.config";
 
 /**
  * 1) FUNÇÃO PARA EXTRAIR A IMAGEM DO ARMAZENAMENTO LOCAL VIA BACKEND
- * Ela pede para a sua API Node.js contatar o servidor Python (10.0.0.195)
+ * Ela pede para a sua API Node.js contatar o servidor Python (192.168.0.168)
  * e devolver a imagem Base64.
  */
 export const extrairImagemDecisorLocal = async (

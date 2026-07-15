@@ -1,7 +1,7 @@
 import axios from "axios";
 
 class LocalStorageService {
-  private readonly BASE_API_URL = "http://10.0.0.195:5000/api";
+  private readonly BASE_API_URL = "http://192.168.0.168:8090/api";
 
   constructor() {
     console.log(
@@ -140,7 +140,7 @@ class LocalStorageService {
         error.message,
       );
       throw new Error(
-        "Falha na comunicação com a API interna do Servidor de Arquivos (10.0.0.106).",
+        "Falha na comunicação com a API interna do Servidor de Arquivos (192.168.0.168).",
       );
     }
   }

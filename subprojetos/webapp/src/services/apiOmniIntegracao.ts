@@ -163,7 +163,7 @@ export const API_OMNI_SINGLE = async ({
         infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > CPF: ${decisorCpf || "NÃO INFORMADO"} < ||||| > TELEFONES: ${decisorPhonesArray.map(p => p.number).join(', ') || "NÃO INFORMADO"} ||||| EMAILS: ${decisorEmail || "NÃO INFORMADO"}`;
       }
 
-      const link_db = servico.servico_docdrive ? "http://10.0.0.195:8090" : "N/A";
+      const link_db = servico.servico_docdrive ? "http://192.168.0.168:8090" : "N/A";
 
       const titleCard = isExclusivo
         ? `(${dddFinal}) DDD 11 >> ${servico.razao}`
