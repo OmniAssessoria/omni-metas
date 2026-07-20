@@ -53,7 +53,7 @@ async function Servidor() {
     );
 
     // ====================================================================
-    // CRON JOB 2: ROTINA DAS 00:30 - Limpeza de CPC e Temporários Omni
+    // CRON JOB 2: ROTINA DAS 00:30 - Limpeza de CPC e Temporários Omni Comercial
     // ====================================================================
     cron.schedule(
       "30 0 * * *",
@@ -68,7 +68,7 @@ async function Servidor() {
           await repoDB.executarValidacaoLeituraCpcForaDoPrazo();
           
           console.log("[CRON 00:30] Executando fn_validar_servico_omni_temporario()...");
-          await repoDB.executarValidacaoTemporarioOmni();
+          await repoDB.executarValidacaoTemporarioClaro();
 
           console.log("[CRON 00:30] Processo noturno de recálculo finalizado com sucesso!");
           console.log(`======================================================\n`);
@@ -83,7 +83,7 @@ async function Servidor() {
     );
 
     // ====================================================================
-    // CRON JOB 3: ROTINA DAS 2:30 - Sincronização BDR (Nova Tabela Omni)
+    // CRON JOB 3: ROTINA DAS 2:30 - Sincronização BDR | perdidos/ganhos Omni CRM 
     // ====================================================================
     cron.schedule(
       "30 02 * * *",
@@ -105,6 +105,33 @@ async function Servidor() {
     console.log("✅ Cron Job ativado: Recálculo Temporário/CPC (00:30 SP).");
     console.log("✅ Cron Job ativado: Sincronização BDR Omni (02:30 SP).");
   });
+
+  // ====================================================================
+  // CRON JOB 4: ROTINA DAS 04:30 - Limpeza Temporários Omni BDR
+  // ====================================================================
+  cron.schedule(
+    "30 04 * * *",
+    async () => {
+      try {
+        console.log(`\n======================================================`);
+        console.log("[CRON 04:30] Iniciando trigger do Cron Job da Madrugada...");
+        
+        const repoDB = new FunctionsDatabaseRepository();
+        
+        console.log("[CRON 00:30] Executando fn_validar_servico_omni_temporario()...");
+        await repoDB.executarValidacaoTemporarioOmni();
+
+        console.log("[CRON 00:30] Processo noturno de recálculo finalizado com sucesso!");
+        console.log(`======================================================\n`);
+      } catch (error) {
+        console.error(
+          "[SISTEMA] Erro fatal não tratado durante a execução do cron das 00:30:",
+          error,
+        );
+      }
+    },
+    { timezone: "America/Sao_Paulo" },
+  );
 
   server.setTimeout(300000);
 }
