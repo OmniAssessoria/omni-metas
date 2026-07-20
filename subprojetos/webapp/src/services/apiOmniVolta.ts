@@ -1,7 +1,7 @@
 import axios from "axios";
 import { URL_API_LOCAL } from "./api";
 
-const TOKEN_OMNI_CRM = "axn_-jjcxVoIlR7NgWNPsszE_0mc9LIVGTBwxgKTNqL_iSM";
+const TOKEN_OMNI_CRM = import.meta.env.VITE_TOKEN_API_KEY;
 const PIPELINE_BDR_CARTEIRA = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
 
 const apiOmniCrm = axios.create({

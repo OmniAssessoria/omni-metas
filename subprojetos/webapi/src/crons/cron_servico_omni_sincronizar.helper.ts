@@ -1,7 +1,7 @@
 import axios from "axios";
 import ServicoOmniService from "../services/servico_omni.service.js";
 
-const TOKEN_OMNI_CRM = "axn_-jjcxVoIlR7NgWNPsszE_0mc9LIVGTBwxgKTNqL_iSM";
+const TOKEN_OMNI_CRM = process.env.TOKEN_API_KEY;
 const PIPELINE_LOCAL_ID = "wm2n294u8vgp31duczik6iak";
 
 export default class CronServicoOmniSincronizar {

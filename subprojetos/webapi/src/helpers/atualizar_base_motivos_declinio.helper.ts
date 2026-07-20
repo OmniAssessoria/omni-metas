@@ -21,7 +21,7 @@ export default async function AtualizarBaseMotivosDecliniomniCrm() {
   }
 
   syncEmAndamento = (async () => {
-    const TOKEN_OMNI_CRM = "axn_-jjcxVoIlR7NgWNPsszE_0mc9LIVGTBwxgKTNqL_iSM";
+    const TOKEN_OMNI_CRM = process.env.TOKEN_API_KEY;
     
     const apiOmniCrm = axios.create({
       baseURL: "https://omniassessoria.online/api/local/v1",

@@ -4,7 +4,7 @@ import { URL_API_LOCAL } from "./api";
 // ============================================================================
 // CONFIGURAÇÕES E CONSTANTES DO NOVO CRM OMNI
 // ============================================================================
-const TOKEN_OMNI_CRM = "axn_-jjcxVoIlR7NgWNPsszE_0mc9LIVGTBwxgKTNqL_iSM";
+const TOKEN_OMNI_CRM = import.meta.env.VITE_TOKEN_API_KEY;
 const PIPELINE_BDR_ID = "wm2n294u8vgp31duczik6iak";
 
 const apiOmniCrm = axios.create({
