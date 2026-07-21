@@ -221,7 +221,7 @@ export default function PainelBDR() {
       const resultado = await sincronizarDadosOmniCrmBdr(
         dataInicial,
         dataFinal || dataInicial,
-        (progresso) => setProgressState({ ativo: true, ...progresso }), // Sem erros TypeScript
+        (progresso) => setProgressState({ ativo: true, ...progresso }), 
       );
 
       setNotification(resultado.mensagem);
