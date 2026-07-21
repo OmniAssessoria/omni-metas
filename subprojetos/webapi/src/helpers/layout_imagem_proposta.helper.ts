@@ -64,7 +64,6 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
   const turbo_total_gb = turbo ? turbo.total_gb_com_bonus : 0;
 
   const economia = eco ? atual.total_valor - eco_total_val : 0;
-  const economia_contrato = economia > 0 ? economia * 24 : 0;
   const ganho_gb = turbo ? turbo_total_gb - atual.total_gb : 0;
 
   const gerarTabelaProposta = (oferta: any) => {

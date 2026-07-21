@@ -5,7 +5,7 @@ import puppeteer, { Browser, Page } from "puppeteer";
 import { gerarHtmlPropostaCompleta } from "../helpers/layout_imagem_proposta.helper";
 import { AnalisadorPlanosHelper } from "../helpers/algoritmo_analisar_proposta_plano.helper";
 
-class GeradorImagemLayoutService {
+export default class GeradorImagemLayoutService {
   private repository: ServicoClaroRepository;
 
   constructor() {
@@ -23,7 +23,8 @@ class GeradorImagemLayoutService {
 
   /**
    * Função reutilizável para validar e atualizar planos de 10GB com bônus de 4GB.
-   * O plano passa a ser lido como 14GB (para cálculos e exibição no nome do plano),
+   * O plano passa a ser lido como 14GB na análise, mantendo a regra de nunca
+   * rebaixar o benefício que o cliente já possui somado.
    */
   private validarEConverterPlano10GB(linhas: any[]): any[] {
     return linhas.map((linha) => {
@@ -124,7 +125,7 @@ class GeradorImagemLayoutService {
         deviceScaleFactor: 2,
       });
 
-      await page.setContent(htmlCompleto, { waitUntil: "networkidle0" });
+      await page.setContent(htmlCompleto, { waitUntil: "load" });
       await page.evaluateHandle("document.fonts.ready");
 
       const documentHeight = await page.evaluate(() => {
@@ -238,7 +239,7 @@ class GeradorImagemLayoutService {
         deviceScaleFactor: 2,
       });
 
-      await page.setContent(htmlCompleto, { waitUntil: "networkidle0" });
+      await page.setContent(htmlCompleto, { waitUntil: "load" });
       await page.evaluateHandle("document.fonts.ready");
       const documentHeight = await page.evaluate(() => {
         return Math.max(
@@ -300,5 +301,3 @@ class GeradorImagemLayoutService {
     }
   }
 }
-
-export default GeradorImagemLayoutService;

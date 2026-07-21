@@ -76,184 +76,54 @@ export class AnalisadorPlanosHelper {
     const planos = PLANOS_DISPONIVEIS;
     const linhasReq = analiseAtual.linhas_requisitos as number[];
 
-    const limiteDescontoMaximo = analiseAtual.total_linhas * 3;
-    const valorMinimoPermitido = this.arredondarCentavos(
-      analiseAtual.total_valor - limiteDescontoMaximo,
-    );
+    let totalValorOferta = 0;
+    let totalGbOferta = 0;
+    let totalGbComBonusOferta = 0;
+    const contagemPlanos: Record<number, any> = {};
+    const planosEscolhidosPorLinha: any[] = [];
 
-    let totalValorOfertaGuloso = 0;
-    let totalGbOfertaGuloso = 0;
-    let totalGbComBonusOfertaGuloso = 0;
-    const contagemPlanosGuloso: Record<number, any> = {};
-    const planosEscolhidosPorLinhaGuloso: any[] = [];
-
-    const planosValidosPorLinha = linhasReq.map((gbMinimoLinha) => {
-      const validos = planos
+    for (const gbMinimoLinha of linhasReq) {
+      const planosValidos = planos
         .map((p, idx) => ({ ...p, originalIndex: idx }))
         .filter((p) => p.gb >= gbMinimoLinha);
 
-      validos.sort((a, b) => a.valor - b.valor);
-      return validos;
-    });
+      if (planosValidos.length === 0) {
+        return null;
+      }
 
-    if (planosValidosPorLinha.some((lista) => lista.length === 0)) {
-      return null;
-    }
+      planosValidos.sort((a, b) => a.valor - b.valor);
+      const melhorPlano = planosValidos[0];
 
-    for (const listaPlanos of planosValidosPorLinha) {
-      const melhorPlano = listaPlanos[0];
-
-      planosEscolhidosPorLinhaGuloso.push({
+      planosEscolhidosPorLinha.push({
         gb: melhorPlano.gb,
         valor: melhorPlano.valor,
         bonus: melhorPlano.bonus,
       });
 
-      totalValorOfertaGuloso = this.arredondarCentavos(
-        totalValorOfertaGuloso + melhorPlano.valor,
+      totalValorOferta = this.arredondarCentavos(
+        totalValorOferta + melhorPlano.valor,
       );
-      totalGbOfertaGuloso += melhorPlano.gb;
-      totalGbComBonusOfertaGuloso += melhorPlano.gb + melhorPlano.bonus;
+      totalGbOferta += melhorPlano.gb;
+      totalGbComBonusOferta += melhorPlano.gb + melhorPlano.bonus;
 
-      if (!contagemPlanosGuloso[melhorPlano.originalIndex]) {
-        contagemPlanosGuloso[melhorPlano.originalIndex] = {
+      if (!contagemPlanos[melhorPlano.originalIndex]) {
+        contagemPlanos[melhorPlano.originalIndex] = {
           gb: melhorPlano.gb,
           valor: melhorPlano.valor,
           bonus: melhorPlano.bonus,
           qtd: 0,
         };
       }
-      contagemPlanosGuloso[melhorPlano.originalIndex].qtd += 1;
+      contagemPlanos[melhorPlano.originalIndex].qtd += 1;
     }
 
-    const ofertaGuloso = {
-      combo: Object.values(contagemPlanosGuloso),
-      planos_por_linha: planosEscolhidosPorLinhaGuloso,
-      total_gb: totalGbOfertaGuloso,
-      total_gb_com_bonus: totalGbComBonusOfertaGuloso,
-      total_valor: totalValorOfertaGuloso,
+    return {
+      combo: Object.values(contagemPlanos),
+      planos_por_linha: planosEscolhidosPorLinha,
+      total_gb: totalGbOferta,
+      total_gb_com_bonus: totalGbComBonusOferta,
+      total_valor: totalValorOferta,
     };
-
-    if (ofertaGuloso.total_valor >= valorMinimoPermitido) {
-      return ofertaGuloso;
-    }
-
-    const sufixoCustoMinimo = new Array(linhasReq.length).fill(0);
-    let acumulado = 0;
-    for (let i = linhasReq.length - 1; i >= 0; i--) {
-      acumulado = this.arredondarCentavos(
-        acumulado + planosValidosPorLinha[i][0].valor,
-      );
-      sufixoCustoMinimo[i] = acumulado;
-    }
-
-    let melhorOfertaAlternativa: any = null;
-
-    const converterContagemParaCombo = (
-      contagem: Record<number, number>,
-      planosRef: any[],
-    ) => {
-      const combo = [];
-      for (const idxStr in contagem) {
-        const idx = Number(idxStr);
-        const qtd = contagem[idx];
-        if (qtd > 0) {
-          combo.push({
-            qtd,
-            gb: planosRef[idx].gb,
-            valor: planosRef[idx].valor,
-            bonus: planosRef[idx].bonus,
-          });
-        }
-      }
-      return combo;
-    };
-
-    const gerarRecursivoEco = (
-      indexLinha: number,
-      gbAcumulado: number,
-      bonusAcumulado: number,
-      valorAcumulado: number,
-      contagemAtual: Record<number, number>,
-      planosEscolhidos: any[],
-    ) => {
-      const custoNecessarioRestante =
-        indexLinha < linhasReq.length ? sufixoCustoMinimo[indexLinha] : 0;
-      const projecaoValorMinimo = this.arredondarCentavos(
-        valorAcumulado + custoNecessarioRestante,
-      );
-      if (
-        melhorOfertaAlternativa &&
-        projecaoValorMinimo >= melhorOfertaAlternativa.total_valor
-      ) {
-        return;
-      }
-
-      if (indexLinha === linhasReq.length) {
-        if (valorAcumulado >= valorMinimoPermitido) {
-          const totalGbComBonus = gbAcumulado + bonusAcumulado;
-
-          const ofertaAtual = {
-            combo: converterContagemParaCombo(contagemAtual, planos),
-            planos_por_linha: [...planosEscolhidos],
-            total_gb: gbAcumulado,
-            total_gb_com_bonus: totalGbComBonus,
-            total_valor: valorAcumulado,
-          };
-
-          if (
-            !melhorOfertaAlternativa ||
-            ofertaAtual.total_valor < melhorOfertaAlternativa.total_valor
-          ) {
-            melhorOfertaAlternativa = ofertaAtual;
-          } else if (
-            ofertaAtual.total_valor === melhorOfertaAlternativa.total_valor
-          ) {
-            if (
-              ofertaAtual.total_gb_com_bonus >
-              melhorOfertaAlternativa.total_gb_com_bonus
-            ) {
-              melhorOfertaAlternativa = ofertaAtual;
-            }
-          }
-        }
-        return;
-      }
-
-      const planosParaLinha = planosValidosPorLinha[indexLinha];
-
-      for (let i = 0; i < planosParaLinha.length; i++) {
-        const plano = planosParaLinha[i];
-        const planoOriginalIndex = plano.originalIndex;
-
-        contagemAtual[planoOriginalIndex] =
-          (contagemAtual[planoOriginalIndex] || 0) + 1;
-        planosEscolhidos.push({
-          gb: plano.gb,
-          valor: plano.valor,
-          bonus: plano.bonus,
-        });
-
-        gerarRecursivoEco(
-          indexLinha + 1,
-          gbAcumulado + plano.gb,
-          bonusAcumulado + plano.bonus,
-          this.arredondarCentavos(valorAcumulado + plano.valor),
-          contagemAtual,
-          planosEscolhidos,
-        );
-
-        planosEscolhidos.pop();
-        contagemAtual[planoOriginalIndex] -= 1;
-        if (contagemAtual[planoOriginalIndex] === 0) {
-          delete contagemAtual[planoOriginalIndex];
-        }
-      }
-    };
-
-    gerarRecursivoEco(0, 0, 0, 0, {}, []);
-
-    return melhorOfertaAlternativa;
   }
 
   public encontrarMelhorOfertaMaisGb(analiseAtual: any, ofertaEconomica?: any) {
@@ -264,12 +134,8 @@ export class AnalisadorPlanosHelper {
     const gbTotalEco = ofertaEconomica
       ? ofertaEconomica.total_gb_com_bonus
       : -1;
-    const valorBaseParaMargem = Math.max(analiseAtual.total_valor, valorEco);
 
-    const limiteDescontoMaximo = analiseAtual.total_linhas * 3;
-    const valorMinimoPermitido = this.arredondarCentavos(
-      analiseAtual.total_valor - limiteDescontoMaximo,
-    );
+    const valorBaseParaMargem = Math.max(analiseAtual.total_valor, valorEco);
 
     const planosValidosPorLinha = linhasReq.map((gbMinimo) => {
       return planos.filter((p) => p.gb >= gbMinimo);
@@ -293,33 +159,13 @@ export class AnalisadorPlanosHelper {
       );
       let melhorOferta: any = null;
 
-      const converterContagemParaCombo = (
-        contagem: Record<number, number>,
-        planosRef: any[],
-      ) => {
-        const combo = [];
-        for (const idxStr in contagem) {
-          const idx = Number(idxStr);
-          const qtd = contagem[idx];
-          if (qtd > 0) {
-            combo.push({
-              qtd,
-              gb: planosRef[idx].gb,
-              valor: planosRef[idx].valor,
-              bonus: planosRef[idx].bonus,
-            });
-          }
-        }
-        return combo;
-      };
-
       const gerarRecursivo = (
         indexLinha: number,
         gbAcumulado: number,
         bonusAcumulado: number,
         valorAcumulado: number,
         contagemAtual: Record<number, number>,
-        planosEscolhidos: any[],
+        planosEscolhidos: any[], 
       ) => {
         const custoNecessarioRestante =
           indexLinha < linhasReq.length ? sufixoCustoMinimo[indexLinha] : 0;
@@ -333,9 +179,6 @@ export class AnalisadorPlanosHelper {
 
         if (indexLinha === linhasReq.length) {
           const totalGbComBonus = gbAcumulado + bonusAcumulado;
-          if (valorAcumulado < valorMinimoPermitido) {
-            return;
-          }
 
           if (valorAcumulado < valorBaseParaMargem) {
             return;
@@ -349,7 +192,7 @@ export class AnalisadorPlanosHelper {
 
           const ofertaAtual = {
             combo: converterContagemParaCombo(contagemAtual, planos),
-            planos_por_linha: [...planosEscolhidos],
+            planos_por_linha: [...planosEscolhidos], 
             total_gb: gbAcumulado,
             total_gb_com_bonus: totalGbComBonus,
             total_valor: valorAcumulado,
@@ -391,7 +234,7 @@ export class AnalisadorPlanosHelper {
             bonusAcumulado + plano.bonus,
             this.arredondarCentavos(valorAcumulado + plano.valor),
             contagemAtual,
-            planosEscolhidos,
+            planosEscolhidos, 
           );
 
           planosEscolhidos.pop();
@@ -403,8 +246,28 @@ export class AnalisadorPlanosHelper {
         }
       };
 
-      gerarRecursivo(0, 0, 0, 0, {}, []);
+      gerarRecursivo(0, 0, 0, 0, {}, []); 
       return melhorOferta;
+    };
+
+    const converterContagemParaCombo = (
+      contagem: Record<number, number>,
+      planosRef: any[],
+    ) => {
+      const combo = [];
+      for (const idxStr in contagem) {
+        const idx = Number(idxStr);
+        const qtd = contagem[idx];
+        if (qtd > 0) {
+          combo.push({
+            qtd,
+            gb: planosRef[idx].gb,
+            valor: planosRef[idx].valor,
+            bonus: planosRef[idx].bonus,
+          });
+        }
+      }
+      return combo;
     };
 
     let ofertaEncontrada = null;
