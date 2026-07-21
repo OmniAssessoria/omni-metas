@@ -171,7 +171,7 @@ export const API_OMNI_SINGLE = async ({
 
       const rawCustomFieldsObj = {
         "Título do Negócio": titleCard, 
-        "Origem": "ERP Interno",
+        "Origem": "Claro Sistemas (CPC + EDOC)",
         "Inicio do Contrato": dataInicioFormatada,
         "Final do Contrato": dataFimFormatada,
         "Tempo de Contrato": String(mesesContrato),
