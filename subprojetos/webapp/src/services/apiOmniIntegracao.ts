@@ -224,11 +224,20 @@ export const API_OMNI_SINGLE = async ({
 
       if (dealIdCriado) {
         console.log(`[Passo 2] ✅ Negócio criado (ID: ${dealIdCriado}). Iniciando anexos de arquivos Omni...`);
-        
+      
         await gerarEAnexarImagemOmni(dealIdCriado, servico, cnpjFormatado, "linhas"); 
 
         if (indicacaoNormalizada === "RENOVACAO") {
            await gerarEAnexarImagemOmni(dealIdCriado, servico, cnpjFormatado, "proposta");
+        }
+
+        const isCenarioPortabilidade = 
+          indicacaoNormalizada === "PORTABILIDADE" || 
+          indicacaoNormalizada === "PRAZO EXCEDIDO" || 
+          indicacaoNormalizada === "PRAZO LIMITADO";
+
+        if (isCenarioPortabilidade) {
+           await gerarEAnexarImagemOmni(dealIdCriado, servico, cnpjFormatado, "portabilidade");
         }
 
         if (servico.servico_docdrive) {

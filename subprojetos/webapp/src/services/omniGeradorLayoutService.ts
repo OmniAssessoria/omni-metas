@@ -104,14 +104,20 @@ export const gerarEAnexarImagemOmni = async (
   dealId: string, 
   servico: any,
   cnpjFormatado: string,
-  tipoLayout: "linhas" | "proposta"
+  tipoLayout: "linhas" | "proposta" | "portabilidade"
 ) => {
   try {
     console.log(`[Anexo] 📸 Solicitando renderização da imagem (${tipoLayout}) para ${servico.razao}...`);
     
-    const endpoint = tipoLayout === "linhas" 
-      ? "/api/servico-claro/layout/imagem-linhas" 
-      : "/api/servico-claro/layout/imagem-proposta";
+    let endpoint = "";
+    
+    if (tipoLayout === "linhas") {
+      endpoint = "/api/servico-claro/layout/imagem-linhas";
+    } else if (tipoLayout === "proposta") {
+      endpoint = "/api/servico-claro/layout/imagem-proposta";
+    } else if (tipoLayout === "portabilidade") {
+      endpoint = "/api/servico-claro/layout/imagem-proposta-portabilidade";
+    }
 
     const responseImagem = await axios.post(`${URL_API_LOCAL}${endpoint}`, {
       seq_empresa: servico.seq_empresa,
