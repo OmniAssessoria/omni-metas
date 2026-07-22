@@ -1,9 +1,11 @@
 import dayjs from "dayjs";
-import ServicoClaroRepository from "../repositories/servico_claro.repository";
-import { gerarHtmlGlassmorphism } from "../helpers/layout_imagem_linhas.helper";
 import puppeteer, { Browser, Page } from "puppeteer";
-import { gerarHtmlPropostaCompleta } from "../helpers/layout_imagem_proposta.helper";
+import ServicoClaroRepository from "../repositories/servico_claro.repository"
+import { AnalisadorPlanosPortabilidadeHelper } from "../helpers/algoritmo_analistar_proposta_plano_portabilidade.helper";
+import { gerarHtmlPropostaPortabilidade } from "../helpers/layout_imagem_proposta_portabilidade.helper";
+import { gerarHtmlGlassmorphism } from "../helpers/layout_imagem_linhas.helper";
 import { AnalisadorPlanosHelper } from "../helpers/algoritmo_analisar_proposta_plano.helper";
+import { gerarHtmlPropostaCompleta } from "../helpers/layout_imagem_proposta.helper";
 
 export default class GeradorImagemLayoutService {
   private repository: ServicoClaroRepository;
@@ -298,6 +300,112 @@ export default class GeradorImagemLayoutService {
             console.error("Erro ao fechar browser (proposta)", e),
           );
       }
+    }
+  }
+
+  async gerarImagemPropostaPortabilidade(
+    seq_empresa: number,
+    razao: string,
+    cnpj: string,
+  ) {
+    const linhasDb =
+      await this.repository.buscarLinhasPorSeqEmpresa(seq_empresa);
+
+    if (!linhasDb || linhasDb.length === 0) {
+      throw new Error(`Nenhuma linha encontrada para a empresa ${seq_empresa}`);
+    }
+
+    const analisador = new AnalisadorPlanosPortabilidadeHelper();
+    const analiseAtual = analisador.analisarPlanosCliente(linhasDb);
+    const ofertaEconomica =
+      analisador.encontrarMelhorOfertaEconomica(analiseAtual);
+    const ofertaMaisGb = analisador.encontrarMelhorOfertaMaisGb(
+      analiseAtual,
+      ofertaEconomica,
+    );
+
+    const dataProposta = {
+      empresa: { razao_social: razao, cnpj: cnpj },
+      situacao_atual: analiseAtual,
+      oferta_economica: ofertaEconomica,
+      oferta_mais_gb: ofertaMaisGb,
+      data_geracao: dayjs().format("DD/MM/YYYY HH:mm"),
+    };
+
+    const htmlCompleto = gerarHtmlPropostaPortabilidade(dataProposta);
+
+    let browser: Browser | null = null;
+    let page: Page | null = null;
+
+    try {
+      console.log(
+        `[Puppeteer] Renderizando PORTABILIDADE VIVO para a empresa: ${razao}`,
+      );
+
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+        ],
+      });
+
+      page = await browser.newPage();
+      await page.setViewport({
+        width: 1200,
+        height: 1000,
+        deviceScaleFactor: 2,
+      });
+      await page.setContent(htmlCompleto, { waitUntil: "load" });
+      await page.evaluateHandle("document.fonts.ready");
+
+      const documentHeight = await page.evaluate(() => {
+        return Math.max(
+          document.body.scrollHeight,
+          document.documentElement.scrollHeight,
+          document.body.offsetHeight,
+        );
+      });
+
+      await page.setViewport({
+        width: 1200,
+        height: documentHeight + 100,
+        deviceScaleFactor: 2,
+      });
+      const base64Screenshot = await page.screenshot({
+        encoding: "base64",
+        fullPage: true,
+      });
+
+      return {
+        imagem_base64: `data:image/png;base64,${base64Screenshot}`,
+        analise: {
+          linhas_processadas: analiseAtual.total_linhas,
+          valor_atual: analiseAtual.total_valor,
+          valor_oferta_economica: ofertaEconomica
+            ? ofertaEconomica.total_valor
+            : null,
+          economia_projetada_24m: ofertaEconomica
+            ? (analiseAtual.total_valor - ofertaEconomica.total_valor) * 24
+            : 0,
+          ganho_gb_turbo: ofertaMaisGb
+            ? ofertaMaisGb.total_gb_com_bonus - analiseAtual.total_gb
+            : 0,
+        },
+      };
+    } catch (error: any) {
+      console.error(
+        `[Puppeteer Erro] Falha ao renderizar portabilidade VIVO:`,
+        error,
+      );
+      throw new Error(
+        `Falha no motor de renderização da proposta VIVO: ${error.message}`,
+      );
+    } finally {
+      if (page) await page.close().catch((e: any) => console.error(e));
+      if (browser) await browser.close().catch((e: any) => console.error(e));
     }
   }
 }

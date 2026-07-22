@@ -29,6 +29,8 @@ class ServicoClaroController {
       this.buscarDashboardEmpresasCarteiraInfo.bind(this);
     this.gerarLayoutImagemLinhas = this.gerarLayoutImagemLinhas.bind(this);
     this.gerarLayoutImagemProposta = this.gerarLayoutImagemProposta.bind(this);
+    this.gerarLayoutImagemPropostaPortabilidade =
+      this.gerarLayoutImagemPropostaPortabilidade.bind(this);
   }
 
   async buscarServicosClaroPipePortabilidade(
@@ -389,6 +391,56 @@ class ServicoClaroController {
     } catch (error: any) {
       console.error(
         `[API POST ERROR] Falha ao gerar proposta comercial:`,
+        error.message,
+      );
+      res.status(500).json({
+        status: false,
+        mensagem:
+          "Erro interno na renderização da proposta comercial multiplano.",
+        detalhes: error.message,
+      });
+    }
+  }
+
+  async gerarLayoutImagemPropostaPortabilidade(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const { seq_empresa, razao, cnpj } = req.body;
+
+      console.log(
+        `[API POST] Gerando PROPOSTA PORTABILIDADE em Base64 para Empresa SEQ: ${seq_empresa} | ${razao}`,
+      );
+
+      if (!seq_empresa || isNaN(Number(seq_empresa))) {
+        res.status(400).json({
+          status: false,
+          mensagem:
+            "O parâmetro seq_empresa é obrigatório e deve ser numérico.",
+        });
+        return;
+      }
+
+      const resultado =
+        await this.geradorImagemLayoutService.gerarImagemPropostaPortabilidade(
+          Number(seq_empresa),
+          razao || "Empresa Não Informada",
+          cnpj || "CNPJ Não Informado",
+        );
+
+      res.status(200).json({
+        status: true,
+        mensagem:
+          "Proposta Comercial de Portabilidade gerada em Base64 com sucesso.",
+        dados: {
+          imagem: resultado.imagem_base64,
+          metricas: resultado.analise,
+        },
+      });
+    } catch (error: any) {
+      console.error(
+        `[API POST ERROR] Falha ao gerar proposta comercial de portabilidade:`,
         error.message,
       );
       res.status(500).json({

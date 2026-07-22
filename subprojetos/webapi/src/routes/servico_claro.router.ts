@@ -64,6 +64,10 @@ class RotasServicoClaro {
       "/servico-claro/layout/imagem-proposta",
       this.servicoClaroController.gerarLayoutImagemProposta,
     );
+    this.router.post(
+      "/servico-claro/layout/imagem-proposta-portabilidade",
+      this.servicoClaroController.gerarLayoutImagemPropostaPortabilidade,
+    );
   }
 
   public retornarRotas(): Router {
