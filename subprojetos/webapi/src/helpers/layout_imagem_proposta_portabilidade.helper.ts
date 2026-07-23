@@ -274,7 +274,7 @@ export function gerarHtmlPropostaPortabilidade(proposta: any): string {
          eco
            ? `
             <div class="glass table-section">
-                <h2>💰 Detalhamento - Plano Econômico</h2>
+                <h2>💰 Plano mais Econômico</h2>
                 ${gerarTabelaProposta(eco)}
             </div>`
            : ""
@@ -284,7 +284,7 @@ export function gerarHtmlPropostaPortabilidade(proposta: any): string {
           turbo
             ? `
             <div class="glass table-section">
-                <h2>🚀 Detalhamento - Plano Mais Dados</h2>
+                <h2>🚀 Plano Turbo Mais Dados</h2>
                 ${gerarTabelaProposta(turbo)}
             </div>`
             : ""
