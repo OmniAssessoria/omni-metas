@@ -1,11 +1,11 @@
 export const PLANOS_VIVO_DISPONIVEIS = [
-  { gb: 6, valor: 39.99, bonus: 10 },
-  { gb: 15, valor: 54.99, bonus: 10 },
-  { gb: 20, valor: 59.99, bonus: 10 },
-  { gb: 30, valor: 69.99, bonus: 10 },
-  { gb: 40, valor: 79.99, bonus: 10 },
-  { gb: 50, valor: 89.99, bonus: 10 },
-  { gb: 100, valor: 99.99, bonus: 10 },
+  { gb: 6, valor: 39.99, bonus: 0 },
+  { gb: 15, valor: 54.99, bonus: 0 },
+  { gb: 20, valor: 59.99, bonus: 0 },
+  { gb: 30, valor: 69.99, bonus: 0 },
+  { gb: 40, valor: 79.99, bonus: 0 },
+  { gb: 50, valor: 89.99, bonus: 0 },
+  { gb: 100, valor: 99.99, bonus: 0 },
 ];
 
 export class AnalisadorPlanosPortabilidadeHelper {
@@ -79,8 +79,6 @@ export class AnalisadorPlanosPortabilidadeHelper {
   public encontrarMelhorOfertaEconomica(analiseAtual: any) {
     const planos = PLANOS_VIVO_DISPONIVEIS;
     const linhasReq = analiseAtual.linhas_requisitos as number[];
-
-    // 👇 ALTERAÇÃO AQUI: 0.82 garante que a queda máxima será de 18%
     const limiteMinimo = this.arredondarCentavos(
       analiseAtual.total_valor * 0.82,
     );
@@ -131,8 +129,9 @@ export class AnalisadorPlanosPortabilidadeHelper {
     const planos = PLANOS_VIVO_DISPONIVEIS;
     const linhasReq = analiseAtual.linhas_requisitos as number[];
     const limiteMaximo = this.arredondarCentavos(
-      analiseAtual.total_valor * 1.2,
+      analiseAtual.total_valor * 1.30,
     );
+    
     const alvoGb = Math.max(
       analiseAtual.total_gb,
       ofertaEconomica ? ofertaEconomica.total_gb_com_bonus : 0,
@@ -147,14 +146,8 @@ export class AnalisadorPlanosPortabilidadeHelper {
         )
       : linhasReq.map(() => planos[0]);
 
-    let totalValor = planosEscolhidos.reduce(
-      (acc: number, p: any) => acc + p.valor,
-      0,
-    );
-    let totalGbComBonus = planosEscolhidos.reduce(
-      (acc: number, p: any) => acc + p.gb + p.bonus,
-      0,
-    );
+    let totalValor = planosEscolhidos.reduce((acc: number, p: any) => acc + p.valor, 0);
+    let totalGb = planosEscolhidos.reduce((acc: number, p: any) => acc + p.gb, 0);
 
     const indicesOrdenados = linhasReq
       .map((gb, idx) => ({ gb, idx }))
@@ -175,18 +168,16 @@ export class AnalisadorPlanosPortabilidadeHelper {
           const novoTotalValor = this.arredondarCentavos(
             totalValor - planoAtual.valor + proximoPlano.valor,
           );
-          const novoTotalGb =
-            totalGbComBonus -
-            (planoAtual.gb + planoAtual.bonus) +
-            (proximoPlano.gb + proximoPlano.bonus);
+          const novoTotalGb = totalGb - planoAtual.gb + proximoPlano.gb;
+          const novoTotalGbComBonus = novoTotalGb + 10;
 
           if (novoTotalValor <= limiteMaximo) {
             planosEscolhidos[idx] = proximoPlano;
             totalValor = novoTotalValor;
-            totalGbComBonus = novoTotalGb;
+            totalGb = novoTotalGb;
             houveMudanca = true;
 
-            if (totalGbComBonus > alvoGb && totalValor > valorEco) {
+            if (novoTotalGbComBonus > alvoGb && totalValor > valorEco) {
               return this.compilarOferta(planosEscolhidos);
             }
           }
@@ -200,20 +191,17 @@ export class AnalisadorPlanosPortabilidadeHelper {
   private compilarOferta(planosEscolhidos: any[]) {
     let totalValor = 0;
     let totalGb = 0;
-    let totalGbComBonus = 0;
     const contagemPlanos: Record<number, any> = {};
 
     planosEscolhidos.forEach((plano, idxOriginal) => {
       totalValor += plano.valor;
       totalGb += plano.gb;
-      totalGbComBonus += plano.gb + plano.bonus;
 
       const idxBusca = PLANOS_VIVO_DISPONIVEIS.indexOf(plano);
       if (!contagemPlanos[idxBusca]) {
         contagemPlanos[idxBusca] = {
           gb: plano.gb,
           valor: plano.valor,
-          bonus: plano.bonus,
           qtd: 0,
         };
       }
@@ -224,7 +212,7 @@ export class AnalisadorPlanosPortabilidadeHelper {
       combo: Object.values(contagemPlanos),
       planos_por_linha: [...planosEscolhidos],
       total_gb: totalGb,
-      total_gb_com_bonus: totalGbComBonus,
+      total_gb_com_bonus: totalGb + 10, 
       total_valor: this.arredondarCentavos(totalValor),
     };
   }

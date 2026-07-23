@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import puppeteer, { Browser, Page } from "puppeteer";
-import ServicoClaroRepository from "../repositories/servico_claro.repository"
+import ServicoClaroRepository from "../repositories/servico_claro.repository";
 import { AnalisadorPlanosPortabilidadeHelper } from "../helpers/algoritmo_analistar_proposta_plano_portabilidade.helper";
 import { gerarHtmlPropostaPortabilidade } from "../helpers/layout_imagem_proposta_portabilidade.helper";
 import { gerarHtmlGlassmorphism } from "../helpers/layout_imagem_linhas.helper";
@@ -391,7 +391,7 @@ export default class GeradorImagemLayoutService {
             ? (analiseAtual.total_valor - ofertaEconomica.total_valor) * 24
             : 0,
           ganho_gb_turbo: ofertaMaisGb
-            ? ofertaMaisGb.total_gb_com_bonus - analiseAtual.total_gb
+            ? ofertaMaisGb.total_gb + 10 - analiseAtual.total_gb // Atualizado para a nova visualização
             : 0,
         },
       };
