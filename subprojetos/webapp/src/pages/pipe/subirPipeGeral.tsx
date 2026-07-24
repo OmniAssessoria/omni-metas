@@ -1062,7 +1062,7 @@ export default function PipeSubirGeral() {
               </Button>
             </div>
 
-            <div className="w-full bg-muted/10 rounded-lg border border-border p-6 max-h-[550px] overflow-y-auto">
+            <div className="w-full bg-muted/10 rounded-lg border border-border p-6 max-h-[900px] overflow-y-auto">
               {loadingBolhas && dadosPipelineBolhas.length === 0 ? (
                 <div className="w-full h-[300px] flex flex-col items-center justify-center text-muted-foreground">
                   <Loader2 className="h-8 w-8 animate-spin mb-2 text-primary" />{" "}
