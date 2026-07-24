@@ -1,7 +1,7 @@
 import axios from "axios";
 
 class LocalStorageService {
-  private readonly BASE_API_URL = "http://192.168.0.168:8090/api";
+  private readonly BASE_API_URL = "http://192.168.0.168:5000/api";
 
   constructor() {
     console.log(
@@ -218,7 +218,7 @@ class LocalStorageService {
       console.log(
         `[Storage API - PDF] ✅ Conversão do arquivo PDF para Base64 concluída com sucesso.`,
       );
-      
+
       return `data:${mimeType};base64,${base64}`;
     } catch (error: any) {
       if (error.response && error.response.status === 404) {
