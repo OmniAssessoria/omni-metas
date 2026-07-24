@@ -135,35 +135,14 @@ export const API_OMNI_SINGLE = async ({
         }
       }
 
-      const contactsPayload: any[] = [];
-
-      if (temDecisor) {
-        contactsPayload.push({
-          name: decisorNome || "Decisor Não Informado",
-          email: decisorEmail,
-          roleHint: "Decisor",
-          isPrimary: true,
-          isDecisionMaker: true,
-          phones: decisorPhonesArray.length > 0 ? decisorPhonesArray : null
-        });
-      }
-
-      if (linhasPhonesArray.length > 0) {
-        contactsPayload.push({
-          name: "Linhas da Empresa",
-          roleHint: "Linhas móveis Claro",
-          isPrimary: contactsPayload.length === 0,
-          isDecisionMaker: false,
-          phones: linhasPhonesArray
-        });
-      }
-
       let infoDecisorStr = "";
       if (temDecisor) {
-        infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > CPF: ${decisorCpf || "NÃO INFORMADO"} < ||||| > TELEFONES: ${decisorPhonesArray.map(p => p.number).join(', ') || "NÃO INFORMADO"} ||||| EMAILS: ${decisorEmail || "NÃO INFORMADO"}`;
+        const telefonesFormatadosString = decisorPhonesArray.length > 0 
+          ? decisorPhonesArray.map(p => p.number).join(', ') 
+          : "NÃO INFORMADO";
+          
+        infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > CPF: ${decisorCpf || "NÃO INFORMADO"} < ||||| > TELEFONES: ${telefonesFormatadosString} ||||| EMAILS: ${decisorEmail || "NÃO INFORMADO"} |||| Número Válido Whatsapp: ${servico.decisor_numero_valido_meta || "NÃO INFORMADO"}`;
       }
-
-      const link_db = servico.servico_docdrive ? "http://acesso.edoc.omni.assessoria | http://192.168.0.168:8090" : "N/A";
 
       const titleCard = isExclusivo
         ? `(${dddFinal}) DDD 11 >> ${servico.razao}`
@@ -176,21 +155,29 @@ export const API_OMNI_SINGLE = async ({
         "Final do Contrato": dataFimFormatada,
         "Tempo de Contrato": String(mesesContrato),
         "DDD": dddFinal,
-        "Quantidade de linhas móveis": String(servico.qtd_servico_claro),
         "Endereço": String(servico.endereco) || "",
         "FIXA": String(servico.fixa) || "",
-        "DOCDRIVE": servico.servico_docdrive || "",
-        "link_docdrive": link_db,
         "Observacao": formatarObservacaoPlanosLinhas(servico.observacao),
         "Indicacao": isExclusivo ? `DDD 11: ${servico.indicacao || "N/A"}` : servico.indicacao,
         "Carteira": servico.carteira || "",
         "Informações DECISOR (Possível decisor)": infoDecisorStr,
-        "Número Válido Decisor WhatsApp": servico.decisor_numero_valido_meta || null,
         "Google Fontes Nome Fantasia": servico.decisor_google_fontes_nomes_fantasia || "",
         "Google Fontes Telefones": servico.decisor_google_fontes_telefones || "",
         "Google Fontes Emails": servico.decisor_google_fontes_emails || "",
         "Google Fontes Sites da Empresa": servico.decisor_google_fontes_emails
       };
+
+      const contactsPayload: any[] = [];
+
+      if (linhasPhonesArray.length > 0) {
+        contactsPayload.push({
+          name: "Linhas da Empresa",
+          roleHint: "Linhas móveis Claro",
+          isPrimary: true,
+          isDecisionMaker: false,
+          phones: linhasPhonesArray
+        });
+      }
 
       const pipelineDefinido = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
       const stageDefinido = "manual_12342f70-1730-43eb-8ee8-ea9cf8674637";
