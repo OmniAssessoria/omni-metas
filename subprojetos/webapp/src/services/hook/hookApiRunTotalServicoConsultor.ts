@@ -1,197 +1,91 @@
+import axios from "axios";
 import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
-import { buscarOportunidadesGenericaPorPeriodo, buscarTodasOportunidadesPipeline } from "../apiPieperunTotalServicoConsultor";
 
-
-const PIPELINE_IDS = {
-  CARTEIRA: 93990,
-  RENOVACAO: 90697,
-  PORTABILIDADE: 102509,
+const MAPA_CONSULTORES: Record<string, { nome: string; perfil: string }> = {
+  "otavio.souza@omniassessoria.com.br": { nome: "Otavio Souza", perfil: "BDR" },
+  "nathalia.dadalte@omniassessoria.com.br": { nome: "Nathália Dadalte", perfil: "BDR" },
+  "aline.araujo@omniassessoria.com.br": { nome: "Aline Araujo", perfil: "BDR" },
+  "julia.penaforte@omniassessoria.com.br": { nome: "Julia Penaforte", perfil: "BDR" },
+  "auditoria.rp@omniassessoria.com.br": { nome: "Letícia Petean", perfil: "BDR" },
+  "carolina.souza@omniassessoria.com.br": { nome: "Carolina Souza", perfil: "RENOVACAO" },
+  "aderlane.mendes@omniassessoria.com.br": { nome: "Aderlane Mendes", perfil: "RENOVACAO" },
+  "natalia.ribeiro@omniassessoria.com.br": { nome: "Natalia Ribeiro", perfil: "RENOVACAO" },
+  "gabrieli.lima@omniassessoria.com.br": { nome: "Gabrieli Lima", perfil: "PORTABILIDADE" },
+  "leticia.ohara@omniassessoria.com.br": { nome: "Letícia Ohara", perfil: "PORTABILIDADE" },
 };
 
-const FUNIS_ABERTOS_E_PERDIDOS = [
-  90697, 102509, 94063, 93990, 91356, 103176, 91369, 77127,
-];
+async function fetchTodosLeadsOmni(status: "open" | "won" | "lost" = "open"): Promise<any[]> {
+  const limit = 200;
+  let page = 1;
+  let hasMore = true;
+  let allDeals: any[] = [];
+  const token = import.meta.env.VITE_TOKEN_API_KEY;
 
-const HASHES_GANHOS = [
-  "c1d9312f-db68-4379-8820-a5d3619ec002",
-  "6b9a2da5-c640-48c3-8cf5-adb63a726a27",
-];
+  if (!token) {
+    throw new Error("Token de autenticação (AXION_API_KEY) não encontrado.");
+  }
 
-const regrasPerfisExatos: Record<number, string> = {
-  89614: "RENOVACAO",
-  89613: "RENOVACAO",
-  95586: "RENOVACAO",
-  100201: "RENOVACAO",
-  100980: "RENOVACAO",
-  99648: "RENOVACAO",
-  100979: "RENOVACAO",
-  102074: "RENOVACAO",
-  102075: "RENOVACAO",
-  102076: "RENOVACAO",
-  103360: "RENOVACAO",
-  103358: "RENOVACAO",
-  103356: "RENOVACAO",
-  100703: "PORTABILIDADE",
-  58448: "PORTABILIDADE",
-  58488: "RENOVACAO",
-  59215: "RENOVACAO",
-  92696: "CARTEIRA",
-  97363: "CARTEIRA",
-};
+  while (hasMore) {
+    try {
+      const url = `https://omniassessoria.online/api/local/v1/deals?limit=${limit}&status=${status}&sort=updatedAt:desc&page=${page}`;
+      
+      const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const deals = response.data?.data || response.data?.deals || response.data;
+
+      if (!Array.isArray(deals) || deals.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      allDeals = [...allDeals, ...deals];
+
+      if (deals.length < limit) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    } catch (error) {
+      console.error(`[Omni CRM] Erro ao buscar página ${page}:`, error);
+      hasMore = false; 
+    }
+  }
+
+  return allDeals;
+}
+
 
 export async function compilarOportunidadesDinamico(
-  consultoresDinamic: IConsultor[],
+  consultoresDinamic: IConsultor[]
 ) {
-  const [dealsCarteira, dealsRenovacao, dealsPortabilidade] = await Promise.all(
-    [
-      buscarTodasOportunidadesPipeline(PIPELINE_IDS.CARTEIRA),
-      buscarTodasOportunidadesPipeline(PIPELINE_IDS.RENOVACAO),
-      buscarTodasOportunidadesPipeline(PIPELINE_IDS.PORTABILIDADE),
-    ],
-  );
+  const todosDeals = await fetchTodosLeadsOmni("open");
+  const contadores: Record<string, number> = {};
+  Object.keys(MAPA_CONSULTORES).forEach((email) => {
+    contadores[email.toLowerCase()] = 0;
+  });
 
-  const todosDeals = [
-    ...dealsCarteira,
-    ...dealsRenovacao,
-    ...dealsPortabilidade,
-  ];
+  todosDeals.forEach((deal) => {
+    const emailConsultor = deal.user?.email || deal.owner?.email || deal.email;
 
-  const resultadoFinal = consultoresDinamic.map((consultor) => {
-    const perfilOperacional =
-      regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
-    let pipelinesPermitidos: number[] = [];
+    if (emailConsultor) {
+      const emailNormalizado = emailConsultor.toLowerCase().trim();
 
-    if (perfilOperacional === "CARTEIRA")
-      pipelinesPermitidos = [PIPELINE_IDS.CARTEIRA];
-    else if (perfilOperacional === "PORTABILIDADE")
-      pipelinesPermitidos = [PIPELINE_IDS.PORTABILIDADE];
-    else if (perfilOperacional === "AMBOS")
-      pipelinesPermitidos = [
-        PIPELINE_IDS.RENOVACAO,
-        PIPELINE_IDS.PORTABILIDADE,
-      ];
-    else pipelinesPermitidos = [PIPELINE_IDS.RENOVACAO];
+      if (contadores[emailNormalizado] !== undefined) {
+        contadores[emailNormalizado]++;
+      }
+    }
+  });
 
-    const totalDoConsultor = todosDeals.filter(
-      (deal) =>
-        deal.owner_id === consultor.owner_id &&
-        pipelinesPermitidos.includes(deal.pipeline_id),
-    ).length;
-
+  const resultadoFinal = Object.keys(contadores).map((email) => {
+    const info = MAPA_CONSULTORES[email];
     return {
-      nome: consultor.nome,
-      perfil: perfilOperacional,
-      total: totalDoConsultor,
+      nome: info.nome,
+      perfil: info.perfil,
+      total: contadores[email],
     };
   });
 
   return resultadoFinal.filter((c) => c.total > 0);
-}
-
-export async function compilarRelatorioPerdas(
-  consultoresDinamic: IConsultor[],
-  dataInicio: string,
-  dataFim: string,
-) {
-  console.log(
-    `[PipeRun] Extraindo Safra (Criados entre ${dataInicio} e ${dataFim})...`,
-  );
-  const promessasPipelines = FUNIS_ABERTOS_E_PERDIDOS.map((pipelineId) =>
-    buscarOportunidadesGenericaPorPeriodo(
-      { pipeline_id: pipelineId },
-      dataInicio,
-      dataFim,
-    ),
-  );
-
-  const promessasHashes = HASHES_GANHOS.map((hash) =>
-    buscarOportunidadesGenericaPorPeriodo(
-      { stage_hash: hash, status: 1 },
-      dataInicio,
-      dataFim,
-    ),
-  );
-
-  const resultadosPipelines = await Promise.all(promessasPipelines);
-  const resultadosHashes = await Promise.all(promessasHashes);
-
-  const todosDealsFunis = resultadosPipelines.flat();
-  const todosDealsGanhos = resultadosHashes.flat();
-
-  const resultadoFinal = consultoresDinamic.map((consultor) => {
-    const perfilOperacional =
-      regrasPerfisExatos[consultor.owner_id] || "RENOVACAO";
-
-    const dealsConsultorFunis = todosDealsFunis.filter(
-      (deal) => deal.owner_id === consultor.owner_id,
-    );
-
-    const dealsConsultorGanhos = todosDealsGanhos.filter(
-      (deal) => deal.owner_id === consultor.owner_id,
-    );
-
-    let totalAbertos = 0;
-    let totalPerdidos = 0;
-    let totalGanhos = 0;
-
-    // ====================================================================
-    // REGRA 1: GANHOS
-    // Avalia a data de CRIAÇÃO (já garantido pelo fetch da API) em
-    // conjunção estrita com a data de FECHAMENTO (avaliada via código).
-    // O status 1 na requisição garante que é um ganho real.
-    // ====================================================================
-    dealsConsultorGanhos.forEach((deal) => {
-      const dataFechamentoCompleta = deal.closed_at || deal.updated_at || "";
-      const dataFechamentoValida = dataFechamentoCompleta.split(" ")[0];
-
-      if (
-        dataFechamentoValida >= dataInicio &&
-        dataFechamentoValida <= dataFim
-      ) {
-        totalGanhos++;
-      }
-    });
-
-    // Processamento de Funis (Abertos e Perdidos)
-    dealsConsultorFunis.forEach((deal) => {
-      if (deal.status === 0) {
-        // ====================================================================
-        // REGRA 2: ABERTOS
-        // Avalia SOMENTE a data de criação (já garantido pelo fetch da API).
-        // ====================================================================
-        totalAbertos++;
-      } else if (deal.status === 3) {
-        // ====================================================================
-        // REGRA 3: PERDIDOS
-        // Avalia a data de CRIAÇÃO (via API) + Data de DECLÍNIO (via Código).
-        // ====================================================================
-        const dataDeclinioCompleta = deal.closed_at || deal.updated_at || "";
-        const dataDeclinioValida = dataDeclinioCompleta.split(" ")[0];
-
-        if (dataDeclinioValida >= dataInicio && dataDeclinioValida <= dataFim) {
-          totalPerdidos++;
-        }
-      }
-    });
-
-    return {
-      nome: consultor.nome,
-      perfil: perfilOperacional,
-      totalGanhos,
-      totalPerdidos,
-      totalAbertos,
-    };
-  });
-
-  return resultadoFinal
-    .filter(
-      (c) => c.totalGanhos > 0 || c.totalPerdidos > 0 || c.totalAbertos > 0,
-    )
-    .sort(
-      (a, b) =>
-        b.totalGanhos +
-        b.totalPerdidos +
-        b.totalAbertos -
-        (a.totalGanhos + a.totalPerdidos + a.totalAbertos),
-    );
 }
