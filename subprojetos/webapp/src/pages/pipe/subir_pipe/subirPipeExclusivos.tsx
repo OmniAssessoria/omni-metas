@@ -855,6 +855,9 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
                             Fim Contrato
                           </TableHead>
                           <TableHead className="text-right bg-muted">
+                            Docdrive
+                          </TableHead>
+                          <TableHead className="text-right bg-muted">
                             Última Leitura
                           </TableHead>
                           <TableHead className="text-center bg-muted">
@@ -949,6 +952,9 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
                               </TableCell>
                               <TableCell className="text-right text-white">
                                 {formatarDataApenasDia(item.dt_fim_contrato)}
+                              </TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                {item.servico_docdrive || "-"}
                               </TableCell>
                               <TableCell className="text-right whitespace-nowrap">
                                 <span className="text-white mr-2">
