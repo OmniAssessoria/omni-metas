@@ -4,8 +4,10 @@ import API from "./api";
 import { formatarCNPJ, limparPontuacao } from "@/utils/formataDados.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
+
 import {
   extrairEAnexarDecisorOmni,
+  extrairEAnexarPdfDecisorOmni,
   gerarEAnexarImagemOmni,
 } from "./omniGeradorLayoutService";
 
@@ -43,6 +45,7 @@ export const enviarLeadOmniCrmBdr = async (
     const isExclusivo = tipoOperacao === "Exclusivo";
     const cnpjLimpo = limparPontuacao(lead.cnpj);
     const cnpjFormatado = formatarCNPJ(lead.cnpj);
+
     const resultDecisor = extrairEFormatarTelefonesDecisor(
       lead.numero_decisor,
       "",
@@ -75,6 +78,7 @@ export const enviarLeadOmniCrmBdr = async (
     const link_db = lead.docdrive
       ? "http://acesso.edoc.omni.assessoria | http://192.168.0.168:8090"
       : "N/A";
+
     const decisorNome =
       lead.nome_decisor && lead.nome_decisor.trim() !== ""
         ? lead.nome_decisor.trim().toUpperCase()
@@ -83,6 +87,7 @@ export const enviarLeadOmniCrmBdr = async (
       lead.email_decisor && lead.email_decisor.trim() !== ""
         ? lead.email_decisor.trim()
         : null;
+
     const decisorPhonesArray: any[] = [];
     const numeroDecisorBruto =
       resultDecisor.telefonesFormatados || lead.numero_decisor;
@@ -101,17 +106,16 @@ export const enviarLeadOmniCrmBdr = async (
     const temDecisor = Boolean(
       decisorNome || decisorPhonesArray.length > 0 || decisorEmail,
     );
-    const contactsPayload: any[] = [];
+
+    let infoDecisorStr = "";
 
     if (temDecisor) {
-      contactsPayload.push({
-        name: decisorNome || "Decisor Não Informado",
-        email: decisorEmail,
-        roleHint: "Decisor",
-        isPrimary: true,
-        isDecisionMaker: true,
-        phones: decisorPhonesArray.length > 0 ? decisorPhonesArray : null,
-      });
+      const telefonesFormatadosString =
+        decisorPhonesArray.length > 0
+          ? decisorPhonesArray.map((p) => p.number).join(", ")
+          : "NÃO INFORMADO";
+
+      infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > TELEFONES: ${telefonesFormatadosString} ||||| EMAILS: ${decisorEmail || "NÃO INFORMADO"}`;
     }
 
     const linesPhonesArray: any[] = [];
@@ -126,19 +130,16 @@ export const enviarLeadOmniCrmBdr = async (
       }
     }
 
+    const contactsPayload: any[] = [];
+
     if (linesPhonesArray.length > 0) {
       contactsPayload.push({
         name: "Linhas da Empresa",
         roleHint: "Linhas móveis Claro",
-        isPrimary: contactsPayload.length === 0,
+        isPrimary: true,
         isDecisionMaker: false,
         phones: linesPhonesArray,
       });
-    }
-
-    let infoDecisorStr = "";
-    if (temDecisor) {
-      infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > TELEFONES: ${decisorPhonesArray.map((p) => p.number).join(", ") || "NÃO INFORMADO"} ||||| EMAILS: ${decisorEmail || "NÃO INFORMADO"}`;
     }
 
     const titleCard = `(${dddFinal}) BDR >> ${lead.razao}`;
@@ -190,15 +191,23 @@ export const enviarLeadOmniCrmBdr = async (
       console.log(
         `[Passo 2] ✅ Negócio criado (ID: ${dealIdCriado}). Processando Anexos e Atualização DB Local...`,
       );
+
       await gerarEAnexarImagemOmni(dealIdCriado, lead, cnpjFormatado, "linhas");
 
       if (lead.docdrive) {
-        await extrairEAnexarDecisorOmni(
-          dealIdCriado,
-          lead.docdrive,
-          cnpjLimpo,
-          lead.seq_empresa,
+        console.log(
+          `[Orquestrador BDR] Processando arquivos locais do Decisor para o Deal ${dealIdCriado}...`,
         );
+
+        await Promise.allSettled([
+          extrairEAnexarDecisorOmni(
+            dealIdCriado,
+            lead.docdrive,
+            cnpjLimpo,
+            lead.seq_empresa,
+          ),
+          extrairEAnexarPdfDecisorOmni(dealIdCriado, lead.docdrive, cnpjLimpo),
+        ]);
       }
 
       await API.patch(

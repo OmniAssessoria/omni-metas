@@ -81,7 +81,7 @@ export const extrairEAnexarDecisorOmni = async (
     const responseFetch = await fetch(base64DataStr);
     const blobImagem = await responseFetch.blob();
 
-    console.log(`[Anexo] 📎 Fazendo upload do Decisor para o Deal ${dealId} no Omni...`);
+    console.log(`[Anexo] 📎 Fazendo upload da Imagem do Decisor para o Deal ${dealId} no Omni...`);
     const sucesso = await uploadFileToOmni(
       dealId,
       blobImagem,
@@ -93,7 +93,53 @@ export const extrairEAnexarDecisorOmni = async (
       console.log(`[Anexo Omni] ✅ Imagem do Decisor anexada com sucesso!`);
     }
   } catch (err: any) {
-    console.error(`[Anexo Omni] ❌ Erro na cadeia do Decisor (Deal ${dealId}):`, err.message);
+    console.error(`[Anexo Omni] ❌ Erro na cadeia de Imagem do Decisor (Deal ${dealId}):`, err.message);
+  }
+};
+
+/**
+ * NOVA FUNÇÃO: Extrai o PDF do Python Local e envia para o Omni CRM
+ */
+export const extrairEAnexarPdfDecisorOmni = async (
+  dealId: string,
+  caminhoBancoUrl: string,
+  cnpjLimpo: string
+) => {
+  try {
+    if (!caminhoBancoUrl) return;
+
+    console.log(`[Storage] 🔎 Buscando PDF do Decisor no Servidor Local para CNPJ: ${cnpjLimpo}...`);
+    const response = await axios.post(
+      `${URL_API_LOCAL}/api/armazenamento-local/buscar-decisor-pdf`,
+      { url_pasta: caminhoBancoUrl, cnpj: cnpjLimpo }
+    );
+
+    const base64 = response.data?.pdfBase64; 
+    if (!base64) {
+      console.log(`[Storage] ⚠️ Nenhum PDF de decisor encontrado para o CNPJ ${cnpjLimpo}.`);
+      return;
+    }
+
+    const base64DataStr = base64.includes("data:application/pdf") 
+      ? base64 
+      : `data:application/pdf;base64,${base64}`;
+      
+    const responseFetch = await fetch(base64DataStr);
+    const blobPdf = await responseFetch.blob();
+
+    console.log(`[Anexo] 📎 Fazendo upload do PDF para o Deal ${dealId} no Omni...`);
+    const sucesso = await uploadFileToOmni(
+      dealId,
+      blobPdf,
+      `${cnpjLimpo}.pdf`, 
+      "application/pdf"   
+    );
+
+    if (sucesso) {
+      console.log(`[Anexo Omni] ✅ PDF do Decisor anexado com sucesso!`);
+    }
+  } catch (err: any) {
+    console.error(`[Anexo Omni] ❌ Erro na cadeia do PDF do Decisor (Deal ${dealId}):`, err.message);
   }
 };
 

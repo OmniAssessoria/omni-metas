@@ -16,6 +16,10 @@ class RotasDecisor {
       "/armazenamento-local/buscar-decisor",
       this.decisorController.buscarImagemDecisorLocal,
     );
+    this.router.post(
+      "/armazenamento-local/buscar-decisor-pdf",
+      this.decisorController.buscarPdfDecisorLocal,
+    );
   }
 
   public retornarRotas(): Router {

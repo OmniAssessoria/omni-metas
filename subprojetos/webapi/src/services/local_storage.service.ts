@@ -124,7 +124,7 @@ class LocalStorageService {
       const mimeType = ext === "png" ? "image/png" : "image/jpeg";
 
       console.log(
-        `[Storage API] ✅ Conversão para Base64 concluída com sucesso.`,
+        `[Storage API] ✅ Conversão da imagem para Base64 concluída com sucesso.`,
       );
       return `data:${mimeType};base64,${base64}`;
     } catch (error: any) {
@@ -137,6 +137,99 @@ class LocalStorageService {
 
       console.error(
         `[Storage API] ❌ Erro crítico ao consultar ou baixar arquivo do servidor local:`,
+        error.message,
+      );
+      throw new Error(
+        "Falha na comunicação com a API interna do Servidor de Arquivos (192.168.0.168).",
+      );
+    }
+  }
+
+  async buscarPdfDecisor(
+    caminhoBanco: string,
+    cnpj: string,
+  ): Promise<string | null> {
+    const cnpjLimpo = cnpj.replace(/\D/g, "");
+    const subpasta = this.normalizarSubpasta(caminhoBanco, cnpjLimpo);
+
+    try {
+      console.log(
+        `[Storage API - PDF] 🔎 Listando arquivos na subpasta física: ${subpasta}...`,
+      );
+
+      const resLista = await axios.get(`${this.BASE_API_URL}/listar`, {
+        params: { subpasta },
+        timeout: 10000,
+      });
+
+      const arquivos = resLista.data.conteudo;
+      if (!arquivos || arquivos.length === 0) {
+        console.log(`[Storage API - PDF] ⚠️ Pasta vazia no servidor.`);
+        return null;
+      }
+
+      const pdfsDisponiveis = arquivos.filter((item: any) => {
+        if (item.tipo !== "arquivo") return false;
+        return item.nome.toUpperCase().endsWith(".PDF");
+      });
+
+      if (pdfsDisponiveis.length === 0) {
+        console.log(
+          `[Storage API - PDF] ⚠️ Nenhum arquivo PDF localizado na pasta ${subpasta}.`,
+        );
+        return null;
+      }
+
+      let listaAlvoPdf = pdfsDisponiveis.filter((item: any) =>
+        item.nome.includes(cnpjLimpo),
+      );
+
+      if (listaAlvoPdf.length === 0) {
+        console.log(
+          `[Storage API - PDF] ⚠️ PDF específico do CNPJ ${cnpjLimpo} não encontrado. Usando fallback para capturar o PDF mais recente disponível...`,
+        );
+        listaAlvoPdf = pdfsDisponiveis;
+      }
+
+      listaAlvoPdf.sort((a: any, b: any) => {
+        return (
+          new Date(b.ultima_modificacao).getTime() -
+          new Date(a.ultima_modificacao).getTime()
+        );
+      });
+
+      const arquivoAlvo = listaAlvoPdf[0];
+      console.log(
+        `[Storage API - PDF] 📥 Fazendo download do PDF mais recente: ${arquivoAlvo.nome}`,
+      );
+
+      const caminhoRelativoDownload = `${subpasta}/${arquivoAlvo.nome}`;
+
+      const resArquivo = await axios.get(`${this.BASE_API_URL}/download`, {
+        params: { arquivo: caminhoRelativoDownload },
+        responseType: "arraybuffer",
+        timeout: 20000,
+      });
+
+      const buffer = Buffer.from(resArquivo.data, "binary");
+      const base64 = buffer.toString("base64");
+      const mimeType = "application/pdf";
+
+      console.log(
+        `[Storage API - PDF] ✅ Conversão do arquivo PDF para Base64 concluída com sucesso.`,
+      );
+      
+      return `data:${mimeType};base64,${base64}`;
+    } catch (error: any) {
+      if (error.response && error.response.status === 404) {
+        console.warn(
+          `[Storage API - PDF] ⚠️ A pasta ou o arquivo solicitado não existem fisicamente no servidor local (Erro 404). Subpasta tentada: ${subpasta}`,
+        );
+        return null;
+      }
+
+      console.error(
+        `[Storage API - PDF] ❌ Erro crítico ao consultar ou baixar arquivo PDF do servidor local:`,
         error.message,
       );
       throw new Error(

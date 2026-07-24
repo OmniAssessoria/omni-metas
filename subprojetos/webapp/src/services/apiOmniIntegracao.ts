@@ -1,11 +1,22 @@
 import axios from "axios";
 import { calcularMesesAteInicioContrato } from "@/utils/calcular_tempo_contrato_por_meses.util";
 import { obterDataInicioContrato } from "@/utils/calcular_dt_inicio_contrato.util";
-import { formatarCNPJ, formatarCPF, formatarDataBR, limparPontuacao } from "@/utils/formataDados.util";
+import {
+  formatarCNPJ,
+  formatarCPF,
+  formatarDataBR,
+  limparPontuacao,
+} from "@/utils/formataDados.util";
 import { extrairEFormatarTelefonesDecisor } from "@/utils/formatarTelefonesDecisor.util";
 import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLinhasEmpresa.util";
 import formatarObservacaoPlanosLinhas from "@/utils/formatarObservacao.util";
-import { extrairEAnexarDecisorOmni, gerarEAnexarImagemOmni, TOKEN_AXION, URL_OMNI_API } from "./omniGeradorLayoutService";
+import {
+  extrairEAnexarDecisorOmni,
+  extrairEAnexarPdfDecisorOmni, 
+  gerarEAnexarImagemOmni,
+  TOKEN_AXION,
+  URL_OMNI_API,
+} from "./omniGeradorLayoutService";
 
 export const API_OMNI_SINGLE = async ({
   servicos,
@@ -19,7 +30,9 @@ export const API_OMNI_SINGLE = async ({
   let pulados = 0;
 
   for (const servico of servicos) {
-    console.log(`\n================================================================`);
+    console.log(
+      `\n================================================================`,
+    );
     console.log(`[Omni API Single] Iniciando processamento: ${servico.razao}`);
 
     try {
@@ -27,23 +40,40 @@ export const API_OMNI_SINGLE = async ({
       const cnpjLimpo = limparPontuacao(servico.cnpj);
       const cnpjFormatado = formatarCNPJ(servico.cnpj);
 
-      const resultDecisor = extrairEFormatarTelefonesDecisor(servico.decisor_numero, servico.decisor_num_obs);
-      const resultEmpresa = extrairTelefonesEmpresaDaObservacao(servico.observacao);
-      
-      const dddFinal = resultEmpresa.dddPrincipal !== "00" ? resultEmpresa.dddPrincipal
-        : resultDecisor.dddPrincipal !== "00" ? resultDecisor.dddPrincipal : "00";
+      const resultDecisor = extrairEFormatarTelefonesDecisor(
+        servico.decisor_numero,
+        servico.decisor_num_obs,
+      );
+      const resultEmpresa = extrairTelefonesEmpresaDaObservacao(
+        servico.observacao,
+      );
 
-      const indicacaoNormalizada = (servico.indicacao || "").trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const dddFinal =
+        resultEmpresa.dddPrincipal !== "00"
+          ? resultEmpresa.dddPrincipal
+          : resultDecisor.dddPrincipal !== "00"
+            ? resultDecisor.dddPrincipal
+            : "00";
+
+      const indicacaoNormalizada = (servico.indicacao || "")
+        .trim()
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
 
       if (!isExclusivo) {
         const dddNumerico = parseInt(dddFinal, 10);
         if (isNaN(dddNumerico) || dddNumerico < 11 || dddNumerico > 19) {
-          console.warn(`[Omni] 🚧 PULADO (Fora de SP ou Inválido): ${servico.razao} possui DDD ${dddFinal}.`);
+          console.warn(
+            `[Omni] 🚧 PULADO (Fora de SP ou Inválido): ${servico.razao} possui DDD ${dddFinal}.`,
+          );
           pulados++;
           continue;
         }
         if (indicacaoNormalizada === "RENOVACAO" && dddFinal === "11") {
-          console.warn(`[Omni] 🚧 PULADO: ${servico.razao} possui DDD 11 e é de RENOVACAO.`);
+          console.warn(
+            `[Omni] 🚧 PULADO: ${servico.razao} possui DDD 11 e é de RENOVACAO.`,
+          );
           pulados++;
           continue;
         }
@@ -52,54 +82,73 @@ export const API_OMNI_SINGLE = async ({
       }
 
       const dataFimFormatada = formatarDataBR(servico.dt_fim_contrato);
-      const dataInicioFormatada = obterDataInicioContrato(servico.dt_fim_contrato);
+      const dataInicioFormatada = obterDataInicioContrato(
+        servico.dt_fim_contrato,
+      );
       const mesesContrato = calcularMesesAteInicioContrato(dataInicioFormatada);
-      const isCarteira = servico.carteira && String(servico.carteira).trim() !== "";
-      const emailConsultor = servico.consultor_email ? String(servico.consultor_email).trim().toLowerCase() : "";
+      const isCarteira =
+        servico.carteira && String(servico.carteira).trim() !== "";
+      const emailConsultor = servico.consultor_email
+        ? String(servico.consultor_email).trim().toLowerCase()
+        : "";
 
-      const decisorNome = servico.decisor_nome && servico.decisor_nome.trim() !== "" 
-        ? servico.decisor_nome.trim().toUpperCase() 
-        : null;
-      const decisorCpf = servico.decisor_cpf ? formatarCPF(servico.decisor_cpf.trim()) : "";
-      const decisorEmail = servico.decisor_email && servico.decisor_email.trim() !== "" 
-        ? servico.decisor_email.trim() 
-        : null;
+      const decisorNome =
+        servico.decisor_nome && servico.decisor_nome.trim() !== ""
+          ? servico.decisor_nome.trim().toUpperCase()
+          : null;
+      const decisorCpf = servico.decisor_cpf
+        ? formatarCPF(servico.decisor_cpf.trim())
+        : "";
+      const decisorEmail =
+        servico.decisor_email && servico.decisor_email.trim() !== ""
+          ? servico.decisor_email.trim()
+          : null;
 
       const decisorPhonesArray: any[] = [];
-      const numeroDecisorBruto = resultDecisor.telefonesFormatados || servico.decisor_numero;
-      
+      const numeroDecisorBruto =
+        resultDecisor.telefonesFormatados || servico.decisor_numero;
+
       if (numeroDecisorBruto) {
-        const numeroLimpoDecisor = String(numeroDecisorBruto).replace(/\D/g, "");
+        const numeroLimpoDecisor = String(numeroDecisorBruto).replace(
+          /\D/g,
+          "",
+        );
         if (numeroLimpoDecisor) {
           decisorPhonesArray.push({
             number: numeroLimpoDecisor,
             label: "celular decisor",
-            isMain: true
+            isMain: true,
           });
         }
       }
 
-      const temDecisor = Boolean(decisorNome || decisorPhonesArray.length > 0 || decisorEmail);
+      const temDecisor = Boolean(
+        decisorNome || decisorPhonesArray.length > 0 || decisorEmail,
+      );
       const linhasPhonesArray: any[] = [];
-      const linhasServico = Array.isArray(servico.linhas) ? servico.linhas : []; 
+      const linhasServico = Array.isArray(servico.linhas) ? servico.linhas : [];
 
       if (linhasServico.length > 0) {
         linhasServico.forEach((linha: any, index: number) => {
-          const numeroBrutoLinha = String(linha.numero_linha || linha.numero || "");
+          const numeroBrutoLinha = String(
+            linha.numero_linha || linha.numero || "",
+          );
           const numeroLimpoLinha = numeroBrutoLinha.replace(/\D/g, "");
 
           if (numeroLimpoLinha) {
             linhasPhonesArray.push({
               number: numeroLimpoLinha,
               label: linha.plano || "Linha Móvel Claro",
-              isMain: index === 0
+              isMain: index === 0,
             });
           }
         });
       }
 
       if (linhasPhonesArray.length === 0 && servico.observacao) {
-        const matchLinhas = servico.observacao.match(/Linhas:\s*(.*?)(?:\|\|\|\||$)/i);
+        const matchLinhas = servico.observacao.match(
+          /Linhas:\s*(.*?)(?:\|\|\|\||$)/i,
+        );
         if (matchLinhas && matchLinhas[1]) {
           const pedacos = matchLinhas[1].split("::");
           pedacos.forEach((pedaco: any, idx: any) => {
@@ -108,39 +157,58 @@ export const API_OMNI_SINGLE = async ({
               linhasPhonesArray.push({
                 number: numLimpo,
                 label: "Linha Móvel Claro",
-                isMain: idx === 0
+                isMain: idx === 0,
               });
             }
           });
         }
       }
 
-      if (linhasPhonesArray.length === 0 && resultEmpresa?.telefonesFormatados) {
+      if (
+        linhasPhonesArray.length === 0 &&
+        resultEmpresa?.telefonesFormatados
+      ) {
         if (Array.isArray(resultEmpresa.telefonesFormatados)) {
-          resultEmpresa.telefonesFormatados.forEach((item: any, idx: number) => {
-            const num = typeof item === "object" ? String(item.number).replace(/\D/g, "") : String(item).replace(/\D/g, "");
-            if (num) {
-              linhasPhonesArray.push({
-                number: num,
-                label: typeof item === "object" && item.label ? item.label : "Linha Móvel Claro",
-                isMain: idx === 0
-              });
-            }
-          });
+          resultEmpresa.telefonesFormatados.forEach(
+            (item: any, idx: number) => {
+              const num =
+                typeof item === "object"
+                  ? String(item.number).replace(/\D/g, "")
+                  : String(item).replace(/\D/g, "");
+              if (num) {
+                linhasPhonesArray.push({
+                  number: num,
+                  label:
+                    typeof item === "object" && item.label
+                      ? item.label
+                      : "Linha Móvel Claro",
+                  isMain: idx === 0,
+                });
+              }
+            },
+          );
         } else {
-          const num = String(resultEmpresa.telefonesFormatados).replace(/\D/g, "");
+          const num = String(resultEmpresa.telefonesFormatados).replace(
+            /\D/g,
+            "",
+          );
           if (num) {
-            linhasPhonesArray.push({ number: num, label: "Linha Móvel Claro", isMain: true });
+            linhasPhonesArray.push({
+              number: num,
+              label: "Linha Móvel Claro",
+              isMain: true,
+            });
           }
         }
       }
 
       let infoDecisorStr = "";
       if (temDecisor) {
-        const telefonesFormatadosString = decisorPhonesArray.length > 0 
-          ? decisorPhonesArray.map(p => p.number).join(', ') 
-          : "NÃO INFORMADO";
-          
+        const telefonesFormatadosString =
+          decisorPhonesArray.length > 0
+            ? decisorPhonesArray.map((p) => p.number).join(", ")
+            : "NÃO INFORMADO";
+
         infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > CPF: ${decisorCpf || "NÃO INFORMADO"} < ||||| > TELEFONES: ${telefonesFormatadosString} ||||| EMAILS: ${decisorEmail || "NÃO INFORMADO"} |||| Número Válido Whatsapp: ${servico.decisor_numero_valido_meta || "NÃO INFORMADO"}`;
       }
 
@@ -149,22 +217,26 @@ export const API_OMNI_SINGLE = async ({
         : `(${dddFinal}) ${servico.indicacao} >> ${servico.razao}${isCarteira ? ` >> CARTEIRA` : ""}`;
 
       const rawCustomFieldsObj = {
-        "Título do Negócio": titleCard, 
-        "Origem": "Claro Sistemas (CPC + EDOC)",
+        "Título do Negócio": titleCard,
+        Origem: "Claro Sistemas (CPC + EDOC)",
         "Inicio do Contrato": dataInicioFormatada,
         "Final do Contrato": dataFimFormatada,
         "Tempo de Contrato": String(mesesContrato),
-        "DDD": dddFinal,
-        "Endereço": String(servico.endereco) || "",
-        "FIXA": String(servico.fixa) || "",
-        "Observacao": formatarObservacaoPlanosLinhas(servico.observacao),
-        "Indicacao": isExclusivo ? `DDD 11: ${servico.indicacao || "N/A"}` : servico.indicacao,
-        "Carteira": servico.carteira || "",
+        DDD: dddFinal,
+        Endereço: String(servico.endereco) || "",
+        FIXA: String(servico.fixa) || "",
+        Observacao: formatarObservacaoPlanosLinhas(servico.observacao),
+        Indicacao: isExclusivo
+          ? `DDD 11: ${servico.indicacao || "N/A"}`
+          : servico.indicacao,
+        Carteira: servico.carteira || "",
         "Informações DECISOR (Possível decisor)": infoDecisorStr,
-        "Google Fontes Nome Fantasia": servico.decisor_google_fontes_nomes_fantasia || "",
-        "Google Fontes Telefones": servico.decisor_google_fontes_telefones || "",
+        "Google Fontes Nome Fantasia":
+          servico.decisor_google_fontes_nomes_fantasia || "",
+        "Google Fontes Telefones":
+          servico.decisor_google_fontes_telefones || "",
         "Google Fontes Emails": servico.decisor_google_fontes_emails || "",
-        "Google Fontes Sites da Empresa": servico.decisor_google_fontes_emails
+        "Google Fontes Sites da Empresa": servico.decisor_google_fontes_emails,
       };
 
       const contactsPayload: any[] = [];
@@ -175,7 +247,7 @@ export const API_OMNI_SINGLE = async ({
           roleHint: "Linhas móveis Claro",
           isPrimary: true,
           isDecisionMaker: false,
-          phones: linhasPhonesArray
+          phones: linhasPhonesArray,
         });
       }
 
@@ -187,69 +259,116 @@ export const API_OMNI_SINGLE = async ({
         companyCnpj: cnpjFormatado,
         externalKey: `seq_claro_${servico.seq_claro}`,
         value: 0,
-        pipelineId: pipelineDefinido, 
-        stageId: stageDefinido,       
+        pipelineId: pipelineDefinido,
+        stageId: stageDefinido,
         user: emailConsultor !== "" ? emailConsultor : undefined,
-        customFields: JSON.stringify(rawCustomFieldsObj), 
-        contacts: contactsPayload
+        customFields: JSON.stringify(rawCustomFieldsObj),
+        contacts: contactsPayload,
       };
 
-      console.log(`[Passo 1] 🚀 Criando Negócio na API Omni (Pipeline Local, Etapa: Entrada)...`);
-      
+      console.log(
+        `[Passo 1] 🚀 Criando Negócio na API Omni (Pipeline Local, Etapa: Entrada)...`,
+      );
+
       const responseCreation = await axios.post(
         `${URL_OMNI_API}/deals`,
         payloadSingleCreation,
         {
           headers: {
-            "Authorization": `Bearer ${TOKEN_AXION}`,
-            "Content-Type": "application/json"
-          }
-        }
+            Authorization: `Bearer ${TOKEN_AXION}`,
+            "Content-Type": "application/json",
+          },
+        },
       );
 
       const dealIdCriado = responseCreation.data?.data?.id;
 
       if (dealIdCriado) {
-        console.log(`[Passo 2] ✅ Negócio criado (ID: ${dealIdCriado}). Iniciando anexos de arquivos Omni...`);
-      
-        await gerarEAnexarImagemOmni(dealIdCriado, servico, cnpjFormatado, "linhas"); 
+        console.log(
+          `[Passo 2] ✅ Negócio criado (ID: ${dealIdCriado}). Iniciando anexos de arquivos Omni...`,
+        );
+
+        await gerarEAnexarImagemOmni(
+          dealIdCriado,
+          servico,
+          cnpjFormatado,
+          "linhas",
+        );
 
         if (indicacaoNormalizada === "RENOVACAO") {
-           await gerarEAnexarImagemOmni(dealIdCriado, servico, cnpjFormatado, "proposta");
+          await gerarEAnexarImagemOmni(
+            dealIdCriado,
+            servico,
+            cnpjFormatado,
+            "proposta",
+          );
         }
 
-        const isCenarioPortabilidade = 
-          indicacaoNormalizada === "PORTABILIDADE" || 
-          indicacaoNormalizada === "PRAZO EXCEDIDO" || 
+        const isCenarioPortabilidade =
+          indicacaoNormalizada === "PORTABILIDADE" ||
+          indicacaoNormalizada === "PRAZO EXCEDIDO" ||
           indicacaoNormalizada === "PRAZO LIMITADO";
 
         if (isCenarioPortabilidade) {
-           await gerarEAnexarImagemOmni(dealIdCriado, servico, cnpjFormatado, "portabilidade");
+          await gerarEAnexarImagemOmni(
+            dealIdCriado,
+            servico,
+            cnpjFormatado,
+            "portabilidade",
+          );
         }
 
         if (servico.servico_docdrive) {
-          await extrairEAnexarDecisorOmni(dealIdCriado, servico.servico_docdrive, cnpjLimpo, servico.seq_empresa);
+          console.log(
+            `[Orquestrador] Processando arquivos locais do Decisor para o Deal ${dealIdCriado}...`,
+          );
+
+          await Promise.allSettled([
+            extrairEAnexarDecisorOmni(
+              dealIdCriado,
+              servico.servico_docdrive,
+              cnpjLimpo,
+              servico.seq_empresa,
+            ),
+            extrairEAnexarPdfDecisorOmni(
+              dealIdCriado,
+              servico.servico_docdrive,
+              cnpjLimpo,
+            ),
+          ]);
         }
-        
+
         sucessos++;
       } else {
-        throw new Error("API Omni retornou sucesso, mas não devolveu o ID estrutural do Deal.");
+        throw new Error(
+          "API Omni retornou sucesso, mas não devolveu o ID estrutural do Deal.",
+        );
       }
-
     } catch (err: any) {
       falhas++;
-      console.error(`\n[!!! ERRO NO FLUXO !!!] Falha ao processar a empresa: ${servico.razao}`);
+      console.error(
+        `\n[!!! ERRO NO FLUXO !!!] Falha ao processar a empresa: ${servico.razao}`,
+      );
       if (axios.isAxiosError(err)) {
-        console.error(`Status HTTP: ${err.response?.status} | Rota: ${err.config?.url}`);
-        console.error(`Detalhes da Rejeição:`, JSON.stringify(err.response?.data, null, 2));
+        console.error(
+          `Status HTTP: ${err.response?.status} | Rota: ${err.config?.url}`,
+        );
+        console.error(
+          `Detalhes da Rejeição:`,
+          JSON.stringify(err.response?.data, null, 2),
+        );
       } else {
         console.error(`Erro Interno:`, err.message);
       }
     }
   }
 
-  console.log(`\n================================================================`);
-  console.log(`🏁 [Orquestração Single API Finalizada] ✅ Sucessos: ${sucessos} | ❌ Falhas: ${falhas} | 🚧 Pulados: ${pulados}`);
+  console.log(
+    `\n================================================================`,
+  );
+  console.log(
+    `🏁 [Orquestração Single API Finalizada] ✅ Sucessos: ${sucessos} | ❌ Falhas: ${falhas} | 🚧 Pulados: ${pulados}`,
+  );
 
   return { sucessos, falhas, pulados } as any;
 };
