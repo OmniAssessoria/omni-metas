@@ -227,7 +227,7 @@ export const API_OMNI_SINGLE = async ({
         FIXA: String(servico.fixa) || "",
         Observacao: formatarObservacaoPlanosLinhas(servico.observacao),
         Indicacao: isExclusivo
-          ? `DDD 11: ${servico.indicacao || "N/A"}`
+          ? `DDD 11: ${servico.indicacao}`
           : servico.indicacao,
         Carteira: servico.carteira || "",
         "Informações DECISOR (Possível decisor)": infoDecisorStr,

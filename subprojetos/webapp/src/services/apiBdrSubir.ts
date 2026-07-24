@@ -77,7 +77,7 @@ export const enviarLeadOmniCrmBdr = async (
       : "";
     const link_db = lead.docdrive
       ? "http://acesso.edoc.omni.assessoria | http://192.168.0.168:8090"
-      : "N/A";
+      : "";
 
     const decisorNome =
       lead.nome_decisor && lead.nome_decisor.trim() !== ""
@@ -147,20 +147,17 @@ export const enviarLeadOmniCrmBdr = async (
     const rawCustomFieldsObj = {
       "Título do Negócio": titleCard,
       Origem: "Casa dos Dados BDR Julho",
-      DDD: dddFinal,
-      DOCDRIVE: lead.docdrive || "",
-      link_docdrive: link_db,
       Indicacao: "BDR",
       "Informações DECISOR (Possível decisor)": infoDecisorStr,
-      "Nomes Fantasias": lead.google_fontes_nomes_fantasia || "N/A",
-      "Número Claro": lead.numero_claro ?? "N/A",
-      "Nome Decisor": lead.nome_decisor ?? "N/A",
-      "Telefone Decisor": lead.numero_decisor ?? "N/A",
-      "Email Decisor": lead.email_decisor ?? "N/A",
-      "Números Secundário (Linhas)": obs_numeros_secundarios || "N/A",
-      "Números (Google e outras Fontes)": lead.google_fontes_telefones || "N/A",
-      "Emails (Google e outras Fontes)": lead.google_fontes_emails || "N/A",
-      "Sites (Google e outras Fontes)": lead.google_fontes_sites || "N/A",
+      "Nomes Fantasias": lead.google_fontes_nomes_fantasia,
+      "Número Claro": lead.numero_claro,
+      "Nome Decisor": lead.nome_decisor,
+      "Telefone Decisor": lead.numero_decisor,
+      "Email Decisor": lead.email_decisor,
+      "Números Secundário (Linhas)": obs_numeros_secundarios,
+      "Números (Google e outras Fontes)": lead.google_fontes_telefones,
+      "Emails (Google e outras Fontes)": lead.google_fontes_emails,
+      "Sites (Google e outras Fontes)": lead.google_fontes_sites,
     };
 
     const pipelineDefinido = "wm2n294u8vgp31duczik6iak";
