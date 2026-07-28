@@ -42,7 +42,6 @@ export const enviarLeadOmniCrmBdr = async (
   console.log(`[Omni CRM BDR] Iniciando processamento do Lead: ${lead.razao}`);
 
   try {
-    const isExclusivo = tipoOperacao === "Exclusivo";
     const cnpjLimpo = limparPontuacao(lead.cnpj);
     const cnpjFormatado = formatarCNPJ(lead.cnpj);
 
@@ -166,7 +165,6 @@ export const enviarLeadOmniCrmBdr = async (
     const payloadSingleCreation = {
       companyName: lead.razao,
       companyCnpj: cnpjFormatado,
-      // externalKey: `seq_omni_${lead.seq_servico_omni}`,
       value: 0,
       pipelineId: pipelineDefinido,
       stageId: stageDefinido,

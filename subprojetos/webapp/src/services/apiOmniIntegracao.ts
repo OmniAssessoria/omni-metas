@@ -257,7 +257,6 @@ export const API_OMNI_SINGLE = async ({
       const payloadSingleCreation = {
         companyName: servico.razao,
         companyCnpj: cnpjFormatado,
-        // externalKey: `seq_claro_${servico.seq_claro}`,
         value: 0,
         pipelineId: pipelineDefinido,
         stageId: stageDefinido,
