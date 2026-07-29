@@ -13,19 +13,15 @@ class App {
 
   private middleware() {
     const corsOptions: CorsOptions = {
-      origin: [
-        // Portas originais mantidas
-        "http://localhost:3035",
-        "http://127.0.0.1:3035",
-        "http://192.168.0.149:3035",
-
-        // Novas portas para o Vite em desenvolvimento
-        "http://localhost:5173",
-        "http://192.168.0.149:5173",
-      ],
-
+      origin: function (origin, callback) {
+        if (!origin) {
+          return callback(null, true);
+        }
+        
+        callback(null, true); 
+      },
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "Accept", "token"],
+      allowedHeaders: "*", 
       credentials: true,
       optionsSuccessStatus: 200,
     };
