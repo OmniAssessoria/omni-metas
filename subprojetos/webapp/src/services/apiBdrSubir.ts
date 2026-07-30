@@ -74,9 +74,6 @@ export const enviarLeadOmniCrmBdr = async (
     const emailConsultor = lead.email_consultor
       ? String(lead.email_consultor).trim().toLowerCase()
       : "";
-    const link_db = lead.docdrive
-      ? "http://acesso.edoc.omni.assessoria | http://192.168.0.168:8090"
-      : "";
 
     const decisorNome =
       lead.nome_decisor && lead.nome_decisor.trim() !== ""
@@ -144,19 +141,19 @@ export const enviarLeadOmniCrmBdr = async (
     const titleCard = `(${dddFinal}) BDR >> ${lead.razao}`;
 
     const rawCustomFieldsObj = {
-      "Título do Negócio": titleCard,
-      Origem: "Casa dos Dados BDR Julho",
+      "Título do Negócio": titleCard ?? "N/A",
+      Origem: "Casa dos Dados BDR",
       Indicacao: "BDR",
-      "Informações DECISOR (Possível decisor)": infoDecisorStr,
-      "Nomes Fantasias": lead.google_fontes_nomes_fantasia,
-      "Número Claro": lead.numero_claro,
-      "Nome Decisor": lead.nome_decisor,
-      "Telefone Decisor": lead.numero_decisor,
-      "Email Decisor": lead.email_decisor,
-      "Números Secundário (Linhas)": obs_numeros_secundarios,
-      "Números (Google e outras Fontes)": lead.google_fontes_telefones,
-      "Emails (Google e outras Fontes)": lead.google_fontes_emails,
-      "Sites (Google e outras Fontes)": lead.google_fontes_sites,
+      "Informações DECISOR (Possível decisor)": infoDecisorStr ?? "N/A",
+      "Nomes Fantasias": lead.google_fontes_nomes_fantasia ?? "N/A",
+      "Número Claro": lead.numero_claro ?? "N/A",
+      "Nome Decisor": lead.nome_decisor ?? "N/A",
+      "Telefone Decisor": lead.numero_decisor ?? "N/A",
+      "Email Decisor": lead.email_decisor ?? "N/A",
+      "Números Secundário (Linhas)": obs_numeros_secundarios ?? "N/A",
+      "Números (Google e outras Fontes)": lead.google_fontes_telefones ?? "N/A",
+      "Emails (Google e outras Fontes)": lead.google_fontes_emails ?? "N/A",
+      "Sites (Google e outras Fontes)": lead.google_fontes_sites ?? "N/A",
     };
 
     const pipelineDefinido = "wm2n294u8vgp31duczik6iak";
