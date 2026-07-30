@@ -219,24 +219,24 @@ export const API_OMNI_SINGLE = async ({
       const rawCustomFieldsObj = {
         "Título do Negócio": titleCard,
         Origem: "Claro Sistemas (CPC + EDOC)",
-        "Inicio do Contrato": dataInicioFormatada,
-        "Final do Contrato": dataFimFormatada,
-        "Tempo de Contrato": String(mesesContrato),
-        DDD: dddFinal,
-        Endereço: String(servico.endereco) || "",
-        FIXA: String(servico.fixa) || "",
-        Observacao: formatarObservacaoPlanosLinhas(servico.observacao),
+        "Inicio do Contrato": dataInicioFormatada ?? "N/A",
+        "Final do Contrato": dataFimFormatada ?? "N/A",
+        "Tempo de Contrato": String(mesesContrato) ?? "N/A",
+        DDD: dddFinal ?? "N/A",
+        Endereço: String(servico.endereco) ?? "N/A",
+        FIXA: String(servico.fixa) ?? "N/A",
+        Observacao: formatarObservacaoPlanosLinhas(servico.observacao) ?? "N/A",
         Indicacao: isExclusivo
           ? `DDD 11: ${servico.indicacao}`
           : servico.indicacao,
-        Carteira: servico.carteira || "",
-        "Informações DECISOR (Possível decisor)": infoDecisorStr,
+        Carteira: servico.carteira ?? "N/A",
+        "Informações DECISOR (Possível decisor)": infoDecisorStr ?? "N/A",
         "Google Fontes Nome Fantasia":
-          servico.decisor_google_fontes_nomes_fantasia || "",
+          servico.decisor_google_fontes_nomes_fantasia ?? "N/A",
         "Google Fontes Telefones":
-          servico.decisor_google_fontes_telefones || "",
-        "Google Fontes Emails": servico.decisor_google_fontes_emails || "",
-        "Google Fontes Sites da Empresa": servico.decisor_google_fontes_emails,
+          servico.decisor_google_fontes_telefones ?? "N/A",
+        "Google Fontes Emails": servico.decisor_google_fontes_emails ?? "N/A",
+        "Google Fontes Sites da Empresa": servico.decisor_google_fontes_emails ?? "N/A",
       };
 
       const contactsPayload: any[] = [];
