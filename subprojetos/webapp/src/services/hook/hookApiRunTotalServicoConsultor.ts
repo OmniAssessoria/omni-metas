@@ -1,9 +1,6 @@
 import axios from "axios";
 import { IConsultor } from "@/interfaces/pipeRunOportunidades.interface";
 
-// ============================================================================
-// MAPEAMENTO DE CONSULTORES E PERFIS
-// ============================================================================
 const MAPA_CONSULTORES: Record<string, { nome: string; perfil: string }> = {
   "otavio.souza@omniassessoria.com.br": { nome: "Otavio Souza", perfil: "BDR" },
   "nathalia.dadalte@omniassessoria.com.br": { nome: "Nathália Dadalte", perfil: "BDR" },
@@ -18,9 +15,6 @@ const MAPA_CONSULTORES: Record<string, { nome: string; perfil: string }> = {
   "julia.victoria@omniassessoria.com.br": { nome: "Julia Victoria", perfil: "RENOVACAO" },
 };
 
-// ============================================================================
-// FUNÇÃO AUXILIAR: BUSCAR LEADS OMNI CRM COM PAGINAÇÃO
-// ============================================================================
 export async function fetchTodosLeadsOmni(status: "open" | "won" | "lost" = "open"): Promise<any[]> {
   const limit = 200;
   let page = 1;
