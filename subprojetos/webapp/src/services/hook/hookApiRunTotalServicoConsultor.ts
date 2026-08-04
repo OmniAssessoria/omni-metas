@@ -15,7 +15,7 @@ const MAPA_CONSULTORES: Record<string, { nome: string; perfil: string }> = {
   "natalia.ribeiro@omniassessoria.com.br": { nome: "Natalia Ribeiro", perfil: "RENOVACAO" },
   "gabrieli.lima@omniassessoria.com.br": { nome: "Gabrieli Lima", perfil: "PORTABILIDADE" },
   "leticia.ohara@omniassessoria.com.br": { nome: "Letícia Ohara", perfil: "PORTABILIDADE" },
-  "leonardo.sousa@omniassessoria.com.br": { nome: "Leonardo Sousa", perfil: "OUTROS" },
+  "julia.victoria@omniassessoria.com.br": { nome: "Julia Victoria", perfil: "RENOVACAO" },
 };
 
 // ============================================================================
