@@ -44,7 +44,6 @@ export const enviarLeadOmniCrmBdr = async (
   try {
     const cnpjLimpo = limparPontuacao(lead.cnpj);
     const cnpjFormatado = formatarCNPJ(lead.cnpj);
-
     const resultDecisor = extrairEFormatarTelefonesDecisor(
       lead.numero_decisor,
       "",
@@ -115,8 +114,8 @@ export const enviarLeadOmniCrmBdr = async (
     }
 
     const linesPhonesArray: any[] = [];
-    if (lead.numero_claro) {
-      const numClaroLimpo = String(lead.numero_claro).replace(/\D/g, "");
+    if (lead.linha_claro) {
+      const numClaroLimpo = String(lead.linha_claro).replace(/\D/g, "");
       if (numClaroLimpo) {
         linesPhonesArray.push({
           number: numClaroLimpo,
@@ -146,7 +145,7 @@ export const enviarLeadOmniCrmBdr = async (
       Indicacao: "BDR",
       "Informações DECISOR (Possível decisor)": infoDecisorStr ?? "N/A",
       "Nomes Fantasias": lead.google_fontes_nomes_fantasia ?? "N/A",
-      "Número Claro": lead.numero_claro ?? "N/A",
+      "Linha Claro (Maior GB)": lead.linha_claro ?? "N/A", // <-- Atualizado
       "Nome Decisor": lead.nome_decisor ?? "N/A",
       "Telefone Decisor": lead.numero_decisor ?? "N/A",
       "Email Decisor": lead.email_decisor ?? "N/A",
