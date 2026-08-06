@@ -113,27 +113,51 @@ export const enviarLeadOmniCrmBdr = async (
       infoDecisorStr = `NOME: ${decisorNome || "NÃO INFORMADO"} ||||| > TELEFONES: ${telefonesFormatadosString} ||||| EMAILS: ${decisorEmail || "NÃO INFORMADO"}`;
     }
 
-    const linesPhonesArray: any[] = [];
-    if (lead.linha_claro) {
+    let telefoneContatoFinal = "";
+    let labelContatoFinal = "";
+    let nomeContatoFinal = "Contato Principal";
+    let isDecisionMakerFlag = false;
+
+    if (decisorPhonesArray.length > 0 && decisorPhonesArray[0].number) {
+      telefoneContatoFinal = decisorPhonesArray[0].number;
+      labelContatoFinal = "Celular Decisor";
+      nomeContatoFinal = decisorNome || "Decisor";
+      isDecisionMakerFlag = true;
+    } else if (lead.linha_claro) {
       const numClaroLimpo = String(lead.linha_claro).replace(/\D/g, "");
       if (numClaroLimpo) {
-        linesPhonesArray.push({
-          number: numClaroLimpo,
-          label: "Linha Móvel Claro",
-          isMain: true,
-        });
+        telefoneContatoFinal = numClaroLimpo;
+        labelContatoFinal = "Linha Móvel Claro";
+        nomeContatoFinal = "Linhas da Empresa";
+        isDecisionMakerFlag = false;
+      }
+    } else if (lead.google_fontes_telefones) {
+      const primeiroGoogleTel = String(lead.google_fontes_telefones)
+        .split(",")[0]
+        .replace(/\D/g, "");
+      if (primeiroGoogleTel) {
+        telefoneContatoFinal = primeiroGoogleTel;
+        labelContatoFinal = "Telefone Google Maps";
+        nomeContatoFinal = "Contato Google Maps";
+        isDecisionMakerFlag = false;
       }
     }
 
     const contactsPayload: any[] = [];
 
-    if (linesPhonesArray.length > 0) {
+    if (telefoneContatoFinal) {
       contactsPayload.push({
-        name: "Linhas da Empresa",
-        roleHint: "Linhas móveis Claro",
+        name: nomeContatoFinal,
+        roleHint: labelContatoFinal,
         isPrimary: true,
-        isDecisionMaker: false,
-        phones: linesPhonesArray,
+        isDecisionMaker: isDecisionMakerFlag,
+        phones: [
+          {
+            number: telefoneContatoFinal,
+            label: labelContatoFinal,
+            isMain: true,
+          },
+        ],
       });
     }
 
@@ -149,7 +173,6 @@ export const enviarLeadOmniCrmBdr = async (
       "Telefone Decisor": lead.numero_decisor ?? "N/A",
       "Email Decisor": lead.email_decisor ?? "N/A",
       "Linha Claro (Maior GB)": lead.linha_claro ?? "N/A",
-      "Números Secundário (Linhas)": obs_numeros_secundarios ?? "N/A",
       "Números (Google e outras Fontes)": lead.google_fontes_telefones ?? "N/A",
       "Emails (Google e outras Fontes)": lead.google_fontes_emails ?? "N/A",
       "Sites (Google e outras Fontes)": lead.google_fontes_sites ?? "N/A",
