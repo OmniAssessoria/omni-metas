@@ -145,10 +145,10 @@ export const enviarLeadOmniCrmBdr = async (
       Indicacao: "BDR",
       "Informações DECISOR (Possível decisor)": infoDecisorStr ?? "N/A",
       "Nomes Fantasias": lead.google_fontes_nomes_fantasia ?? "N/A",
-      "Linha Claro (Maior GB)": lead.linha_claro ?? "N/A", // <-- Atualizado
       "Nome Decisor": lead.nome_decisor ?? "N/A",
       "Telefone Decisor": lead.numero_decisor ?? "N/A",
       "Email Decisor": lead.email_decisor ?? "N/A",
+      "Linha Claro (Maior GB)": lead.linha_claro ?? "N/A",
       "Números Secundário (Linhas)": obs_numeros_secundarios ?? "N/A",
       "Números (Google e outras Fontes)": lead.google_fontes_telefones ?? "N/A",
       "Emails (Google e outras Fontes)": lead.google_fontes_emails ?? "N/A",
