@@ -165,7 +165,7 @@ export const enviarLeadOmniCrmBdr = async (
 
     const rawCustomFieldsObj = {
       "Título do Negócio": titleCard ?? "N/A",
-      Origem: "Ribeirão Preto e região",
+      Origem: "Base Agosto BDR",
       Indicacao: "BDR",
       "Informações DECISOR (Possível decisor)": infoDecisorStr ?? "N/A",
       "Nomes Fantasias": lead.google_fontes_nomes_fantasia ?? "N/A",
