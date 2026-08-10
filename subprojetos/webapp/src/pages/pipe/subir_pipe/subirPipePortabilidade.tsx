@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual"; 
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -119,6 +120,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   } | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (Array.isArray(dados)) {
@@ -277,9 +279,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     );
   };
 
-  // ============================================================================
-  // NOVA REGRA DE SANEAMENTO: Base estrita (>1 linha e apenas DDDs SP 11 a 19)
-  // ============================================================================
   const dadosGeraisFiltrados = useMemo(() => {
     if (!Array.isArray(dadosLocais)) return [];
 
@@ -301,13 +300,11 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
         return { ...item, dddPredominante: dddFinal };
       })
       .filter((item) => {
-        // REGRA 1: Obrigatoriamente ter 2 ou mais linhas (Bloqueia quem tem só 1)
         const qtdLinhas = Number(item.qtd_servico_claro) || 0;
         if (qtdLinhas < 2) {
           return false;
         }
 
-        // REGRA 2: Apenas DDDs do estado de São Paulo (11 a 19)
         const dddNum = parseInt(item.dddPredominante, 10);
         if (isNaN(dddNum) || dddNum < 11 || dddNum > 19) {
           return false;
@@ -317,7 +314,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
       });
   }, [dadosLocais]);
 
-  // O estado visual principal agora baseia-se na base já saneada
   const dadosFiltrados = useMemo(() => {
     if (consultorSelecionado === null) return dadosGeraisFiltrados;
 
@@ -329,6 +325,21 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
       (item) => item.seq_consultor === consultorSelecionado,
     );
   }, [dadosGeraisFiltrados, consultorSelecionado]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: dadosFiltrados.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 64,
+    overscan: 5,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+  const paddingBottom =
+    virtualItems.length > 0
+      ? rowVirtualizer.getTotalSize() -
+        virtualItems[virtualItems.length - 1].end
+      : 0;
 
   const handleToggleTodasEmpresas = (checked: boolean) => {
     if (checked) {
@@ -500,7 +511,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
     mapaConsultores,
   ]);
 
-  // Contabiliza com base na base estrita de Portabilidade (SP e >= 2 linhas)
   const totalServicosGeral = useMemo(() => {
     return dadosGeraisFiltrados.length;
   }, [dadosGeraisFiltrados]);
@@ -548,7 +558,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
   const onClickSubirServicos = () => {
     handleSubirServicos({
       tipoOperacao: "Portabilidade",
-      // Garantimos que a API só recebe os dados devidamente validados
       dadosGlobais: dadosGeraisFiltrados,
       consultoresEnvio: consultoresEnvio,
       empresasEnvio: empresasSelecionadas,
@@ -613,7 +622,6 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                   const nomeConsultor =
                     mapaConsultores.get(id)?.nome || "Desconhecido";
 
-                  // A contagem do pill agora respeita a base validada de 2+ linhas para bater com o visual
                   const totalDoConsultor = dadosGeraisFiltrados.filter(
                     (item) => item.seq_consultor === id,
                   ).length;
@@ -896,8 +904,11 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                   </div>
                 </div>
 
-                <div className="relative border shadow-sm rounded-md scrollbar-thin [&>div]:max-h-[550px] [&>div]:overflow-y-auto">
-                  <Table className="relative border-collapse">
+                <div
+                  ref={tableContainerRef}
+                  className="relative border shadow-sm rounded-md scrollbar-thin max-h-[550px] overflow-y-auto"
+                >
+                  <Table className="relative border-collapse w-full">
                     <TableHeader className="sticky top-0 z-20 bg-muted shadow-[0_2px_2px_-1px_rgba(0,0,0,0.1)] ring-1 ring-border/50">
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="w-[40px] bg-muted flex-shrink-0">
@@ -935,20 +946,29 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {dadosFiltrados.map((item) => {
+                      {paddingTop > 0 && (
+                        <tr>
+                          <td
+                            style={{ height: `${paddingTop}px` }}
+                            colSpan={11}
+                          />
+                        </tr>
+                      )}
+
+                      {virtualItems.map((virtualRow) => {
+                        const item = dadosFiltrados[virtualRow.index];
                         const diffDias = calcularDiferencaDias(
                           item.dt_ultima_leitura,
                         );
                         const isSelecionada = empresasSelecionadas.includes(
                           item.seq_empresa,
                         );
-
                         const possuiCarteira =
                           item.carteira && item.carteira.trim() !== "";
 
                         return (
                           <TableRow
-                            key={`row-${item.seq_empresa}-${item.seq_claro}`}
+                            key={`row-${item.seq_empresa}-${item.seq_claro}-${virtualRow.index}`}
                             className={
                               isSelecionada
                                 ? "bg-emerald-50/50 hover:bg-emerald-50/80"
@@ -1060,6 +1080,15 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
                           </TableRow>
                         );
                       })}
+
+                      {paddingBottom > 0 && (
+                        <tr>
+                          <td
+                            style={{ height: `${paddingBottom}px` }}
+                            colSpan={11}
+                          />
+                        </tr>
+                      )}
                     </TableBody>
                   </Table>
                 </div>

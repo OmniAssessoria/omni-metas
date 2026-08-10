@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Sidebar } from "@/components/sidebar_consultores/sidebar_consultor";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -124,6 +125,8 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
   } | null>(null);
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [logTab, setLogTab] = useState<"sucessos" | "falhas">("sucessos");
+
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (Array.isArray(dados)) {
@@ -276,6 +279,24 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
       (item) => item.seq_consultor === consultorSelecionado,
     );
   }, [dadosGeraisFiltrados, consultorSelecionado]);
+
+  // ==========================================
+  // CONFIGURAÇÃO DO VIRTUALIZADOR
+  // ==========================================
+  const rowVirtualizer = useVirtualizer({
+    count: dadosFiltrados.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 64, // Altura média estimada de cada linha
+    overscan: 5,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+  const paddingBottom =
+    virtualItems.length > 0
+      ? rowVirtualizer.getTotalSize() -
+        virtualItems[virtualItems.length - 1].end
+      : 0;
 
   const handleToggleTodasEmpresas = (checked: boolean) => {
     if (checked) {
@@ -826,8 +847,11 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
                 </div>
 
                 <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
-                  <div className="rounded-md border relative [&>div]:max-h-[500px] [&>div]:overflow-y-auto scrollbar-thin">
-                    <Table className="relative border-collapse">
+                  <div
+                    ref={tableContainerRef}
+                    className="rounded-md border relative max-h-[500px] overflow-y-auto scrollbar-thin"
+                  >
+                    <Table className="relative border-collapse w-full">
                       <TableHeader className="sticky top-0 z-20 bg-muted shadow-sm ring-1 ring-border/50">
                         <TableRow className="hover:bg-transparent">
                           <TableHead className="w-[40px] bg-muted flex-shrink-0">
@@ -866,7 +890,17 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {dadosFiltrados.map((item) => {
+                        {paddingTop > 0 && (
+                          <tr>
+                            <td
+                              style={{ height: `${paddingTop}px` }}
+                              colSpan={11}
+                            />
+                          </tr>
+                        )}
+
+                        {virtualItems.map((virtualRow) => {
+                          const item = dadosFiltrados[virtualRow.index];
                           const diff = calcularDiferencaDias(
                             item.dt_ultima_leitura,
                           );
@@ -878,7 +912,7 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
 
                           return (
                             <TableRow
-                              key={`${item.seq_empresa}-${item.seq_claro}`}
+                              key={`row-${item.seq_empresa}-${item.seq_claro}-${virtualRow.index}`}
                               className={
                                 isSelecionada
                                   ? "bg-emerald-50/50 hover:bg-emerald-50/80"
@@ -903,7 +937,6 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
                                   : "-"}
                               </TableCell>
 
-                              {/* COLUNA ADICIONADA: INDICAÇÃO */}
                               <TableCell>
                                 <span
                                   className={`text-[10px] uppercase font-bold px-2 py-1 rounded-md border ${
@@ -1003,6 +1036,15 @@ export function PipeSubirExclusivo({ dados, onBack }: ITelaDetalhesProps) {
                             </TableRow>
                           );
                         })}
+
+                        {paddingBottom > 0 && (
+                          <tr>
+                            <td
+                              style={{ height: `${paddingBottom}px` }}
+                              colSpan={11}
+                            />
+                          </tr>
+                        )}
                       </TableBody>
                     </Table>
                   </div>
