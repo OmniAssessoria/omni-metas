@@ -67,7 +67,7 @@ class ServicoClaroService {
   }
 
   async sincronizarHistoricoClaro(dados: any) {
-    await AtualizarBaseMotivosDecliniomniCrm()
+    await AtualizarBaseMotivosDecliniomniCrm();
     const seq_empresa = await this.repository.buscarSeqEmpresaPorCnpj(
       dados.cnpj,
     );
@@ -102,11 +102,9 @@ class ServicoClaroService {
       };
     }
     const idConsultor = dadosConsultor.seq_consultor;
-
     const isGanho = dados.is_ganho === true;
-
-    let seqMotivoDeclinioNumerico = 1;
-    let situacaoAtendimento = "GANHO";
+    let seqMotivoDeclinioNumerico = isGanho ? 1 : 2;
+    let situacaoAtendimento = isGanho ? "GANHO" : "TEMPORARIO";
 
     if (!isGanho && dados.id_motivo_declinio) {
       const motivoMapeado = await this.repository.buscarMotivoDeclinioPorIdCrm(

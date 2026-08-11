@@ -2,7 +2,7 @@ import axios from "axios";
 import ServicoClaroService from "../services/servico_claro.service.js";
 
 const TOKEN_OMNI_CRM = process.env.TOKEN_API_KEY;
-const PIPELINE_LOCAL_ID = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed"
+const PIPELINE_LOCAL_ID = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
 
 export default class CronOmniCrmSincronizar {
   private servicoClaroService: ServicoClaroService;
@@ -17,7 +17,8 @@ export default class CronOmniCrmSincronizar {
         Authorization: `Bearer ${TOKEN_OMNI_CRM}`,
       },
     });
-    this.executarRotinaNoturnaOmniCrm = this.executarRotinaNoturnaOmniCrm.bind(this);
+    this.executarRotinaNoturnaOmniCrm =
+      this.executarRotinaNoturnaOmniCrm.bind(this);
   }
 
   private delay(ms: number) {
@@ -28,7 +29,10 @@ export default class CronOmniCrmSincronizar {
     if (!cnpj) return "";
     const numeros = cnpj.replace(/\D/g, "");
     if (numeros.length !== 14) return cnpj;
-    return numeros.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+    return numeros.replace(
+      /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+      "$1.$2.$3/$4-$5",
+    );
   }
 
   private obterCustomFieldPorKey(customFields: any[], keyName: string) {
@@ -37,7 +41,9 @@ export default class CronOmniCrmSincronizar {
     return field ? field.value : null;
   }
 
-  private async buscarTodosOsDealsPorCursor(parametrosBasicos: any): Promise<any[]> {
+  private async buscarTodosOsDealsPorCursor(
+    parametrosBasicos: any,
+  ): Promise<any[]> {
     let cursorAtual: string | null = null;
     let temMaisDados = true;
     const todosOsDeals: any[] = [];
@@ -78,7 +84,7 @@ export default class CronOmniCrmSincronizar {
       } catch (error: any) {
         console.error(
           `[CRON - Erro na Paginação] Falha ao processar requisição. Cursor: ${cursorAtual}`,
-          error.response?.data || error.message
+          error.response?.data || error.message,
         );
         temMaisDados = false;
       }
@@ -99,7 +105,9 @@ export default class CronOmniCrmSincronizar {
     const dealsBrutos: any[] = [];
 
     console.log(`\n======================================================`);
-    console.log(`[CRON 19:00 OMNI CRM] Sincronização Diária iniciada: ${dataFormatada}`);
+    console.log(
+      `[CRON 19:00 OMNI CRM] Sincronização Diária iniciada: ${dataFormatada}`,
+    );
     console.log(`======================================================`);
 
     const filtrosComuns = {
@@ -110,37 +118,45 @@ export default class CronOmniCrmSincronizar {
 
     try {
       console.log(`[CRON 19:00 OMNI CRM] Coletando registros [GANHO]...`);
-      const ganhos = await this.buscarTodosOsDealsPorCursor({ status: "won", ...filtrosComuns });
+      const ganhos = await this.buscarTodosOsDealsPorCursor({
+        status: "won",
+        ...filtrosComuns,
+      });
       dealsBrutos.push(...ganhos);
 
       console.log(`[CRON 19:00 OMNI CRM] Coletando registros [PERDIDO]...`);
-      const perdas = await this.buscarTodosOsDealsPorCursor({ status: "lost", ...filtrosComuns });
+      const perdas = await this.buscarTodosOsDealsPorCursor({
+        status: "lost",
+        ...filtrosComuns,
+      });
       dealsBrutos.push(...perdas);
 
       if (dealsBrutos.length === 0) {
-        console.log(`[CRON 19:00 OMNI CRM] Nenhum negócio ganho ou perdido fechado hoje (${dataFormatada}).`);
+        console.log(
+          `[CRON 19:00 OMNI CRM] Nenhum negócio ganho ou perdido fechado hoje (${dataFormatada}).`,
+        );
         console.log(`======================================================\n`);
         return;
       }
 
-      console.log(`[CRON 19:00 OMNI CRM] Estruturando ${dealsBrutos.length} negócios localizados...`);
+      console.log(
+        `[CRON 19:00 OMNI CRM] Estruturando ${dealsBrutos.length} negócios localizados...`,
+      );
       const dealsFormatados = [];
 
       for (const deal of dealsBrutos) {
         if (!deal.companyCnpj) continue;
         const cnpj = this.formatarCNPJ(String(deal.companyCnpj));
-
-        const docDrivePath = this.obterCustomFieldPorKey(deal.customFields, "docdrive");
-        let tipoServico = "CLARO";
-
-        if (docDrivePath && String(docDrivePath).toLowerCase().startsWith("vivo")) {
-          tipoServico = "VIVO";
-        }
+        const tipoServico = "CLARO";
 
         const isGanho = deal.status === "won";
         const emailConsultor = deal.owner?.email || null;
-        const idMotivoDeclinioCrm = isGanho ? null : deal.lostReasonId;
-        const observacao = deal.lostReason || "Sem detalhes adicionais mapeados";
+        const idMotivoDeclinioCrm = isGanho
+          ? "1"
+          : deal.lostReasonId || "motivo_nao_informado_pelo_crm";
+
+        const observacao =
+          deal.lostReason || "Sem detalhes adicionais mapeados";
 
         dealsFormatados.push({
           cnpj: cnpj,
@@ -154,28 +170,38 @@ export default class CronOmniCrmSincronizar {
         });
       }
 
-      console.log(`[CRON 19:00 OMNI CRM] Gravando ${dealsFormatados.length} registros processados no PostgreSQL...`);
+      console.log(
+        `[CRON 19:00 OMNI CRM] Gravando ${dealsFormatados.length} registros processados no PostgreSQL...`,
+      );
       let sucessos = 0;
       let falhas = 0;
 
       for (const dado of dealsFormatados) {
         try {
-          const resultado = await this.servicoClaroService.sincronizarHistoricoClaro(dado);
+          const resultado =
+            await this.servicoClaroService.sincronizarHistoricoClaro(dado);
           if (resultado.sucesso) sucessos++;
           if (resultado.ignorado) falhas++;
-          
+
           await this.delay(50);
         } catch (error: any) {
           falhas++;
-          console.error(`[CRON 19:00 OMNI CRM] Falha ao persistir CNPJ ${dado.cnpj}:`, error.message);
+          console.error(
+            `[CRON 19:00 OMNI CRM] Falha ao persistir CNPJ ${dado.cnpj}:`,
+            error.message,
+          );
         }
       }
 
-      console.log(`[CRON 19:00 OMNI CRM] Processamento finalizado. Sucessos: ${sucessos} | Ignorados ou Falhas: ${falhas}`);
+      console.log(
+        `[CRON 19:00 OMNI CRM] Processamento finalizado. Sucessos: ${sucessos} | Ignorados ou Falhas: ${falhas}`,
+      );
       console.log(`======================================================\n`);
-
     } catch (error: any) {
-      console.error("[CRON 19:00 OMNI CRM] Erro fatal não tratado na rotina diária:", error.message);
+      console.error(
+        "[CRON 19:00 OMNI CRM] Erro fatal não tratado na rotina diária:",
+        error.message,
+      );
     }
   }
 }
