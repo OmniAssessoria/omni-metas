@@ -185,14 +185,11 @@ export const sincronizarDadosOmniCrm = async (
       if (!deal.companyCnpj) continue;
       const cnpj = formatarCNPJ(String(deal.companyCnpj));
       const tipoServico = "CLARO";
-
       const isGanho = deal.status === "won";
       const emailConsultor = deal.owner?.email || null;
-
       const idMotivoDeclinioCrm = isGanho
         ? "1"
         : deal.lostReasonId || "motivo_nao_informado_pelo_crm";
-
       const observacao = deal.lostReason || "Sem detalhes adicionais mapeados";
 
       dealsFormatados.push({

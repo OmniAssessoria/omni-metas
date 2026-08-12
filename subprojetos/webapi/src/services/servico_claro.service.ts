@@ -101,12 +101,18 @@ class ServicoClaroService {
         motivo: `Consultor com e-mail ${dados.email_consultor} não encontrado na base.`,
       };
     }
+
     const idConsultor = dadosConsultor.seq_consultor;
     const isGanho = dados.is_ganho === true;
+
     let seqMotivoDeclinioNumerico = isGanho ? 1 : 2;
     let situacaoAtendimento = isGanho ? "GANHO" : "TEMPORARIO";
 
-    if (!isGanho && dados.id_motivo_declinio) {
+    if (
+      !isGanho &&
+      dados.id_motivo_declinio &&
+      String(dados.id_motivo_declinio) !== "1"
+    ) {
       const motivoMapeado = await this.repository.buscarMotivoDeclinioPorIdCrm(
         dados.id_motivo_declinio,
       );
