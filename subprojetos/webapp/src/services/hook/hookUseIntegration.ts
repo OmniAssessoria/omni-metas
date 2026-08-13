@@ -2,7 +2,6 @@ import { useState } from "react";
 import { API_OMNI_SINGLE } from "@/services/apiOmniIntegracao";
 import API from "../api";
 
-
 interface UseIntegracaoProps {
   tipoOperacao: "Renovação" | "Portabilidade" | "Exclusivo";
   dadosGlobais: any[];
@@ -96,7 +95,25 @@ export function useIntegracaoOmni() {
               }
               falhasLogs.push({ payload: servico, erro: msgErro });
             }
-          } else {
+          } 
+
+          else if (resultadoOmni && resultadoOmni.duplicados > 0) {
+            try {
+              const axiosResult = await API.patch(`/api/servico-claro/piperun/${servico.seq_claro}`);
+              console.info(`🩹 Auto-cura: DB Interno atualizado (Status ${axiosResult.status}). Seq_claro: ${servico.seq_claro}`);
+              
+              falhasLogs.push({ 
+                payload: servico, 
+                erro: "BLOQUEADO: A empresa já existe no CRM. (O sistema local foi curado e atualizado)." 
+              });
+            } catch (patchError: any) {
+              falhasLogs.push({ 
+                payload: servico, 
+                erro: "BLOQUEADO: A empresa já existe no CRM, e houve falha ao atualizar o banco local." 
+              });
+            }
+          } 
+          else {
             console.error(`🚨 Recusa pela API Omni. Serviço: ${servico.seq_claro}`);
             falhasLogs.push({ payload: servico, erro: "Recusado ou falha na integração com a API Omni" });
           }

@@ -28,6 +28,7 @@ export const API_OMNI_SINGLE = async ({
   let sucessos = 0;
   let falhas = 0;
   let pulados = 0;
+  let duplicados = 0;
 
   for (const servico of servicos) {
     console.log(
@@ -258,7 +259,6 @@ export const API_OMNI_SINGLE = async ({
       console.log(
         `[Passo Pré-Voo] 🔎 Verificando se o CNPJ ${cnpjLimpo} já existe no CRM...`,
       );
-      
       try {
         const checkResponse = await axios.get(`${URL_OMNI_API}/deals`, {
           params: {
@@ -283,11 +283,8 @@ export const API_OMNI_SINGLE = async ({
           console.warn(
             `[Omni] 🛡️ BLOQUEADO: O CNPJ ${cnpjFormatado} já está no pipeline do CRM!`,
           );
-          console.log(
-            `[Omni] 🩹 Curando sincronização: Fingindo sucesso para que o DB local (crm=true) seja atualizado.`,
-          );
-
-          sucessos++;
+        
+          duplicados++;
           continue;
         }
       } catch (checkError: any) {
@@ -409,8 +406,8 @@ export const API_OMNI_SINGLE = async ({
     `\n================================================================`,
   );
   console.log(
-    `🏁 [Orquestração Single API Finalizada] ✅ Sucessos: ${sucessos} | ❌ Falhas: ${falhas} | 🚧 Pulados: ${pulados}`,
+    `🏁 [Orquestração Single API Finalizada] ✅ Sucessos: ${sucessos} | ❌ Falhas: ${falhas} | 🚧 Pulados: ${pulados} | 🛡️ Duplicados: ${duplicados}`,
   );
 
-  return { sucessos, falhas, pulados } as any;
+  return { sucessos, falhas, pulados, duplicados } as any;
 };
