@@ -258,6 +258,7 @@ export const API_OMNI_SINGLE = async ({
       console.log(
         `[Passo Pré-Voo] 🔎 Verificando se o CNPJ ${cnpjLimpo} já existe no CRM...`,
       );
+      
       try {
         const checkResponse = await axios.get(`${URL_OMNI_API}/deals`, {
           params: {
