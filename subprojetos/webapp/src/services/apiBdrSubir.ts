@@ -56,20 +56,6 @@ export const enviarLeadOmniCrmBdr = async (
           ? resultDecisor.dddPrincipal
           : "00";
 
-    let obs_numeros_secundarios = "";
-
-    try {
-      const resNumeros = await API.get(
-        `/api/servico-omni/empresa/numeros/${Number(lead.seq_empresa)}`,
-      );
-      const listaNumeros = resNumeros.data?.dados || [];
-      obs_numeros_secundarios = formatarObsNumerosSecundarios(listaNumeros);
-    } catch (apiError: any) {
-      console.warn(
-        `[Omni BDR] Aviso: Falha ao buscar números secundários para ${lead.razao}. Continuando...`,
-      );
-    }
-
     const emailConsultor = lead.email_consultor
       ? String(lead.email_consultor).trim().toLowerCase()
       : "";
@@ -180,6 +166,44 @@ export const enviarLeadOmniCrmBdr = async (
 
     const pipelineDefinido = "wm2n294u8vgp31duczik6iak";
     const stageDefinido = "n1e91tv7a124cgepguadjn8t";
+
+    console.log(`[Passo Pré-Voo BDR] 🔎 Verificando se o CNPJ ${cnpjLimpo} já existe no CRM...`);
+    try {
+      const checkResponse = await apiOmniCrm.get("/deals", {
+        params: {
+          pipelineId: pipelineDefinido,
+          status: "all",
+          q: cnpjLimpo,
+        },
+      });
+
+      const dealsEncontrados = checkResponse.data?.data || [];
+      
+      const leadJaExiste = dealsEncontrados.some((d: any) => {
+        const docCrm = String(d.companyCnpj || "").replace(/\D/g, "");
+        return docCrm === cnpjLimpo;
+      });
+
+      if (leadJaExiste) {
+        console.warn(`[Omni BDR] 🛡️ BLOQUEADO: O CNPJ ${cnpjFormatado} já está no pipeline do CRM!`);
+        console.log(`[Omni BDR] 🩹 Curando sincronização local para que o DB registre (crm=true).`);
+        
+        await API.patch(
+          `/api/servico-omni/leads/marcar-enviado/${lead.seq_empresa}`,
+          {
+            dt_crm: new Date().toISOString(),
+            codigo_crm: Number(lead.codigo_crm) || lead.seq_consultor,
+          },
+        );
+
+        return { success: false, duplicado: true };
+      }
+    } catch (checkError: any) {
+      console.error(
+        `[Omni BDR] ⚠️ Falha na checagem de duplicidade. Tentando criar mesmo assim...`,
+        checkError.message,
+      );
+    }
 
     const payloadSingleCreation = {
       companyName: lead.razao,

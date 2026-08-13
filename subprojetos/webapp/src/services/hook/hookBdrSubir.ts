@@ -62,10 +62,16 @@ export function useIntegracaoPipeBdr() {
             continue;
           }
 
-          // A nova função só retorna objeto com success: true ou quebra no catch
           const omniResult = await enviarLeadOmniCrmBdr(leadData);
 
-          if (omniResult && omniResult.success && omniResult.dealId) {
+          if (omniResult && omniResult.duplicado) {
+            falhasLogs.push({
+              payload: leadData,
+              erro: "BLOQUEADO: A empresa já existe no CRM BDR. (O sistema local foi curado e atualizado)."
+            });
+          } 
+    
+          else if (omniResult && omniResult.success && omniResult.dealId) {
             sucessosLogs.push({ payload: leadData, dealId: omniResult.dealId });
             console.info(
               `✅ Lead ${seqEmpresa} subido e banco atualizado pelo serviço BDR.`,
