@@ -12,7 +12,7 @@ import { extrairTelefonesEmpresaDaObservacao } from "@/utils/formatarTelefonesLi
 import formatarObservacaoPlanosLinhas from "@/utils/formatarObservacao.util";
 import {
   extrairEAnexarDecisorOmni,
-  extrairEAnexarPdfDecisorOmni, 
+  extrairEAnexarPdfDecisorOmni,
   gerarEAnexarImagemOmni,
   TOKEN_AXION,
   URL_OMNI_API,
@@ -236,7 +236,8 @@ export const API_OMNI_SINGLE = async ({
         "Google Fontes Telefones":
           servico.decisor_google_fontes_telefones ?? "N/A",
         "Google Fontes Emails": servico.decisor_google_fontes_emails ?? "N/A",
-        "Google Fontes Sites da Empresa": servico.decisor_google_fontes_emails ?? "N/A",
+        "Google Fontes Sites da Empresa":
+          servico.decisor_google_fontes_emails ?? "N/A",
       };
 
       const contactsPayload: any[] = [];
@@ -253,6 +254,47 @@ export const API_OMNI_SINGLE = async ({
 
       const pipelineDefinido = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
       const stageDefinido = "manual_12342f70-1730-43eb-8ee8-ea9cf8674637";
+      
+      console.log(
+        `[Passo Pré-Voo] 🔎 Verificando se o CNPJ ${cnpjLimpo} já existe no CRM...`,
+      );
+      try {
+        const checkResponse = await axios.get(`${URL_OMNI_API}/deals`, {
+          params: {
+            pipelineId: pipelineDefinido,
+            status: "all",
+            q: cnpjLimpo,
+          },
+          headers: {
+            Authorization: `Bearer ${TOKEN_AXION}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        const dealsEncontrados = checkResponse.data?.data || [];
+
+        const leadJaExiste = dealsEncontrados.some((d: any) => {
+          const docCrm = String(d.companyCnpj || "").replace(/\D/g, "");
+          return docCrm === cnpjLimpo;
+        });
+
+        if (leadJaExiste) {
+          console.warn(
+            `[Omni] 🛡️ BLOQUEADO: O CNPJ ${cnpjFormatado} já está no pipeline do CRM!`,
+          );
+          console.log(
+            `[Omni] 🩹 Curando sincronização: Fingindo sucesso para que o DB local (crm=true) seja atualizado.`,
+          );
+
+          sucessos++;
+          continue;
+        }
+      } catch (checkError: any) {
+        console.error(
+          `[Omni] ⚠️ Falha na checagem de duplicidade. Tentando criar mesmo assim...`,
+          checkError.message,
+        );
+      }
 
       const payloadSingleCreation = {
         companyName: servico.razao,
