@@ -72,7 +72,8 @@ class ServicoOmniService {
   }
 
   async atualizarServicosOmniHistorico(dados: any) {
-    await AtualizarBaseMotivosDecliniomniCrm()
+    await AtualizarBaseMotivosDecliniomniCrm();
+
     const seq_empresa = await this.repository.buscarSeqEmpresaPorCnpj(
       dados.cnpj,
     );
@@ -109,10 +110,14 @@ class ServicoOmniService {
 
     const idConsultor = dadosConsultor.seq_consultor;
     const isGanho = dados.is_ganho === true;
-    let seqMotivoDeclinioNumerico: number | null = null;
-    let situacaoAtendimento = "GANHO";
+    let seqMotivoDeclinioNumerico = isGanho ? 1 : 2;
+    let situacaoAtendimento = isGanho ? "GANHO" : "TEMPORARIO";
 
-    if (!isGanho && dados.id_motivo_declinio) {
+    if (
+      !isGanho &&
+      dados.id_motivo_declinio &&
+      String(dados.id_motivo_declinio) !== "1"
+    ) {
       const motivoMapeado =
         await this.repository.buscarMotivoDeclinioPorIdString(
           dados.id_motivo_declinio,
@@ -123,7 +128,7 @@ class ServicoOmniService {
         situacaoAtendimento = motivoMapeado[0].situacao_atendimento;
       } else {
         console.warn(
-          `[Service] ID String de declínio "${dados.id_motivo_declinio}" não localizado na tabela omni.motivo_declinio.`,
+          `[Service BDR] ID String de declínio "${dados.id_motivo_declinio}" não localizado na tabela omni.motivo_declinio.`,
         );
         situacaoAtendimento = "TEMPORARIO";
       }

@@ -21,7 +21,7 @@ export default class CronServicoOmniSincronizar {
     this.executarRotinaNoturnaPipeBdr =
       this.executarRotinaNoturnaPipeBdr.bind(this);
   }
-  
+
   private delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -151,10 +151,14 @@ export default class CronServicoOmniSincronizar {
         const cnpj = this.formatarCNPJ(String(deal.companyCnpj));
         const isGanho = deal.status === "won";
         const codigoCrm = deal.ownerId || (deal.owner ? deal.owner.id : null);
-        const idMotivoDeclinioCrm = isGanho ? null : deal.lostReasonId;
+        const emailConsultor = deal.owner?.email || null;
+        const idMotivoDeclinioCrm = isGanho
+          ? "1"
+          : deal.lostReasonId || "motivo_nao_informado_pelo_crm";
 
         dealsFormatados.push({
           cnpj: cnpj,
+          email_consultor: emailConsultor,
           codigo_crm: codigoCrm,
           data_inicio_atendimento: deal.createdAt,
           data_fim_atendimento: deal.closedAt,
@@ -177,7 +181,6 @@ export default class CronServicoOmniSincronizar {
           if (resultado.sucesso) sucessos++;
           if (resultado.ignorado) {
             falhas++;
-
             console.warn(`[CRON 02:30 BDR] Ignorado: ${resultado.motivo}`);
           }
 
