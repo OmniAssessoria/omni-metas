@@ -1,20 +1,21 @@
 import app from "./app.js";
 import "dotenv/config";
 import cron from "node-cron";
-import os from "os"; 
+import os from "os";
 import FunctionsDatabaseRepository from "./repositories/functions_database.repository.js";
-import CronOmniCrmSincronizar from "./crons/cron_omni_crm_sincronizar.helper.js";
-import CronServicoOmniSincronizar from "./crons/cron_servico_omni_sincronizar.helper.js";
+import CronOmniCrmSincronizar from "./crons/cron_omni_crm_sincronizar.cron.js";
+import CronServicoOmniSincronizar from "./crons/cron_servico_omni_sincronizar.cron.js";
+import CronTeleconBdrOmniSincronizar from "./crons/cron_telecon_bdr_validacao_abertos.cron.js";
 
 function obterIpLocal() {
   const interfaces = os.networkInterfaces();
-  
+
   for (const nomeInterface in interfaces) {
     const rede = interfaces[nomeInterface];
     if (rede) {
       for (const info of rede) {
         if (info.family === "IPv4" && !info.internal) {
-          return info.address; 
+          return info.address;
         }
       }
     }
@@ -25,7 +26,7 @@ function obterIpLocal() {
 async function Servidor() {
   const server = app.listen(3333, "0.0.0.0", () => {
     const ipRede = obterIpLocal();
-    
+
     console.log(`\n🚀 Servidor inicializado com sucesso!`);
     console.log(`📡 Acesso Local (sua máquina): http://localhost:3333`);
     console.log(`🌐 Acesso na Rede (outras máquinas): http://${ipRede}:3333\n`);
@@ -40,7 +41,9 @@ async function Servidor() {
       "0 19 * * *",
       async () => {
         try {
-          console.log("[SISTEMA] Iniciando trigger do Cron Job das 19h (Novo CRM Omni)...");
+          console.log(
+            "[SISTEMA] Iniciando trigger do Cron Job das 19h (Novo CRM Omni)...",
+          );
           await omniCrmCron.executarRotinaNoturnaOmniCrm();
         } catch (error) {
           console.error(
@@ -59,19 +62,29 @@ async function Servidor() {
       "30 0 * * *",
       async () => {
         try {
-          console.log(`\n======================================================`);
-          console.log("[CRON 00:30] Iniciando trigger do Cron Job da Madrugada...");
-          
+          console.log(
+            `\n======================================================`,
+          );
+          console.log(
+            "[CRON 00:30] Iniciando trigger do Cron Job da Madrugada...",
+          );
+
           const repoDB = new FunctionsDatabaseRepository();
-          
+
           console.log("[CRON 00:30] Executando fn_verificar_aquecendo()...");
           await repoDB.executarValidacaoLeituraCpcForaDoPrazo();
-          
-          console.log("[CRON 00:30] Executando fn_validar_servico_omni_temporario()...");
+
+          console.log(
+            "[CRON 00:30] Executando fn_validar_servico_omni_temporario()...",
+          );
           await repoDB.executarValidacaoTemporarioClaro();
 
-          console.log("[CRON 00:30] Processo noturno de recálculo finalizado com sucesso!");
-          console.log(`======================================================\n`);
+          console.log(
+            "[CRON 00:30] Processo noturno de recálculo finalizado com sucesso!",
+          );
+          console.log(
+            `======================================================\n`,
+          );
         } catch (error) {
           console.error(
             "[SISTEMA] Erro fatal não tratado durante a execução do cron das 00:30:",
@@ -83,13 +96,15 @@ async function Servidor() {
     );
 
     // ====================================================================
-    // CRON JOB 3: ROTINA DAS 2:30 - Sincronização BDR | perdidos/ganhos Omni CRM 
+    // CRON JOB 3: ROTINA DAS 2:30 - Sincronização BDR | perdidos/ganhos Omni CRM
     // ====================================================================
     cron.schedule(
       "30 02 * * *",
       async () => {
         try {
-          console.log("[SISTEMA] Iniciando trigger do Cron Job das 02h30 (Omni BDR)...");
+          console.log(
+            "[SISTEMA] Iniciando trigger do Cron Job das 02h30 (Omni BDR)...",
+          );
           await omniBdrCron.executarRotinaNoturnaPipeBdr();
         } catch (error) {
           console.error(
@@ -114,14 +129,20 @@ async function Servidor() {
     async () => {
       try {
         console.log(`\n======================================================`);
-        console.log("[CRON 04:30] Iniciando trigger do Cron Job da Madrugada...");
-        
+        console.log(
+          "[CRON 04:30] Iniciando trigger do Cron Job da Madrugada...",
+        );
+
         const repoDB = new FunctionsDatabaseRepository();
-        
-        console.log("[CRON 00:30] Executando fn_validar_servico_omni_temporario()...");
+
+        console.log(
+          "[CRON 00:30] Executando fn_validar_servico_omni_temporario()...",
+        );
         await repoDB.executarValidacaoTemporarioOmni();
 
-        console.log("[CRON 00:30] Processo noturno de recálculo finalizado com sucesso!");
+        console.log(
+          "[CRON 00:30] Processo noturno de recálculo finalizado com sucesso!",
+        );
         console.log(`======================================================\n`);
       } catch (error) {
         console.error(
@@ -133,6 +154,31 @@ async function Servidor() {
     { timezone: "America/Sao_Paulo" },
   );
 
+  // ====================================================================
+  // CRON JOB 5: ROTINA DAS 06:00 - Sincronizar Abertos Omni BDR e TELECOM
+  // ====================================================================
+  cron.schedule(
+    "0 6 * * *",
+    async () => {
+      try {
+        console.log(`\n======================================================`);
+        console.log("[CRON 06:00] Iniciando dupla sincronização de ABERTOS...");
+
+        const TeleconBdrCron = new CronTeleconBdrOmniSincronizar();
+        await TeleconBdrCron.sincronizarAbertosTelecom();
+        await TeleconBdrCron.sincronizarAbertosBdr();
+
+        console.log("[CRON 06:00] Dupla sincronização finalizada com sucesso!");
+        console.log(`======================================================\n`);
+      } catch (error) {
+        console.error(
+          "[SISTEMA] Erro fatal não tratado durante a execução do cron das 06:00:",
+          error,
+        );
+      }
+    },
+    { timezone: "America/Sao_Paulo" },
+  );
   server.setTimeout(300000);
 }
 

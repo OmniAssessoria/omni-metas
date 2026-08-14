@@ -364,4 +364,43 @@ export default class ServicoClaroRepository {
       throw error;
     }
   }
+
+  async buscarAbertosParaSincronizacao() {
+    const query = `
+      SELECT sc.seq_claro, e.cnpj 
+      FROM omni.servico_claro sc
+      INNER JOIN omni.empresa e ON sc.seq_empresa = e.seq_empresa
+      WHERE sc.seq_consultor IS NOT NULL 
+        AND sc.crm = TRUE 
+        AND sc.situacao = 'ABERTO' 
+        AND sc.cpc = FALSE;
+    `;
+    try {
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar abertos sync:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async reverterServicoAbertoNaoEncontradoCrm(seq_claro: number) {
+    const query = `
+      UPDATE omni.servico_claro 
+      SET crm = false, cpc = true, dt_ultima_leitura = null, seq_consultor = null 
+      WHERE seq_claro = $1;
+    `;
+    try {
+      await pool.query(query, [seq_claro]);
+    } catch (error) {
+      console.error(
+        "[ServicoClaroRepository] Erro ao reverter serviço claro:",
+        error,
+      );
+      throw error;
+    }
+  }
 }

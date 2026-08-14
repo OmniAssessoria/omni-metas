@@ -189,6 +189,17 @@ class ServicoClaroService {
       await this.repository.buscarDashboardPorIndicacao(tipoIndicacao);
     return dados && dados.length > 0 ? dados : [];
   }
+
+  async buscarAbertosSincronizacao() {
+    const dados = await this.repository.buscarAbertosParaSincronizacao();
+    return dados && dados.length > 0 ? dados : [];
+  }
+
+  async reverterAberto(seq_claro: number) {
+    if (!seq_claro) throw new Error("Seq_claro não informado.");
+    await this.repository.reverterServicoAbertoNaoEncontradoCrm(seq_claro);
+    return { sucesso: true };
+  }
 }
 
 export default ServicoClaroService;

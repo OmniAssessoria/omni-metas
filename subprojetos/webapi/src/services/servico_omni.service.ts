@@ -186,6 +186,19 @@ class ServicoOmniService {
     );
     return dados && dados.length > 0 ? dados : [];
   }
+
+  async buscarAbertosSincronizacao() {
+    const dados = await this.repository.buscarAbertosParaSincronizacao();
+    return dados && dados.length > 0 ? dados : [];
+  }
+
+  async reverterAberto(seq_servico_omni: number) {
+    if (!seq_servico_omni) throw new Error("Seq_servico_omni não informado.");
+    await this.repository.reverterServicoAbertoNaoEncontradoCrm(
+      seq_servico_omni,
+    );
+    return { sucesso: true };
+  }
 }
 
 export default ServicoOmniService;

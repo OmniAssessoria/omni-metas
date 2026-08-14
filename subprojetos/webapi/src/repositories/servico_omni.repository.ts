@@ -9,7 +9,7 @@ export default class ServicoOmniRepository {
     `;
     try {
       const result = await pool.query(query, [id_motivo_declinio]);
-      return result.rows; 
+      return result.rows;
     } catch (error) {
       console.error(
         "[ServicoOmniRepository] Erro ao buscar motivo por id_motivo_declinio string:",
@@ -283,6 +283,44 @@ export default class ServicoOmniRepository {
     } catch (error) {
       console.error(
         "[ServicoOmniRepository] Erro ao atribuir LEADS BDR para o consultor:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async buscarAbertosParaSincronizacao() {
+    const query = `
+      SELECT so.seq_servico_omni, e.cnpj 
+      FROM omni.servico_omni so
+      INNER JOIN omni.empresa e ON so.seq_empresa = e.seq_empresa
+      WHERE so.crm = TRUE 
+        AND so.seq_consultor IS NOT NULL 
+        AND so.situacao = 'ABERTO';
+    `;
+    try {
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error(
+        "[ServicoOmniRepository] Erro ao buscar abertos BDR sync:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async reverterServicoAbertoNaoEncontradoCrm(seq_servico_omni: number) {
+    const query = `
+      UPDATE omni.servico_omni 
+      SET crm = false, dt_crm = null, codigo_crm = null, seq_consultor = null, situacao = 'ABERTO'
+      WHERE seq_servico_omni = $1;
+    `;
+    try {
+      await pool.query(query, [seq_servico_omni]);
+    } catch (error) {
+      console.error(
+        "[ServicoOmniRepository] Erro ao reverter serviço BDR:",
         error,
       );
       throw error;
