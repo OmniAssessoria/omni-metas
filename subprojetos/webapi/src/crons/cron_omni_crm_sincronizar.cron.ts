@@ -106,7 +106,7 @@ export default class CronOmniCrmSincronizar {
 
     console.log(`\n======================================================`);
     console.log(
-      `[CRON 19:00 OMNI CRM] Sincronização Diária iniciada: ${dataFormatada}`,
+      `[CRON OMNI CRM] Sincronização iniciada: ${dataFormatada}`,
     );
     console.log(`======================================================`);
 
@@ -117,14 +117,14 @@ export default class CronOmniCrmSincronizar {
     };
 
     try {
-      console.log(`[CRON 19:00 OMNI CRM] Coletando registros [GANHO]...`);
+      console.log(`[CRON OMNI CRM] Coletando registros [GANHO]...`);
       const ganhos = await this.buscarTodosOsDealsPorCursor({
         status: "won",
         ...filtrosComuns,
       });
       dealsBrutos.push(...ganhos);
 
-      console.log(`[CRON 19:00 OMNI CRM] Coletando registros [PERDIDO]...`);
+      console.log(`[CRON OMNI CRM] Coletando registros [PERDIDO]...`);
       const perdas = await this.buscarTodosOsDealsPorCursor({
         status: "lost",
         ...filtrosComuns,
@@ -133,14 +133,14 @@ export default class CronOmniCrmSincronizar {
 
       if (dealsBrutos.length === 0) {
         console.log(
-          `[CRON 19:00 OMNI CRM] Nenhum negócio ganho ou perdido fechado hoje (${dataFormatada}).`,
+          `[CRON OMNI CRM] Nenhum negócio ganho ou perdido fechado hoje (${dataFormatada}).`,
         );
         console.log(`======================================================\n`);
         return;
       }
 
       console.log(
-        `[CRON 19:00 OMNI CRM] Estruturando ${dealsBrutos.length} negócios localizados...`,
+        `[CRON OMNI CRM] Estruturando ${dealsBrutos.length} negócios localizados...`,
       );
       const dealsFormatados = [];
 
@@ -171,35 +171,47 @@ export default class CronOmniCrmSincronizar {
       }
 
       console.log(
-        `[CRON 19:00 OMNI CRM] Gravando ${dealsFormatados.length} registros processados no PostgreSQL...`,
+        `[CRON OMNI CRM] Gravando ${dealsFormatados.length} registros processados no PostgreSQL...`,
       );
+      
       let sucessos = 0;
       let falhas = 0;
 
+      console.log(`\n--- DETALHAMENTO OMNI CRM (CNPJ - Consultor - Status) ---`);
+
       for (const dado of dealsFormatados) {
+        const identificadorConsultor = dado.email_consultor || "SEM_EMAIL_CONSULTOR";
+        const statusNegocio = dado.is_ganho ? "GANHO" : "PERDIDO";
+
         try {
-          const resultado =
-            await this.servicoClaroService.sincronizarHistoricoClaro(dado);
-          if (resultado.sucesso) sucessos++;
-          if (resultado.ignorado) falhas++;
+          const resultado = await this.servicoClaroService.sincronizarHistoricoClaro(dado);
+          
+          if (resultado.sucesso) {
+            sucessos++;
+            console.log(`➔ ${dado.cnpj} - ${identificadorConsultor} - SALVO: SUCESSO (${statusNegocio})`);
+          }
+          
+          if (resultado.ignorado) {
+            falhas++;
+            console.log(`➔ ${dado.cnpj} - ${identificadorConsultor} - IGNORADO: FALHA (${resultado.motivo})`);
+          }
 
           await this.delay(50);
         } catch (error: any) {
           falhas++;
-          console.error(
-            `[CRON 19:00 OMNI CRM] Falha ao persistir CNPJ ${dado.cnpj}:`,
-            error.message,
-          );
+          console.log(`➔ ${dado.cnpj} - ${identificadorConsultor} - ERRO GRAVE: (${error.message})`);
         }
       }
 
+      console.log(`---------------------------------------------------------\n`);
+
       console.log(
-        `[CRON 19:00 OMNI CRM] Processamento finalizado. Sucessos: ${sucessos} | Ignorados ou Falhas: ${falhas}`,
+        `[CRON OMNI CRM] Processamento finalizado. Sucessos: ${sucessos} | Ignorados ou Falhas: ${falhas}`,
       );
       console.log(`======================================================\n`);
     } catch (error: any) {
       console.error(
-        "[CRON 19:00 OMNI CRM] Erro fatal não tratado na rotina diária:",
+        "[CRON OMNI CRM] Erro fatal não tratado na rotina diária:",
         error.message,
       );
     }
