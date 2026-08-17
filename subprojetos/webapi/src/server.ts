@@ -38,7 +38,7 @@ async function Servidor() {
     // CRON JOB 1: ROTINA DE TESTE (19:00) - Extrair leads perdidos/ganhos Telecom CRM
     // ====================================================================
     cron.schedule( 
-      "00 19 * * *", 
+      "30 19 * * *", 
       async () => {
         try {
           console.log(
