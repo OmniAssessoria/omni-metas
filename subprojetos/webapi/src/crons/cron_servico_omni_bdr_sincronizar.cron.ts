@@ -1,14 +1,17 @@
 import axios from "axios";
 import ServicoOmniService from "../services/servico_omni.service.js";
+import LoggerHelper from "../helpers/logger.help.js";
 
 const TOKEN_OMNI_CRM = process.env.TOKEN_API_KEY;
 const PIPELINE_LOCAL_ID = "wm2n294u8vgp31duczik6iak";
 
-export default class CronServicoOmniSincronizar {
+export default class CronServicoOmniBdrSincronizar {
   private servicoOmniService: ServicoOmniService;
   private apiOmniCrm: any;
+  private logger: LoggerHelper;
 
   constructor() {
+    this.logger = new LoggerHelper("cron_servico_omni_bdr");
     this.servicoOmniService = new ServicoOmniService();
     this.apiOmniCrm = axios.create({
       baseURL: "https://omniassessoria.online/api/local/v1",
@@ -77,14 +80,13 @@ export default class CronServicoOmniSincronizar {
 
         await this.delay(150);
       } catch (error: any) {
-        console.error(
+        this.logger.error(
           `[CRON BDR - Erro na Paginação] Falha ao processar requisição. Cursor: ${cursorAtual}`,
           error.response?.data || error.message,
         );
         temMaisDados = false;
       }
     }
-
     return todosOsDeals;
   }
 
@@ -101,11 +103,9 @@ export default class CronServicoOmniSincronizar {
 
     const dealsBrutos: any[] = [];
 
-    console.log(`\n======================================================`);
-    console.log(
+    this.logger.info(
       `[CRON 02:30 BDR] Sincronização Iniciada. Data Base: ${dataOntemFormatada}`,
     );
-    console.log(`======================================================`);
 
     const filtrosComuns = {
       pipelineId: PIPELINE_LOCAL_ID,
@@ -114,7 +114,7 @@ export default class CronServicoOmniSincronizar {
     };
 
     try {
-      console.log(
+      this.logger.info(
         `[CRON 02:30 BDR] Coletando registros [GANHO] do funil BDR...`,
       );
       const ganhos = await this.buscarTodosOsDealsPorCursor({
@@ -123,7 +123,7 @@ export default class CronServicoOmniSincronizar {
       });
       dealsBrutos.push(...ganhos);
 
-      console.log(
+      this.logger.info(
         `[CRON 02:30 BDR] Coletando registros [PERDIDO] do funil BDR...`,
       );
       const perdas = await this.buscarTodosOsDealsPorCursor({
@@ -133,14 +133,13 @@ export default class CronServicoOmniSincronizar {
       dealsBrutos.push(...perdas);
 
       if (dealsBrutos.length === 0) {
-        console.log(
+        this.logger.info(
           `[CRON 02:30 BDR] Nenhum negócio (Ganho/Perdido) movimentado em ${dataOntemFormatada}.`,
         );
-        console.log(`======================================================\n`);
         return;
       }
 
-      console.log(
+      this.logger.info(
         `[CRON 02:30 BDR] Estruturando ${dealsBrutos.length} negócios extraídos...`,
       );
       const dealsFormatados = [];
@@ -167,7 +166,7 @@ export default class CronServicoOmniSincronizar {
         });
       }
 
-      console.log(
+      this.logger.info(
         `[CRON 02:30 BDR] Iniciando persistência no PostgreSQL para tabela OMNI (${dealsFormatados.length} registros)...`,
       );
       let sucessos = 0;
@@ -181,27 +180,27 @@ export default class CronServicoOmniSincronizar {
           if (resultado.sucesso) sucessos++;
           if (resultado.ignorado) {
             falhas++;
-            console.warn(`[CRON 02:30 BDR] Ignorado: ${resultado.motivo}`);
+            this.logger.warn(`[CRON 02:30 BDR] Ignorado: ${resultado.motivo}`);
           }
 
           await this.delay(50);
         } catch (error: any) {
           falhas++;
-          console.error(
+          this.logger.error(
             `[CRON 02:30 BDR] Falha grave ao persistir CNPJ ${dado.cnpj}:`,
             error.message,
           );
         }
       }
 
-      console.log(
+      this.logger.info(
         `[CRON 02:30 BDR] Processamento concluído. Sucessos: ${sucessos} | Falhas/Ignorados: ${falhas}`,
       );
-      console.log(`======================================================`);
-      console.log(`[CRON 02:30 BDR] Processo noturno finalizado com sucesso!`);
-      console.log(`======================================================\n`);
+      this.logger.info(
+        `[CRON 02:30 BDR] Processo noturno finalizado com sucesso!`,
+      );
     } catch (error: any) {
-      console.error(
+      this.logger.error(
         "[CRON 02:30 BDR] Erro fatal não tratado na rotina noturna:",
         error.message || error,
       );

@@ -1,14 +1,17 @@
 import axios from "axios";
 import ServicoClaroService from "../services/servico_claro.service.js";
+import LoggerHelper from "../helpers/logger.help.js";
 
 const TOKEN_OMNI_CRM = process.env.TOKEN_API_KEY;
 const PIPELINE_LOCAL_ID = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
 
-export default class CronOmniCrmSincronizar {
+export default class CronServicoTelecomSincronizar {
   private servicoClaroService: ServicoClaroService;
   private apiOmniCrm: any;
+  private logger: LoggerHelper;
 
   constructor() {
+    this.logger = new LoggerHelper("cron_telecom");
     this.servicoClaroService = new ServicoClaroService();
     this.apiOmniCrm = axios.create({
       baseURL: "https://omniassessoria.online/api/local/v1",
@@ -33,12 +36,6 @@ export default class CronOmniCrmSincronizar {
       /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
       "$1.$2.$3/$4-$5",
     );
-  }
-
-  private obterCustomFieldPorKey(customFields: any[], keyName: string) {
-    if (!customFields) return null;
-    const field = customFields.find((f) => f.key === keyName);
-    return field ? field.value : null;
   }
 
   private async buscarTodosOsDealsPorCursor(
@@ -82,14 +79,13 @@ export default class CronOmniCrmSincronizar {
 
         await this.delay(150);
       } catch (error: any) {
-        console.error(
+        this.logger.error(
           `[CRON - Erro na Paginação] Falha ao processar requisição. Cursor: ${cursorAtual}`,
           error.response?.data || error.message,
         );
         temMaisDados = false;
       }
     }
-
     return todosOsDeals;
   }
 
@@ -104,11 +100,9 @@ export default class CronOmniCrmSincronizar {
 
     const dealsBrutos: any[] = [];
 
-    console.log(`\n======================================================`);
-    console.log(
+    this.logger.info(
       `[CRON OMNI CRM] Sincronização iniciada: ${dataFormatada}`,
     );
-    console.log(`======================================================`);
 
     const filtrosComuns = {
       pipelineId: PIPELINE_LOCAL_ID,
@@ -117,14 +111,14 @@ export default class CronOmniCrmSincronizar {
     };
 
     try {
-      console.log(`[CRON OMNI CRM] Coletando registros [GANHO]...`);
+      this.logger.info(`[CRON OMNI CRM] Coletando registros [GANHO]...`);
       const ganhos = await this.buscarTodosOsDealsPorCursor({
         status: "won",
         ...filtrosComuns,
       });
       dealsBrutos.push(...ganhos);
 
-      console.log(`[CRON OMNI CRM] Coletando registros [PERDIDO]...`);
+      this.logger.info(`[CRON OMNI CRM] Coletando registros [PERDIDO]...`);
       const perdas = await this.buscarTodosOsDealsPorCursor({
         status: "lost",
         ...filtrosComuns,
@@ -132,14 +126,13 @@ export default class CronOmniCrmSincronizar {
       dealsBrutos.push(...perdas);
 
       if (dealsBrutos.length === 0) {
-        console.log(
+        this.logger.info(
           `[CRON OMNI CRM] Nenhum negócio ganho ou perdido fechado hoje (${dataFormatada}).`,
         );
-        console.log(`======================================================\n`);
         return;
       }
 
-      console.log(
+      this.logger.info(
         `[CRON OMNI CRM] Estruturando ${dealsBrutos.length} negócios localizados...`,
       );
       const dealsFormatados = [];
@@ -154,7 +147,6 @@ export default class CronOmniCrmSincronizar {
         const idMotivoDeclinioCrm = isGanho
           ? "1"
           : deal.lostReasonId || "motivo_nao_informado_pelo_crm";
-
         const observacao =
           deal.lostReason || "Sem detalhes adicionais mapeados";
 
@@ -170,49 +162,53 @@ export default class CronOmniCrmSincronizar {
         });
       }
 
-      console.log(
+      this.logger.info(
         `[CRON OMNI CRM] Gravando ${dealsFormatados.length} registros processados no PostgreSQL...`,
       );
-      
+
       let sucessos = 0;
       let falhas = 0;
 
-      console.log(`\n--- DETALHAMENTO OMNI CRM (CNPJ - Consultor - Status) ---`);
-
       for (const dado of dealsFormatados) {
-        const identificadorConsultor = dado.email_consultor || "SEM_EMAIL_CONSULTOR";
+        const identificadorConsultor =
+          dado.email_consultor || "SEM_EMAIL_CONSULTOR";
         const statusNegocio = dado.is_ganho ? "GANHO" : "PERDIDO";
 
         try {
-          const resultado = await this.servicoClaroService.sincronizarHistoricoClaro(dado);
-          
+          const resultado =
+            await this.servicoClaroService.sincronizarHistoricoClaro(dado);
+
           if (resultado.sucesso) {
             sucessos++;
-            console.log(`➔ ${dado.cnpj} - ${identificadorConsultor} - SALVO: SUCESSO (${statusNegocio})`);
+            this.logger.info(
+              `➔ ${dado.cnpj} - ${identificadorConsultor} - SALVO: SUCESSO (${statusNegocio})`,
+            );
           }
-          
+
           if (resultado.ignorado) {
             falhas++;
-            console.log(`➔ ${dado.cnpj} - ${identificadorConsultor} - IGNORADO: FALHA (${resultado.motivo})`);
+            this.logger.info(
+              `➔ ${dado.cnpj} - ${identificadorConsultor} - IGNORADO: FALHA (${resultado.motivo})`,
+            );
           }
 
           await this.delay(50);
         } catch (error: any) {
           falhas++;
-          console.log(`➔ ${dado.cnpj} - ${identificadorConsultor} - ERRO GRAVE: (${error.message})`);
+          this.logger.error(
+            `➔ ${dado.cnpj} - ${identificadorConsultor} - ERRO GRAVE`,
+            error.message,
+          );
         }
       }
 
-      console.log(`---------------------------------------------------------\n`);
-
-      console.log(
+      this.logger.info(
         `[CRON OMNI CRM] Processamento finalizado. Sucessos: ${sucessos} | Ignorados ou Falhas: ${falhas}`,
       );
-      console.log(`======================================================\n`);
     } catch (error: any) {
-      console.error(
+      this.logger.error(
         "[CRON OMNI CRM] Erro fatal não tratado na rotina diária:",
-        error.message,
+        error,
       );
     }
   }

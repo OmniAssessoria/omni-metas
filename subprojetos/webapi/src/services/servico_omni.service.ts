@@ -1,4 +1,5 @@
 import AtualizarBaseMotivosDecliniomniCrm from "../helpers/atualizar_base_motivos_declinio.helper.js";
+import LoggerHelper from "../helpers/logger.help.js";
 import { IDadosConsultor } from "../interfaces/dados_consultor.interface.js";
 import { IMotivosDeclinio } from "../interfaces/motivo_declinio.interface.js";
 import ConsultorRepository from "../repositories/consultor.repository.js";
@@ -7,10 +8,12 @@ import ServicoOmniRepository from "../repositories/servico_omni.repository.js";
 class ServicoOmniService {
   private repository: ServicoOmniRepository;
   private repositoryConsultor: ConsultorRepository;
+  private logger: LoggerHelper;
 
   constructor() {
     this.repository = new ServicoOmniRepository();
     this.repositoryConsultor = new ConsultorRepository();
+    this.logger = new LoggerHelper("service_omni_bdr");
   }
 
   async listarEmpresaInfoPorSeq(seq_empresa: number) {
@@ -104,7 +107,7 @@ class ServicoOmniService {
     if (!dadosConsultor || !dadosConsultor.seq_consultor) {
       return {
         ignorado: true,
-        motivo: `Consultor com o email "${dados.email_consultor}" não foi encontrado na base de dados. Dados do payload: ${JSON.stringify(dados)}`,
+        motivo: `Consultor com o email "${dados.email_consultor}" não foi encontrado na base de dados.`,
       };
     }
 
@@ -127,7 +130,7 @@ class ServicoOmniService {
         seqMotivoDeclinioNumerico = motivoMapeado[0].seq_motivo_declinio;
         situacaoAtendimento = motivoMapeado[0].situacao_atendimento;
       } else {
-        console.warn(
+        this.logger.warn(
           `[Service BDR] ID String de declínio "${dados.id_motivo_declinio}" não localizado na tabela omni.motivo_declinio.`,
         );
         situacaoAtendimento = "TEMPORARIO";
