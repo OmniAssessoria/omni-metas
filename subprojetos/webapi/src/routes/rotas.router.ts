@@ -4,7 +4,6 @@ import RotasServicoClaro from "./servico_claro.router.js";
 import RotasServicoOperadora from "./servico_operadora.router.js";
 import RotasDecisor from "./decisor.router.js";
 import RotasServicoOmni from "./servico_omni.router.js";
-import RotasServicoDisparoOmni from "./servico_disparo_omni.router.js";
 
 class RouterController {
   private router: Router;
@@ -26,9 +25,6 @@ class RouterController {
 
     const rotasDecisor = new RotasDecisor();
     this.router.use("/api", rotasDecisor.retornarRotas());
-
-    const rotasServicoDisparoOmni = new RotasServicoDisparoOmni();
-    this.router.use("/api", rotasServicoDisparoOmni.retornarRotas());
 
     const rotasServicoOmni = new RotasServicoOmni();
     this.router.use("/api", rotasServicoOmni.retornarRotas());
