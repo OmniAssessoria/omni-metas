@@ -202,6 +202,21 @@ class ServicoOmniService {
     );
     return { sucesso: true };
   }
+
+  async atribuirLeadsConsultor(dados: {
+    seq_consultor: number;
+    quantidade: number;
+    com_edoc_cpc: boolean;
+  }) {
+    const { seq_consultor, quantidade, com_edoc_cpc } = dados;
+    const totalAtribuido = await this.repository.atribuirLeadsConsultor(
+      seq_consultor,
+      quantidade,
+      com_edoc_cpc,
+    );
+
+    return totalAtribuido;
+  }
 }
 
 export default ServicoOmniService;

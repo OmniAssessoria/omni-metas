@@ -27,6 +27,7 @@ class ServicoOmniController {
     this.atribuirEmpresasParaConsultor =
       this.atribuirEmpresasParaConsultor.bind(this);
     this.marcarLeadComoEnviadoCrm = this.marcarLeadComoEnviadoCrm.bind(this);
+    this.atribuirLeadsConsultor = this.atribuirLeadsConsultor.bind(this);
   }
 
   async buscarEmpresaPorSeq(req: Request, res: Response): Promise<void> {
@@ -468,6 +469,72 @@ class ServicoOmniController {
       res.status(500).json({
         status: false,
         mensagem: "Erro interno no servidor ao tentar atribuir empresas.",
+        detalhes: error.message,
+      });
+    }
+  }
+
+  async atribuirLeadsConsultor(req: Request, res: Response): Promise<void> {
+    try {
+      const { seq_consultor, quantidade, com_edoc_cpc } = req.body;
+
+      console.log(
+        `[API POST] Requisição para atribuir leads. Consultor: ${seq_consultor} | Qtd: ${quantidade} | EDOC/CPC: ${com_edoc_cpc}`,
+      );
+
+      if (!seq_consultor || isNaN(Number(seq_consultor))) {
+        res.status(400).json({
+          status: false,
+          mensagem:
+            "O parâmetro 'seq_consultor' é obrigatório e deve ser numérico.",
+        });
+        return;
+      }
+
+      if (!quantidade || isNaN(Number(quantidade)) || Number(quantidade) <= 0) {
+        res.status(400).json({
+          status: false,
+          mensagem:
+            "O parâmetro 'quantidade' é obrigatório, deve ser numérico e maior que zero.",
+        });
+        return;
+      }
+
+      if (typeof com_edoc_cpc !== "boolean") {
+        res.status(400).json({
+          status: false,
+          mensagem:
+            "O parâmetro 'com_edoc_cpc' é obrigatório e deve ser um valor booleano (true ou false).",
+        });
+        return;
+      }
+
+      const totalAtribuido =
+        await this.servicoOmniService.atribuirLeadsConsultor({
+          seq_consultor: Number(seq_consultor),
+          quantidade: Number(quantidade),
+          com_edoc_cpc,
+        });
+
+      res.status(200).json({
+        status: true,
+        mensagem:
+          totalAtribuido > 0
+            ? `${totalAtribuido} lead(s) atribuído(s) com sucesso ao consultor.`
+            : "Nenhum lead disponível para o perfil solicitado no momento.",
+        dados: {
+          total_atribuido: totalAtribuido,
+        },
+      });
+    } catch (error: any) {
+      console.error(
+        `[API POST ERROR] Erro ao executar atribuirLeadsConsultor:`,
+        error.message,
+      );
+      res.status(500).json({
+        status: false,
+        mensagem:
+          "Erro interno no servidor ao tentar atribuir leads ao consultor.",
         detalhes: error.message,
       });
     }

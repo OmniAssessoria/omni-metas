@@ -326,4 +326,28 @@ export default class ServicoOmniRepository {
       throw error;
     }
   }
+
+  async atribuirLeadsConsultor(
+    seq_consultor: number,
+    quantidade: number,
+    com_edoc_cpc: boolean,
+  ): Promise<number> {
+    const query = `SELECT omni.atribuir_leads_consultor($1, $2, $3) AS total_atribuido;`;
+
+    try {
+      const result = await pool.query(query, [
+        seq_consultor,
+        quantidade,
+        com_edoc_cpc,
+      ]);
+
+      return result.rows[0]?.total_atribuido || 0;
+    } catch (error) {
+      console.error(
+        "[ServicoOmniRepository] Erro crítico ao executar function de atribuição de leads:",
+        error,
+      );
+      throw error;
+    }
+  }
 }

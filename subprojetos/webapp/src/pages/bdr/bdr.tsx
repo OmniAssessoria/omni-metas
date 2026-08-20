@@ -27,6 +27,7 @@ import {
   ArrowRightLeft,
   Calendar,
   UserPlus,
+  Filter, 
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import API from "@/services/api";
@@ -75,10 +76,13 @@ export default function PainelBDR() {
     mensagem: "",
     etapa: "iniciando",
   });
+  
   const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
   const [assignConsultorId, setAssignConsultorId] = useState<string>("");
   const [assignLimit, setAssignLimit] = useState<string>("");
+  const [assignComEdocCpc, setAssignComEdocCpc] = useState<boolean>(true); // NOVO ESTADO
   const [isAssigning, setIsAssigning] = useState<boolean>(false);
+  
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [syncLogs, setSyncLogs] = useState<{
     sucessos: any[];
@@ -171,11 +175,12 @@ export default function PainelBDR() {
 
     setIsAssigning(true);
     try {
-      const response = await API.patch(
-        "/api/servico-omni/leads/atribuir-consultor",
+      const response = await API.post(
+        "/api/servico-omni/leads/consultor/atribuir-leads",
         {
           seq_consultor: Number(assignConsultorId),
-          limit: Number(assignLimit),
+          quantidade: Number(assignLimit),
+          com_edoc_cpc: assignComEdocCpc, 
         },
       );
 
@@ -186,6 +191,7 @@ export default function PainelBDR() {
       setIsAssignModalOpen(false);
       setAssignConsultorId("");
       setAssignLimit("");
+      setAssignComEdocCpc(true);
 
       await carregarDados();
     } catch (error: any) {
@@ -282,15 +288,14 @@ export default function PainelBDR() {
 
               <div className="p-6 flex flex-col gap-6">
                 <p className="text-sm text-muted-foreground">
-                  Selecione um consultor e a quantidade de leads que devem ser
-                  reservados e atribuídos à sua fila (que ainda não constam em
-                  seu histórico).
+                  Selecione o consultor, o perfil do lead (com ou sem eDoc/CPC) e a quantidade 
+                  que deseja reservar no banco de dados para a fila de envio deste usuário.
                 </p>
 
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-5">
                   <div className="space-y-2">
-                    <Label className="font-semibold text-foreground">
-                      Consultor Destino
+                    <Label className="font-semibold text-foreground flex items-center gap-2">
+                      <Users className="h-4 w-4" /> Consultor Destino
                     </Label>
                     <Select
                       value={assignConsultorId}
@@ -314,8 +319,31 @@ export default function PainelBDR() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="font-semibold text-foreground">
-                      Quantidade a Atribuir
+                    <Label className="font-semibold text-foreground flex items-center gap-2">
+                      <Filter className="h-4 w-4" /> Perfil do Lead
+                    </Label>
+                    <Select
+                      value={String(assignComEdocCpc)}
+                      onValueChange={(val) => setAssignComEdocCpc(val === "true")}
+                      disabled={isAssigning || loadingDados}
+                    >
+                      <SelectTrigger className="h-12 bg-background border-input">
+                        <SelectValue placeholder="Selecione o perfil..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">
+                          Com eDoc / CPC (Prioridade Alta)
+                        </SelectItem>
+                        <SelectItem value="false">
+                          Sem eDoc / CPC (Leads Frios)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-foreground flex items-center gap-2">
+                      <Database className="h-4 w-4" /> Quantidade a Atribuir
                     </Label>
                     <Input
                       type="number"
