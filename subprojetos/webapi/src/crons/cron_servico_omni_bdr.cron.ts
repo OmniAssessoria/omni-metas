@@ -173,21 +173,33 @@ export default class CronServicoOmniBdrSincronizar {
       let falhas = 0;
 
       for (const dado of dealsFormatados) {
+        const identificadorConsultor =
+          dado.email_consultor || "SEM_EMAIL_CONSULTOR";
+        const statusNegocio = dado.is_ganho ? "GANHO" : "PERDIDO";
+
         try {
           const resultado =
             await this.servicoOmniService.atualizarServicosOmniHistorico(dado);
 
-          if (resultado.sucesso) sucessos++;
+          if (resultado.sucesso) {
+            sucessos++;
+            this.logger.info(
+              `➔ ${dado.cnpj} - ${identificadorConsultor} - SALVO: SUCESSO (${statusNegocio})`,
+            );
+          }
+
           if (resultado.ignorado) {
             falhas++;
-            this.logger.warn(`[CRON 02:30 BDR] Ignorado: ${resultado.motivo}`);
+            this.logger.warn(
+              `➔ ${dado.cnpj} - ${identificadorConsultor} - IGNORADO: FALHA (${resultado.motivo})`,
+            );
           }
 
           await this.delay(50);
         } catch (error: any) {
           falhas++;
           this.logger.error(
-            `[CRON 02:30 BDR] Falha grave ao persistir CNPJ ${dado.cnpj}:`,
+            `➔ ${dado.cnpj} - ${identificadorConsultor} - ERRO GRAVE`,
             error.message,
           );
         }

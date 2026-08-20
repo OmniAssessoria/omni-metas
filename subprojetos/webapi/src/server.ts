@@ -4,7 +4,7 @@ import cron from "node-cron";
 import os from "os";
 import FunctionsDatabaseRepository from "./repositories/functions_database.repository.js";
 import CronServicoTelecomSincronizar from "./crons/cron_servico_telecom.cron.js";
-import CronServicoOmniSincronizar from "./crons/cron_servico_omni_bdr_sincronizar.cron.js";
+import CronServicoOmniSincronizar from "./crons/cron_servico_omni_bdr.cron.js";
 import CronTeleconBdrOmniSincronizar from "./crons/cron_telecon_bdr_validacao_abertos.cron.js";
 import LoggerHelper from "./helpers/logger.help.js";
 
