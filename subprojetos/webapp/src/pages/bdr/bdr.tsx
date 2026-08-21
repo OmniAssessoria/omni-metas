@@ -286,14 +286,14 @@ export default function PainelBDR() {
                 </Button>
               </div>
 
-              <div className="p-6 flex flex-col gap-6">
+             <div className="p-6 flex flex-col gap-6">
                 <p className="text-sm text-muted-foreground">
                   Selecione o consultor, o perfil do lead (com ou sem eDoc/CPC) e a quantidade 
                   que deseja reservar no banco de dados para a fila de envio deste usuário.
                 </p>
 
-                <div className="flex flex-col gap-5">
-                  <div className="space-y-2">
+                <div className="flex flex-col gap-5 overflow-visible">
+                  <div className="space-y-2 relative">
                     <Label className="font-semibold text-foreground flex items-center gap-2">
                       <Users className="h-4 w-4" /> Consultor Destino
                     </Label>
@@ -305,7 +305,7 @@ export default function PainelBDR() {
                       <SelectTrigger className="h-12 bg-background border-input">
                         <SelectValue placeholder="Selecione o consultor..." />
                       </SelectTrigger>
-                      <SelectContent className="max-h-60">
+                      <SelectContent className="max-h-60 z-[100]">
                         {listaBDRs.map((bdr) => (
                           <SelectItem
                             key={`assign-${bdr.seq_consultor}`}
@@ -318,7 +318,7 @@ export default function PainelBDR() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 relative">
                     <Label className="font-semibold text-foreground flex items-center gap-2">
                       <Filter className="h-4 w-4" /> Perfil do Lead
                     </Label>
@@ -330,7 +330,7 @@ export default function PainelBDR() {
                       <SelectTrigger className="h-12 bg-background border-input">
                         <SelectValue placeholder="Selecione o perfil..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[100]">
                         <SelectItem value="true">
                           Com eDoc / CPC (Prioridade Alta)
                         </SelectItem>
@@ -341,7 +341,7 @@ export default function PainelBDR() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 relative">
                     <Label className="font-semibold text-foreground flex items-center gap-2">
                       <Database className="h-4 w-4" /> Quantidade a Atribuir
                     </Label>
