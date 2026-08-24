@@ -31,9 +31,6 @@ export default class CronTeleconBdrOmniSincronizar {
         Authorization: `Bearer ${TOKEN_OMNI_CRM}`,
       },
     });
-
-    this.executarRotinaNoturnaPipeBdr =
-      this.executarRotinaNoturnaPipeBdr.bind(this);
     this.sincronizarAbertosTelecom = this.sincronizarAbertosTelecom.bind(this);
     this.sincronizarAbertosBdr = this.sincronizarAbertosBdr.bind(this);
   }
@@ -245,117 +242,6 @@ export default class CronTeleconBdrOmniSincronizar {
       this.logger.error(
         `[CRON 06:00 BDR ERRO] Falha na sincronização:`,
         error.message,
-      );
-    }
-  }
-
-  async executarRotinaNoturnaPipeBdr() {
-    const dataAtual = new Date();
-    dataAtual.setDate(dataAtual.getDate() - 1);
-
-    const dataOntemFormatada = new Intl.DateTimeFormat("fr-CA", {
-      timeZone: "America/Sao_Paulo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(dataAtual);
-
-    const dealsBrutos: any[] = [];
-    this.logger.info(
-      `[CRON 02:30 BDR] Sincronização Iniciada. Data Base: ${dataOntemFormatada}`,
-    );
-
-    const filtrosComuns = {
-      pipelineId: PIPELINE_BDR_ID,
-      closedFrom: dataOntemFormatada,
-      closedTo: dataOntemFormatada,
-    };
-
-    try {
-      this.logger.info(
-        `[CRON 02:30 BDR] Coletando registros [GANHO] do funil BDR...`,
-      );
-      const ganhos = await this.buscarTodosOsDealsPorCursor({
-        status: "won",
-        ...filtrosComuns,
-      });
-      dealsBrutos.push(...ganhos);
-
-      this.logger.info(
-        `[CRON 02:30 BDR] Coletando registros [PERDIDO] do funil BDR...`,
-      );
-      const perdas = await this.buscarTodosOsDealsPorCursor({
-        status: "lost",
-        ...filtrosComuns,
-      });
-      dealsBrutos.push(...perdas);
-
-      if (dealsBrutos.length === 0) {
-        this.logger.info(
-          `[CRON 02:30 BDR] Nenhum negócio movimentado em ${dataOntemFormatada}.`,
-        );
-        return;
-      }
-
-      this.logger.info(
-        `[CRON 02:30 BDR] Estruturando ${dealsBrutos.length} negócios extraídos...`,
-      );
-      const dealsFormatados = [];
-
-      for (const deal of dealsBrutos) {
-        if (!deal.companyCnpj) continue;
-
-        const cnpj = this.formatarCNPJ(String(deal.companyCnpj));
-        const isGanho = deal.status === "won";
-        const codigoCrm = deal.ownerId || (deal.owner ? deal.owner.id : null);
-        const emailConsultor = deal.owner?.email || null;
-        const idMotivoDeclinioCrm = isGanho
-          ? "1"
-          : deal.lostReasonId || "motivo_nao_informado_pelo_crm";
-
-        dealsFormatados.push({
-          cnpj: cnpj,
-          email_consultor: emailConsultor,
-          codigo_crm: codigoCrm,
-          data_inicio_atendimento: deal.createdAt,
-          data_fim_atendimento: deal.closedAt,
-          id_motivo_declinio: idMotivoDeclinioCrm,
-          is_ganho: isGanho,
-        });
-      }
-
-      this.logger.info(
-        `[CRON 02:30 BDR] Iniciando persistência no PostgreSQL para tabela OMNI (${dealsFormatados.length} registros)...`,
-      );
-      let sucessos = 0;
-      let falhas = 0;
-
-      for (const dado of dealsFormatados) {
-        try {
-          const resultado =
-            await this.servicoOmniService.atualizarServicosOmniHistorico(dado);
-          if (resultado.sucesso) sucessos++;
-          if (resultado.ignorado) {
-            falhas++;
-            this.logger.warn(`[CRON 02:30 BDR] Ignorado: ${resultado.motivo}`);
-          }
-          await this.delay(50);
-        } catch (error: any) {
-          falhas++;
-          this.logger.error(
-            `[CRON 02:30 BDR] Falha grave ao persistir CNPJ ${dado.cnpj}:`,
-            error.message,
-          );
-        }
-      }
-
-      this.logger.info(
-        `[CRON 02:30 BDR] Processamento concluído. Sucessos: ${sucessos} | Falhas/Ignorados: ${falhas}`,
-      );
-    } catch (error: any) {
-      this.logger.error(
-        "[CRON 02:30 BDR] Erro fatal não tratado na rotina noturna:",
-        error.message || error,
       );
     }
   }
