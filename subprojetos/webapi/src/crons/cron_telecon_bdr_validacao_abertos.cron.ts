@@ -39,16 +39,6 @@ export default class CronTeleconBdrOmniSincronizar {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private formatarCNPJ(cnpj: string): string {
-    if (!cnpj) return "";
-    const numeros = cnpj.replace(/\D/g, "");
-    if (numeros.length !== 14) return cnpj;
-    return numeros.replace(
-      /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
-      "$1.$2.$3/$4-$5",
-    );
-  }
-
   private async buscarTodosOsDealsPorCursor(
     parametrosBasicos: any,
   ): Promise<any[]> {
