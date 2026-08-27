@@ -42,8 +42,8 @@ export interface IServicoPipeRun {
   decisor_google_fontes_sites: string | null;
   decisor_google_fontes_nomes_fantasia: string | null;
   decisor_numero_valido_meta: number | null;
-  site_empresarial_telefones: string | null;
-  site_empresarial_emails: string | null;
+  site_empresarial_telefones?: string | null;
+  site_empresarial_emails?: string | null;
   codigo_crm: number | null;
   consultor_nome: string | null;
   consultor_seq_consultor: number | null;

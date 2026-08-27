@@ -220,25 +220,27 @@ export const API_OMNI_SINGLE = async ({
       const rawCustomFieldsObj = {
         "Título do Negócio": titleCard,
         Origem: "Claro Sistemas (CPC + EDOC)",
-        "Inicio do Contrato": dataInicioFormatada ?? "N/A",
-        "Final do Contrato": dataFimFormatada ?? "N/A",
-        "Tempo de Contrato": String(mesesContrato) ?? "N/A",
-        DDD: dddFinal ?? "N/A",
-        Endereço: String(servico.endereco) ?? "N/A",
-        FIXA: String(servico.fixa) ?? "N/A",
-        Observacao: formatarObservacaoPlanosLinhas(servico.observacao) ?? "N/A",
+        "Inicio do Contrato": dataInicioFormatada ?? null,
+        "Final do Contrato": dataFimFormatada ?? null,
+        "Tempo de Contrato": String(mesesContrato) ?? null,
+        DDD: dddFinal ?? null,
+        Endereço: String(servico.endereco) ?? null,
+        FIXA: String(servico.fixa) ?? null,
+        Observacao: formatarObservacaoPlanosLinhas(servico.observacao) ?? null,
         Indicacao: isExclusivo
           ? `DDD 11: ${servico.indicacao}`
           : servico.indicacao,
-        Carteira: servico.carteira ?? "N/A",
-        "Informações DECISOR (Possível decisor)": infoDecisorStr ?? "N/A",
+        Carteira: servico.carteira ?? null,
+        "Informações DECISOR (Possível decisor)": infoDecisorStr ?? null,
         "Google Fontes Nome Fantasia":
-          servico.decisor_google_fontes_nomes_fantasia ?? "N/A",
+          servico.decisor_google_fontes_nomes_fantasia ?? null,
         "Google Fontes Telefones":
-          servico.decisor_google_fontes_telefones ?? "N/A",
-        "Google Fontes Emails": servico.decisor_google_fontes_emails ?? "N/A",
+          servico.decisor_google_fontes_telefones ?? null,
+        "Google Fontes Emails": servico.decisor_google_fontes_emails ?? null,
         "Google Fontes Sites da Empresa":
-          servico.decisor_google_fontes_emails ?? "N/A",
+          servico.decisor_google_fontes_sites ?? null, 
+        "Emails (Site da Empresa)": servico.site_empresarial_emails ?? null,
+        "Telefones (Site da Empresa)": servico.site_empresarial_telefones ?? null,
       };
 
       const contactsPayload: any[] = [];
@@ -251,6 +253,33 @@ export const API_OMNI_SINGLE = async ({
           isDecisionMaker: false,
           phones: linhasPhonesArray,
         });
+      }
+
+      if (servico.site_empresarial_telefones) {
+        const telefonesDoSite = servico.site_empresarial_telefones.split("||");
+        const formatadosSitePhones: any[] = [];
+
+        telefonesDoSite.forEach((tel:string, index: number) => {
+          const numLimpo = String(tel).replace(/\D/g, "");
+          
+          if (numLimpo) {
+            formatadosSitePhones.push({
+              number: numLimpo,
+              label: "Telefone do Site",
+              isMain: index === 0, 
+            });
+          }
+        });
+
+        if (formatadosSitePhones.length > 0) {
+          contactsPayload.push({
+            name: "Site Empresarial",
+            roleHint: "Contatos retirados do site oficial da empresa",
+            isPrimary: contactsPayload.length === 0, 
+            isDecisionMaker: false,
+            phones: formatadosSitePhones,
+          });
+        }
       }
 
       const pipelineDefinido = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
