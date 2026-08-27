@@ -19,4 +19,6 @@ export interface ILeadOmniResponse {
   google_fontes_emails: string | null;    
   google_fontes_sites: string | null;     
   google_fontes_nomes_fantasia: string | null;
+  site_empresarial_telefones: string | null;
+  site_empresarial_emails: string | null;
 }
