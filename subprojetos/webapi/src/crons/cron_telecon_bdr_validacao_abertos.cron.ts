@@ -236,3 +236,58 @@ export default class CronTeleconBdrOmniSincronizar {
     }
   }
 }
+
+// Aqui será feito a validação extra onde direciona qual o caminho final do lead aberto.
+// Ao final o banco e o crm tem que estar sincronizados, tem de estar aberto no banco e no crm ao mesmo tempo.
+
+// E para os leads uma vez aberto em um dos dois, ou seja não em sincronia, deve-se entender aonde ele foi e qual atitude tomar referente a situação.
+// Seja cadastrar um historico ou apenas ajustar o banco como o lead aberto.
+
+// o processo que faz agora é o mesmo, porém mais simples.
+// a ideia é puxa os leads abertos no crm, percorrer um por um.
+// como já faz atualmente.
+// Mas o processo aumenta alguns passo.
+
+// no meu banco o lead aberto tem de estar assim:
+// colunas no banco:
+// seq_claro
+// seq_empresa
+// seq_consultor
+// observacao_fechamento
+// classificacao_contrato
+// dt_fim_contrato
+// indicacao
+// dt_fechamento
+// observacao
+// situacao
+// dt_ultima_leitura
+// docdrive
+// edoc
+// crm
+// ativo
+// cpc
+// carteira
+// exclusivo
+// fixa
+//linha no banco:
+// 5573	24247	20	08:57 13/05 Integração: CASSIA LEANDRA SANTANA DIAS	CE	2026-10-18	RENOVACAO		Total de linhas: 6 |||| Planos: (1) - Claro Pós 10GB (B: 4GB) : R$48.49 : 5 qtd_linha(s) || (2) - Claro Pós 10GB (B: 4GB) : R$42.13 : 1 qtd_linha(s) |||| Linhas: P[1] - 17981435813 :: P[1] - 17981715777 :: P[2] - 17991005137 :: P[1] - 17991009852 :: P[1] - 17992440294 :: P[1] - 17992481245 ||||	ABERTO	2026-06-19	Claro/28028519000105/28028519000105.pdf	true	true	true	false		false	
+// se o lead nao estiver com crm = true, seq_consultor o mesmo seq_consultor que esta no crm (para saber isso é só comparar se o email do consultor que veio no lead do crm é o mesmo email do consultor daquele seq_consultor no banco
+// para isto consulte assim: select email from omni.consultor where seq_consultor = servico_claro.seq_consultor
+// Se email do crm o mesmo do banco esta certo o consultor), cpc = false.
+// Ou seja se no banco esta como ativo no crm e no crm esta como ativo tbm, NAO se deve fazer nada com esse lead. Pular para o proximo.
+
+// Para leads não sincroniza
+// Deve consultar a api para ver onde este lead foi.
+// caso ele tenha sido declinado (Ganho ou perdido), deve-se atualizar a situação do lead ecriar o historico do lead.
+
+// Informações da api:
+
+
+
+
+
+
+
+
+
+
