@@ -189,8 +189,6 @@ export const enviarLeadOmniCrmBdr = async (
       "Números (Google e outras Fontes)": lead.google_fontes_telefones ?? "N/A",
       "Emails (Google e outras Fontes)": lead.google_fontes_emails ?? "N/A",
       "Sites (Google e outras Fontes)": lead.google_fontes_sites ?? "N/A",
-      
-      // NOVOS CAMPOS ADICIONADOS AQUI:
       "Emails (Site da Empresa)": lead.site_empresarial_emails ?? "N/A",
       "Telefones (Site da Empresa)": lead.site_empresarial_telefones ?? "N/A",
     };
