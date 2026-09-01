@@ -13,6 +13,9 @@ const MAPA_CONSULTORES: Record<string, { nome: string; perfil: string }> = {
   "gabrieli.lima@omniassessoria.com.br": { nome: "Gabrieli Lima", perfil: "PORTABILIDADE" },
   "leticia.ohara@omniassessoria.com.br": { nome: "Letícia Ohara", perfil: "PORTABILIDADE" },
   "julia.victoria@omniassessoria.com.br": { nome: "Julia Victoria", perfil: "RENOVACAO" },
+  "lorena.bueno@omniassessoria.com.br": { nome: "Lorena Bueno	", perfil: "BDR" },
+  "larissa.rezende@omniassessoria.com.br": { nome: "Larissa Rezende", perfil: "RENOVACAO" },
+  "nicole.costa@omniassessoria.com.br": { nome: "Nicole Costa", perfil: "RENOVACAO" },
 };
 
 export async function fetchTodosLeadsOmni(status: "open" | "won" | "lost" = "open"): Promise<any[]> {
