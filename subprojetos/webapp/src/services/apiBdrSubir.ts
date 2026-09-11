@@ -10,6 +10,7 @@ import {
   extrairEAnexarPdfDecisorOmni,
   gerarEAnexarImagemOmni,
 } from "./omniGeradorLayoutService";
+import { useState } from "react";
 
 const TOKEN_OMNI_CRM = import.meta.env.VITE_TOKEN_API_KEY;
 const apiOmniCrm = axios.create({
@@ -20,6 +21,72 @@ const apiOmniCrm = axios.create({
     Authorization: `Bearer ${TOKEN_OMNI_CRM}`,
   },
 });
+
+interface DadosServicoOperadora {
+  seq_servico_operadora: number;
+  seq_empresa: number;
+  tipo_servico: "CLARO" | "VIVO";
+  dt_fim_compromisso: string;
+  numero_linha: number;
+  plano: string;
+  valor: string;
+  bonus: string;
+  linha_ativa: boolean;
+}
+
+/**
+ * Busca e processa as linhas secundárias do banco via API.
+ * Aplica os critérios: 1º Maior GB, 2º Maior Valor, 3º Ordem do banco.
+ */
+const obterLinhasSecundariasRanqueadas = async (
+  seq_empresa: number,
+  linhaPrincipalExcluida: string | null
+): Promise<string | null> => {
+  try {
+    const response = await API.get(`/servico-operadora/${seq_empresa}`);
+    const linhas: DadosServicoOperadora[] = response.data?.dados || [];
+
+    if (linhas.length === 0) return null;
+
+    const linhaPrincipalLimpa = linhaPrincipalExcluida
+      ? String(linhaPrincipalExcluida).replace(/\D/g, "")
+      : "";
+
+    const linhasElegiveis = linhas.filter((l) => {
+      const numLimpo = String(l.numero_linha).replace(/\D/g, "");
+      return numLimpo !== linhaPrincipalLimpa;
+    });
+
+    if (linhasElegiveis.length === 0) return null;
+
+    const extrairGigabytes = (plano: string): number => {
+      if (!plano) return 0;
+      const match = plano.match(/(\d+)\s*GB/i);
+      return match ? parseInt(match[1], 10) : 0;
+    };
+
+    linhasElegiveis.sort((a, b) => {
+      const gbA = extrairGigabytes(a.plano);
+      const gbB = extrairGigabytes(b.plano);
+
+      if (gbA !== gbB) return gbB - gbA;
+
+      const valorA = parseFloat(a.valor || "0");
+      const valorB = parseFloat(b.valor || "0");
+
+      if (valorA !== valorB) return valorB - valorA;
+
+      return 0;
+    });
+
+    const topoDuasLinhas = linhasElegiveis.slice(0, 2);
+    return topoDuasLinhas.map((l) => l.numero_linha).join(", ");
+    
+  } catch (error) {
+    console.error(`[Omni BDR] Falha silenciosa ao processar linhas secundárias (SeqEmpresa: ${seq_empresa}):`, error);
+    return null;
+  }
+};
 
 const formatarObsNumerosSecundarios = (numeros: any[]): string => {
   if (!numeros || numeros.length === 0) return "";
@@ -32,6 +99,9 @@ const formatarObsNumerosSecundarios = (numeros: any[]): string => {
     .join(", ");
 };
 
+// =========================================================================
+// FUNÇÃO DE ENVIO AO CRM (BDR)
+// =========================================================================
 export const enviarLeadOmniCrmBdr = async (
   lead: ILeadOmniResponse,
   tipoOperacao?: string,
@@ -176,7 +246,12 @@ export const enviarLeadOmniCrmBdr = async (
 
     const titleCard = `(${dddFinal}) BDR >> ${lead.razao}`;
 
-    const rawCustomFieldsObj = {
+    const linhasSecundariasProcessadas = await obterLinhasSecundariasRanqueadas(
+      lead.seq_empresa,
+      lead.linha_claro
+    );
+
+    const rawCustomFieldsObj: Record<string, any> = {
       "Título do Negócio": titleCard ?? "N/A",
       Origem: "Base Setembro BDR",
       Indicacao: "BDR",
@@ -192,6 +267,10 @@ export const enviarLeadOmniCrmBdr = async (
       "Emails (Site da Empresa)": lead.site_empresarial_emails ?? "N/A",
       "Telefones (Site da Empresa)": lead.site_empresarial_telefones ?? "N/A",
     };
+
+    if (linhasSecundariasProcessadas) {
+      rawCustomFieldsObj["Linhas Claro (Secundárias)"] = linhasSecundariasProcessadas;
+    }
 
     const pipelineDefinido = "wm2n294u8vgp31duczik6iak";
     const stageDefinido = "n1e91tv7a124cgepguadjn8t";
@@ -241,7 +320,7 @@ export const enviarLeadOmniCrmBdr = async (
       pipelineId: pipelineDefinido,
       stageId: stageDefinido,
       user: emailConsultor !== "" ? emailConsultor : undefined,
-      customFields: JSON.stringify(rawCustomFieldsObj),
+      customFields: JSON.stringify(rawCustomFieldsObj), // Envia o objeto manipulado dinamicamente
       contacts: contactsPayload,
     };
 
@@ -309,3 +388,105 @@ export const enviarLeadOmniCrmBdr = async (
     throw error;
   }
 };
+
+// =========================================================================
+// HOOK CUSTOMIZADO PARA INTERFACE E INTEGRAÇÃO EM MASSA
+// =========================================================================
+interface UseIntegracaoProps {
+  seqConsultor: number;
+  limiteEnvio: number;
+  onSuccessCb: (logs?: { sucessos: any[]; falhas: any[] }) => void;
+}
+
+export function useIntegracaoPipeBdr() {
+  const [isEnviando, setIsEnviando] = useState(false);
+
+  const handleSubirServicos = async ({
+    seqConsultor,
+    limiteEnvio,
+    onSuccessCb,
+  }: UseIntegracaoProps) => {
+    if (!seqConsultor || !limiteEnvio) {
+      alert("Consultor e quantidade são obrigatórios.");
+      return;
+    }
+
+    try {
+      setIsEnviando(true);
+      let sucessosLogs: any[] = [];
+      let falhasLogs: any[] = [];
+
+      const resEmpresas = await API.get(
+        `/api/servico-omni/empresas-envio?seq_consultor=${seqConsultor}&limit=${limiteEnvio}`,
+      );
+      const listaEmpresas = resEmpresas.data?.dados || [];
+
+      if (listaEmpresas.length === 0) {
+        alert(
+          "Nenhum lead disponível para este consultor com os filtros atuais.",
+        );
+        setIsEnviando(false);
+        return;
+      }
+
+      console.info(
+        `🚀 Iniciando processamento de ${listaEmpresas.length} leads.`,
+      );
+      
+      for (const item of listaEmpresas) {
+        const seqEmpresa = item.seq_empresa;
+        let leadData: ILeadOmniResponse | null = null;
+
+        try {
+          const resLead = await API.get(
+            `/api/servico-omni/leads/${seqEmpresa}`,
+          );
+          leadData = resLead.data?.dados[0];
+
+          if (!leadData) {
+            falhasLogs.push({
+              payload: { cnpj: `SEQ-${seqEmpresa}` },
+              erro: "Dados detalhados do lead não encontrados no banco.",
+            });
+            continue;
+          }
+
+          const omniResult = await enviarLeadOmniCrmBdr(leadData);
+
+          if (omniResult && omniResult.duplicado) {
+            falhasLogs.push({
+              payload: leadData,
+              erro: "BLOQUEADO: A empresa já existe no CRM BDR. (O sistema local foi curado e atualizado)."
+            });
+          } 
+    
+          else if (omniResult && omniResult.success && omniResult.dealId) {
+            sucessosLogs.push({ payload: leadData, dealId: omniResult.dealId });
+            console.info(
+              `✅ Lead ${seqEmpresa} subido e banco atualizado pelo serviço BDR.`,
+            );
+          }
+          
+        } catch (error: any) {
+          console.error(
+            `🚨 Falha no processamento do lead ${seqEmpresa}:`,
+            error,
+          );
+          falhasLogs.push({
+            payload: leadData ? leadData : { cnpj: `SEQ-${seqEmpresa}` },
+            erro: error.message || "Erro inesperado durante integração com o CRM Omni.",
+          });
+        }
+      }
+
+      onSuccessCb({ sucessos: sucessosLogs, falhas: falhasLogs });
+    } catch (error) {
+      console.error(`🚨 Exception sistêmica no Hook:`, error);
+      alert("Ocorreu um erro estrutural durante a busca das empresas.");
+    } finally {
+      setIsEnviando(false);
+    }
+  };
+
+  return { handleSubirServicos, isEnviando };
+}
