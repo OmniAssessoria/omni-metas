@@ -281,9 +281,17 @@ export const API_OMNI_SINGLE = async ({
           });
         }
       }
+      
+      let pipelineDefinido = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
+      let stageDefinido = "manual_12342f70-1730-43eb-8ee8-ea9cf8674637";
 
-      const pipelineDefinido = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
-      const stageDefinido = "manual_12342f70-1730-43eb-8ee8-ea9cf8674637";
+      if (emailConsultor === "leticia.ohara@omniassessoria.com.br") {
+        pipelineDefinido = "tn8gypqoymt0zyhz77b6jfaw";
+        stageDefinido = "ku4y3zyb0k9qcspe8ckpxm7q";
+        console.log(
+          `[Omni] 🔄 Roteamento Exclusivo Aplicado: Pipeline e Stage alterados para a consultora Letícia.`
+        );
+      }
       
       console.log(
         `[Passo Pré-Voo] 🔎 Verificando se o CNPJ ${cnpjLimpo} já existe no CRM...`,
