@@ -190,3 +190,11 @@ export interface IApiResponseView {
 - Controle de volume de linha
     - Vai olhar a variavel de qtd de linhas e no filtro vai pegar os registros que for setado naquele periodo exemplo
     serviços com 1 a 3 linhas, de 2 a 10... e afim.
+
+# Pontos a ajustar
+
+- Sincronização de declinio API PORTABILIDADE / API RENOVAÇÂO (ALTERAÇÂO servico_claro e disparo_watsapp)
+- Adicionar Carolina na tela portin para subir leads
+- Ajustar propostas ✅
+- Adicioonar tela de acompanhamento de leads Dashboard (função de atribuir leads, (mesmo que do python dash controle painel))
+

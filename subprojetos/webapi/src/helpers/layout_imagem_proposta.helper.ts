@@ -1,95 +1,95 @@
 export const CORES = {
-  primaria: "#F5A800",
-  primaria_escura: "#D49200",
-  primaria_clara: "#FFD466",
-  primaria_bg: "rgba(245, 168, 0, 0.15)",
-  preto: "#0A0A0A",
-  preto_suave: "#1A1A1A",
-  preto_card: "#111111",
-  cinza_escuro: "#333333",
-  cinza_medio: "#666666",
-  cinza_claro: "#999999",
-  branco: "#FFFFFF",
-  vermelho: "#F02742",
-  vermelho_bg: "rgba(240, 39, 66, 0.12)",
-  vermelho_escuro: "#D91E3E",
-  azul: "#2196F3",
-  azul_bg: "rgba(33, 150, 243, 0.15)",
+    primaria: "#F5A800",
+    primaria_escura: "#D49200",
+    primaria_clara: "#FFD466",
+    primaria_bg: "rgba(245, 168, 0, 0.15)",
+    preto: "#0A0A0A",
+    preto_suave: "#1A1A1A",
+    preto_card: "#111111",
+    cinza_escuro: "#333333",
+    cinza_medio: "#666666",
+    cinza_claro: "#999999",
+    branco: "#FFFFFF",
+    vermelho: "#F02742",
+    vermelho_bg: "rgba(240, 39, 66, 0.12)",
+    vermelho_escuro: "#D91E3E",
+    azul: "#2196F3",
+    azul_bg: "rgba(33, 150, 243, 0.15)",
 };
 
 export function gerarHtmlPropostaCompleta(proposta: any): string {
-  let eco = proposta.oferta_economica;
-  let turbo = proposta.oferta_mais_gb;
+    let eco = proposta.oferta_economica;
+    let turbo = proposta.oferta_mais_gb;
 
-  if (eco && turbo) {
-    if (turbo.total_valor <= eco.total_valor) {
-      turbo = null;
-    }
-  }
-
-  if (eco && turbo && eco.total_valor > turbo.total_valor) {
-    const temp = eco;
-    eco = turbo;
-    turbo = temp;
-  }
-
-  const atual = proposta.situacao_atual;
-
-  const formatarTelefoneProposta = (numeroStr: string): string => {
-    if (!numeroStr) return "-";
-    let apenasNumeros = String(numeroStr).replace(/\D/g, "");
-
-    if (apenasNumeros.startsWith("55") && apenasNumeros.length >= 12) {
-      apenasNumeros = apenasNumeros.substring(2);
+    if (eco && turbo) {
+        if (turbo.total_valor <= eco.total_valor) {
+            turbo = null;
+        }
     }
 
-    if (apenasNumeros.length === 11) {
-      return `+55 ${apenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3")}`;
-    } else if (apenasNumeros.length === 10) {
-      return `+55 ${apenasNumeros.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3")}`;
-    }
-    return numeroStr;
-  };
-
-  const linhasAtivas = (atual.servicos || []).filter(
-    (s: any) => s.linha_ativa !== false,
-  );
-  const telefonesReais = linhasAtivas.map((s: any) =>
-    formatarTelefoneProposta(s.numero_linha),
-  );
-
-  const eco_total_val = eco ? eco.total_valor : 0;
-  const eco_total_gb = eco ? eco.total_gb_com_bonus : 0;
-  const turbo_total_val = turbo ? turbo.total_valor : 0;
-  const turbo_total_gb = turbo ? turbo.total_gb_com_bonus : 0;
-
-  const economia = eco ? atual.total_valor - eco_total_val : 0;
-  const ganho_gb = turbo ? turbo_total_gb - atual.total_gb : 0;
-
-  const gerarTabelaProposta = (oferta: any) => {
-    if (
-      !oferta ||
-      !oferta.planos_por_linha ||
-      oferta.planos_por_linha.length === 0
-    ) {
-      return "<p style='color:#ccc;'>Nenhuma combinação viável encontrada.</p>";
+    if (eco && turbo && eco.total_valor > turbo.total_valor) {
+        const temp = eco;
+        eco = turbo;
+        turbo = temp;
     }
 
-    let linhasHtml = "";
-    let prop_gb_base = 0;
-    let prop_bonus = 0;
-    let prop_valor = 0;
+    const atual = proposta.situacao_atual;
 
-    oferta.planos_por_linha.forEach((planoLinha: any, index: number) => {
-      const numero_real = telefonesReais[index] || `Linha ${index + 1}`;
-      const plano_nome = `Claro Pós ${planoLinha.gb}GB`;
-      const gb_total = planoLinha.gb + planoLinha.bonus;
+    const formatarTelefoneProposta = (numeroStr: string): string => {
+        if (!numeroStr) return "-";
+        let apenasNumeros = String(numeroStr).replace(/\D/g, "");
 
-      prop_gb_base += planoLinha.gb;
-      prop_bonus += planoLinha.bonus;
-      prop_valor += planoLinha.valor;
+        if (apenasNumeros.startsWith("55") && apenasNumeros.length >= 12) {
+            apenasNumeros = apenasNumeros.substring(2);
+        }
 
-      linhasHtml += `
+        if (apenasNumeros.length === 11) {
+            return `+55 ${apenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3")}`;
+        } else if (apenasNumeros.length === 10) {
+            return `+55 ${apenasNumeros.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3")}`;
+        }
+        return numeroStr;
+    };
+
+    const linhasAtivas = (atual.servicos || []).filter(
+        (s: any) => s.linha_ativa !== false,
+    );
+    const telefonesReais = linhasAtivas.map((s: any) =>
+        formatarTelefoneProposta(s.numero_linha),
+    );
+
+    const eco_total_val = eco ? eco.total_valor : 0;
+    const eco_total_gb = eco ? eco.total_gb_com_bonus : 0;
+    const turbo_total_val = turbo ? turbo.total_valor : 0;
+    const turbo_total_gb = turbo ? turbo.total_gb_com_bonus : 0;
+
+    const economia = eco ? atual.total_valor - eco_total_val : 0;
+    const ganho_gb = turbo ? turbo_total_gb - atual.total_gb : 0;
+
+    const gerarTabelaProposta = (oferta: any) => {
+        if (
+            !oferta ||
+            !oferta.planos_por_linha ||
+            oferta.planos_por_linha.length === 0
+        ) {
+            return "<p style='color:#ccc;'>Nenhuma combinação viável encontrada.</p>";
+        }
+
+        let linhasHtml = "";
+        let prop_gb_base = 0;
+        let prop_bonus = 0;
+        let prop_valor = 0;
+
+        oferta.planos_por_linha.forEach((planoLinha: any, index: number) => {
+            const numero_real = telefonesReais[index] || `Linha ${index + 1}`;
+            const plano_nome = `Claro Pós ${planoLinha.gb}GB`;
+            const gb_total = planoLinha.gb + planoLinha.bonus;
+
+            prop_gb_base += planoLinha.gb;
+            prop_bonus += planoLinha.bonus;
+            prop_valor += planoLinha.valor;
+
+            linhasHtml += `
       <tr>
           <td>${numero_real}</td>
           <td class="plan-name">${plano_nome}</td>
@@ -97,9 +97,9 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
           <td class="highlight-red">${gb_total.toFixed(1)} GB</td>
           <td class="highlight-yellow">R$ ${planoLinha.valor.toFixed(2)}</td>
       </tr>`;
-    });
+        });
 
-    return `
+        return `
     <div class="table-wrapper">
         <table>
             <thead>
@@ -116,9 +116,9 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
             </tfoot>
         </table>
     </div>`;
-  };
+    };
 
-  return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -181,7 +181,12 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
         tfoot { background: linear-gradient(135deg, ${CORES.primaria} 0%, ${CORES.primaria_escura} 100%); color: ${CORES.preto}; font-weight: 700; font-size: 1.1em; }
         tfoot td { padding: 20px 15px; border-top: 3px solid ${CORES.primaria_escura}; color: ${CORES.preto}; }
         tfoot td:nth-child(3), tfoot td:nth-child(4), tfoot td:nth-child(5) { text-align: center; }
-        .footer { text-align: center; color: #000; margin-top: 40px; padding: 30px; }
+        
+        /* NOVO ESTILO DO RODAPÉ (FLEXBOX PARA ALINHAR LOGO E TEXTO) */
+        .footer { display: flex; align-items: center; justify-content: space-between; margin-top: 40px; padding: 30px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .footer-text { text-align: right; color: #888; font-size: 0.95em; line-height: 1.6; }
+        .footer-text p { margin: 0; }
+        .operator-logo { height: 45px; opacity: 0.9; }
     </style>
 </head>
 <body>
@@ -202,9 +207,8 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
 
         <h2 class="offers-title">🎯 Ofertas Personalizadas</h2>
         <div class="offers-container">
-            ${
-              eco
-                ? `
+            ${eco
+            ? `
             <div class="offer-card offer-economica">
                 <span class="offer-badge badge-economica">💰 Economia</span>
                 <h3 class="offer-title">Oferta Econômica</h3>
@@ -226,12 +230,11 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
                     <div class="benefit-text"><strong>Apps Ilimitados</strong><br>WhatsApp e Waze sem consumir internet</div>
                 </div>
             </div>`
-                : ""
-            }
+            : ""
+        }
 
-            ${
-              turbo
-                ? `
+            ${turbo
+            ? `
             <div class="offer-card offer-turbo">
                 <span class="offer-badge badge-turbo">🚀 Turbinado</span>
                 <h3 class="offer-title">Oferta Mais GB</h3>
@@ -254,22 +257,20 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
                     <div class="benefit-text"><strong>Apps Ilimitados</strong><br>WhatsApp e Waze sem consumir intenet</div>
                 </div>
             </div>`
-                : ""
-            }
+            : ""
+        }
         </div>
 
-       ${
-         eco
-           ? `
+       ${eco
+            ? `
             <div class="glass table-section">
                 <h2>💰 Detalhamento - Oferta Econômica</h2>
                 ${gerarTabelaProposta(eco)}
             </div>`
-           : ""
-       }
+            : ""
+        }
 
-        ${
-          turbo
+        ${turbo
             ? `
             <div class="glass table-section">
                 <h2>🚀 Detalhamento - Oferta Mais GB</h2>
@@ -278,8 +279,20 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
             : ""
         }
 
+        <!-- NOVO RODAPÉ COM LOGO CLARO -->
         <div class="footer">
-            <p>Proposta válida por 7 dias • Contrato de 24 meses • Gerado em: ${proposta.data_geracao}</p>
+            <svg class="operator-logo" viewBox="0 0 160 50" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="25" cy="25" r="18" fill="#E31837"/>
+                <path d="M16 28 Q 25 34 34 28" stroke="#FFF" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M19 21 Q 25 25 31 21" stroke="#FFF" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <circle cx="25" cy="14" r="2.5" fill="#FFF"/>
+                <text x="50" y="34" font-family="'Segoe UI', Arial, sans-serif" font-size="28" font-weight="800" fill="#FFFFFF" letter-spacing="-1">claro</text>
+                <text x="116" y="34" font-family="'Segoe UI', Arial, sans-serif" font-size="14" font-weight="600" fill="${CORES.primaria}">empresas</text>
+            </svg>
+            <div class="footer-text">
+                <p>Proposta válida por 7 dias • Contrato de 24 meses</p>
+                <p>Gerado em: ${proposta.data_geracao}</p>
+            </div>
         </div>
     </div>
 </body>
