@@ -7,6 +7,7 @@ import CronServicoTelecomSincronizar from "./crons/cron_servico_telecom.cron.js"
 import CronServicoOmniSincronizar from "./crons/cron_servico_omni_bdr.cron.js";
 import CronTeleconBdrOmniSincronizar from "./crons/cron_telecon_bdr_validacao_abertos.cron.js";
 import LoggerHelper from "./helpers/logger.help.js";
+import CronDisparoWhatsappSincronizar from "./crons/cron_disparo_whatsapp_sincronizar.cron.js";
 
 const logger = new LoggerHelper("servidor_log");
 
@@ -28,13 +29,14 @@ function obterIpLocal() {
 async function Servidor() {
   const server = app.listen(3333, "0.0.0.0", () => {
     const ipRede = obterIpLocal();
-
+    
     logger.info(`🚀 Servidor inicializado com sucesso!`);
     logger.info(`📡 Acesso Local (sua máquina): http://localhost:3333`);
     logger.info(`🌐 Acesso na Rede (outras máquinas): http://${ipRede}:3333`);
 
     const omniCrmCron = new CronServicoTelecomSincronizar();
     const omniBdrCron = new CronServicoOmniSincronizar();
+    const cronDisparos = new CronDisparoWhatsappSincronizar();
 
     // ====================================================================
     // CRON JOB 1: ROTINA DE TESTE (19:30)
@@ -50,6 +52,28 @@ async function Servidor() {
         } catch (error) {
           logger.error(
             "[SISTEMA] Erro fatal não tratado durante a execução do cron das 19:30:",
+            error,
+          );
+        }
+      },
+      { timezone: "America/Sao_Paulo" },
+    );
+
+
+    // ====================================================================
+    // CRON JOB: ROTINA DE DISPAROS WHATSAPP (Exemplo: 20:00)
+    // ====================================================================
+    cron.schedule(
+      "00 20 * * *",
+      async () => {
+        try {
+          logger.info(
+            "[SISTEMA] Iniciando trigger do Cron Job das 20:00 (Sincronizador Disparos WhatsApp)...",
+          );
+          await cronDisparos.executarRotinaNoturnaDisparos();
+        } catch (error) {
+          logger.error(
+            "[SISTEMA] Erro fatal não tratado no cron das 20:00:",
             error,
           );
         }
