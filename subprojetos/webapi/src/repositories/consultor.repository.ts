@@ -2,6 +2,20 @@ import { MetasConsultor } from "../interfaces/consultor_metas.interface.js";
 import pool from "../module/postgresdb/conexao.js";
 
 export default class ConsultorRepository {
+  async buscarConsultoresDisparo() {
+    const query = `SELECT seq_consultor, nome FROM omni.consultor ORDER BY nome;`;
+    try {
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error: any) {
+      console.error(
+        "[ConsultorRepository] Erro ao buscar consultores:",
+        error.message,
+      );
+      throw error;
+    }
+  }
+
   async buscarConsultores() {
     const query = `
             SELECT 
@@ -45,7 +59,10 @@ export default class ConsultorRepository {
       const result = await pool.query(query, [email]);
       return result.rows[0];
     } catch (error) {
-      console.error("[ServicoClaroRepository] Erro ao buscar seq_consultor por email:", error);
+      console.error(
+        "[ServicoClaroRepository] Erro ao buscar seq_consultor por email:",
+        error,
+      );
       throw error;
     }
   }

@@ -38,18 +38,23 @@ class DisparoWhatsappController {
       const resultado = await this.disparoWhatsappService.separarEGerarPlanilha(
         parseInt(limite),
         indicacao,
-        parseInt(seq_consultor)
+        parseInt(seq_consultor),
       );
 
       if (!resultado) {
-        res.status(404).json({ status: false, erro: "Nenhum lead elegível encontrado para esta indicação." });
+        res
+          .status(404)
+          .json({
+            status: false,
+            erro: "Nenhum lead elegível encontrado para esta indicação.",
+          });
         return;
       }
 
       res.status(200).json({
         sucesso: true,
         arquivo: resultado.arquivo,
-        qtd_gerada: resultado.qtd_gerada
+        qtd_gerada: resultado.qtd_gerada,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -62,13 +67,20 @@ class DisparoWhatsappController {
 
   async baixarPlanilha(req: Request, res: Response): Promise<void> {
     try {
-      const nomeArquivo = req.params.nome_arquivo as string;
-      const filePath = path.join(process.cwd(), "public", "downloads", nomeArquivo);
+      const nomeArquivo: string = String(req.params.nome_arquivo);
+      const filePath = path.join(
+        process.cwd(),
+        "public",
+        "downloads",
+        nomeArquivo,
+      );
 
       if (fs.existsSync(filePath)) {
         res.download(filePath, nomeArquivo);
       } else {
-        res.status(404).json({ status: false, erro: "Arquivo não encontrado." });
+        res
+          .status(404)
+          .json({ status: false, erro: "Arquivo não encontrado." });
       }
     } catch (error: any) {
       res.status(500).json({ status: false, erro: error.message });

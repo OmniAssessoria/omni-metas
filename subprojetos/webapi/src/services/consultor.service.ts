@@ -8,6 +8,10 @@ class ConsultorService {
     this.repo = new ConsultorRepository();
   }
 
+  async buscarConsultoresDisparo() {
+    return this.repo.buscarConsultoresDisparo();
+  }
+
   async buscarConsultores() {
     return this.repo.buscarConsultores();
   }

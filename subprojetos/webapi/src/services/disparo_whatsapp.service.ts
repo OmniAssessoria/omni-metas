@@ -85,7 +85,7 @@ export default class DisparoWhatsappService {
 
     async dashboardTotais() {
         const dadosBanco = await this.repoDisparo.obterTotaisDisponiveis();
-        const consultores = await this.repoConsultor.buscarConsultores();
+        const consultores = await this.repoConsultor.buscarConsultoresDisparo();
 
         const por_indicacao: any = {
             "FORA DO PRAZO": 0,
