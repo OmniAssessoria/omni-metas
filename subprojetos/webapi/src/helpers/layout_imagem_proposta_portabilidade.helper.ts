@@ -99,7 +99,7 @@ export function gerarHtmlPropostaPortabilidade(proposta: any): string {
                     <td colspan="2" style="text-align: right; padding-right: 20px; color: ${CORES_VIVO.preto};"><strong>INTERNET TOTAL MÊS</strong></td>
                     <td style="color: ${CORES_VIVO.preto}; font-size: 1.2em;">
                         <strong>${prop_gb_base + totalBonus} GB</strong>
-                        <span style="background: ${CORES_VIVO.primaria_escura}; color: #FFF; font-size: 0.55em; padding: 3px 8px; border-radius: 12px; vertical-align: middle; margin-left: 8px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); text-transform: uppercase;">+${totalBonus} GB BÔNUS</span>
+                        <span style="background: ${CORES_VIVO.primaria_escura}; color: #FFF; font-size: 0.55em; padding: 3px 8px; border-radius: 12px; vertical-align: middle; margin-left: 8px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); text-transform: uppercase;">+${totalBonus} GB BÔNUS INCLUSO</span>
                     </td>
                     <td style="color: ${CORES_VIVO.preto}; font-size: 1.2em;"><strong>R$ ${prop_valor.toFixed(2)}</strong></td>
                 </tr>
@@ -261,7 +261,7 @@ export function gerarHtmlPropostaPortabilidade(proposta: any): string {
                 </div>  
                 <div class="benefit-item">
                     <span class="benefit-icon">🛜</span>
-                    <div class="benefit-text"><strong>Internet Turbinada</strong><br>${turbo.total_gb_com_bonus} GB disponíveis no Total Mês (+${turbo_bonus}GB Bônus)</div>
+                    <div class="benefit-text"><strong>Internet Turbinada</strong><br>${turbo.total_gb_com_bonus} GB disponíveis no Total Mês</div>
                 </div>
                 <div class="benefit-item">
                     <span class="benefit-icon">📞</span>
