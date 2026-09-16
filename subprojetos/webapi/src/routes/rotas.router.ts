@@ -4,6 +4,7 @@ import RotasServicoClaro from "./servico_claro.router.js";
 import RotasServicoOperadora from "./servico_operadora.router.js";
 import RotasDecisor from "./decisor.router.js";
 import RotasServicoOmni from "./servico_omni.router.js";
+import RotasDisparoWhatsapp from "./disparo_whatsapp.router.js";
 
 class RouterController {
   private router: Router;
@@ -28,6 +29,9 @@ class RouterController {
 
     const rotasServicoOmni = new RotasServicoOmni();
     this.router.use("/api", rotasServicoOmni.retornarRotas());
+
+    const rotasDisparosWhatsapp = new RotasDisparoWhatsapp();
+    this.router.use("/api", rotasDisparosWhatsapp.retornarRotas());
   }
 
   public retornarRotas(): Router {
