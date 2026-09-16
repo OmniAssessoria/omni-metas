@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 export const CORES = {
     primaria: "#F5A800",
     primaria_escura: "#D49200",
@@ -34,6 +37,15 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
     }
 
     const atual = proposta.situacao_atual;
+
+    let base64LogoClaro = "";
+    try {
+        const logoPath = path.join(__dirname, '..', 'assets', 'claro_logo.png');
+        const imageBuffer = fs.readFileSync(logoPath);
+        base64LogoClaro = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+    } catch (e) {
+        console.error("Erro ao carregar o logo da Claro:", e);
+    }
 
     const formatarTelefoneProposta = (numeroStr: string): string => {
         if (!numeroStr) return "-";
@@ -182,11 +194,24 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
         tfoot td { padding: 20px 15px; border-top: 3px solid ${CORES.primaria_escura}; color: ${CORES.preto}; }
         tfoot td:nth-child(3), tfoot td:nth-child(4), tfoot td:nth-child(5) { text-align: center; }
         
-        /* NOVO ESTILO DO RODAPÉ (FLEXBOX PARA ALINHAR LOGO E TEXTO) */
+        /* ESTILO DO RODAPÉ COM A IMAGEM OFICIAL */
         .footer { display: flex; align-items: center; justify-content: space-between; margin-top: 40px; padding: 30px; border-top: 1px solid rgba(255,255,255,0.05); }
         .footer-text { text-align: right; color: #888; font-size: 0.95em; line-height: 1.6; }
         .footer-text p { margin: 0; }
-        .operator-logo { height: 45px; opacity: 0.9; }
+        
+        .operator-logo-wrapper { display: flex; align-items: center; gap: 15px; }
+        .operator-img { 
+            width: 55px; 
+            height: 55px; 
+            border-radius: 50%; /* Arredonda perfeitamente a imagem */
+            border: 2px solid #FFFFFF; /* Borda branca fina e elegante */
+            object-fit: cover; /* Garante que a imagem preencha o circulo perfeitamente */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); /* Sombra para dar destaque */
+            background-color: #E31837; /* Cor de fundo caso a borda da imagem seja transparente */
+        }
+        .operator-text { font-family: 'Segoe UI', Arial, sans-serif; }
+        .operator-text strong { color: #FFFFFF; font-size: 1.3em; letter-spacing: 0.5px; }
+        .operator-text span { color: ${CORES.primaria}; font-size: 1em; font-weight: 600; display: block; margin-top: -4px; }
     </style>
 </head>
 <body>
@@ -279,16 +304,15 @@ export function gerarHtmlPropostaCompleta(proposta: any): string {
             : ""
         }
 
-        <!-- NOVO RODAPÉ COM LOGO CLARO -->
+        <!-- RODAPÉ COM LOGO DA IMAGEM ARREDONDADA -->
         <div class="footer">
-            <svg class="operator-logo" viewBox="0 0 160 50" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="25" cy="25" r="18" fill="#E31837"/>
-                <path d="M16 28 Q 25 34 34 28" stroke="#FFF" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-                <path d="M19 21 Q 25 25 31 21" stroke="#FFF" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-                <circle cx="25" cy="14" r="2.5" fill="#FFF"/>
-                <text x="50" y="34" font-family="'Segoe UI', Arial, sans-serif" font-size="28" font-weight="800" fill="#FFFFFF" letter-spacing="-1">claro</text>
-                <text x="116" y="34" font-family="'Segoe UI', Arial, sans-serif" font-size="14" font-weight="600" fill="${CORES.primaria}">empresas</text>
-            </svg>
+            <div class="operator-logo-wrapper">
+                ${base64LogoClaro ? `<img src="${base64LogoClaro}" class="operator-img" alt="Logo Claro" />` : ''}
+                <div class="operator-text">
+                    <strong>Claro</strong>
+                    <span>empresas</span>
+                </div>
+            </div>
             <div class="footer-text">
                 <p>Proposta válida por 7 dias • Contrato de 24 meses</p>
                 <p>Gerado em: ${proposta.data_geracao}</p>
