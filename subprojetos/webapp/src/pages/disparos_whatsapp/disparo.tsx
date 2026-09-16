@@ -49,7 +49,7 @@ export default function DisparosWhatsapp() {
 
     const carregarDashboard = async () => {
         try {
-            const response = await fetch(`${API}/disparo-whatsapp/dashboard`);
+            const response = await fetch(`${API}/api/disparo-whatsapp/dashboard`);
             const result = await response.json();
 
             if (result.status && result.data) {
@@ -71,7 +71,7 @@ export default function DisparosWhatsapp() {
         setStatus({ loading: true, success: null, error: null });
 
         try {
-            const response = await fetch(`${API}/disparo-whatsapp/gerar`, {
+            const response = await fetch(`${API}/api/disparo-whatsapp/gerar`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -90,7 +90,7 @@ export default function DisparosWhatsapp() {
                     success: `${data.qtd_gerada} leads separados com sucesso! Iniciando download...`,
                 });
 
-                window.location.href = `${API}/disparo-whatsapp/download/${data.arquivo}`;
+                window.location.href = `${API}/api/disparo-whatsapp/download/${data.arquivo}`;
 
                 setTimeout(() => carregarDashboard(), 2000);
             } else {
