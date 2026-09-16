@@ -234,7 +234,7 @@ export function gerarHtmlPropostaPortabilidade(proposta: any): string {
                 
                 <div class="benefit-item">
                     <span class="benefit-icon">🛜</span>
-                    <div class="benefit-text"><strong>Internet Turbinada</strong><br>${eco.total_gb_com_bonus} GB disponíveis no Total Mês (+${eco_bonus}GB Bônus)</div>
+                    <div class="benefit-text"><strong>Internet Turbinada</strong><br>${eco.total_gb_com_bonus} GB disponíveis no Total Mês</div>
                 </div>
                 <div class="benefit-item">
                     <span class="benefit-icon">📞</span>
