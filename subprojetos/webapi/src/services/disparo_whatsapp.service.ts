@@ -3,6 +3,8 @@ import ServicoClaroRepository from "../repositories/servico_claro.repository.js"
 import ConsultorRepository from "../repositories/consultor.repository.js";
 import LoggerHelper from "../helpers/logger.help.js";
 import AtualizarBaseMotivosDecliniomniCrm from "../helpers/atualizar_base_motivos_declinio.helper.js";
+import * as xlsx from "xlsx";
+import path from "path";
 
 export default class DisparoWhatsappService {
     private repoDisparo: DisparoWhatsappRepository;
@@ -79,5 +81,71 @@ export default class DisparoWhatsappService {
         });
 
         return { sucesso: true, situacao: situacao_crm };
+    }
+
+    async dashboardTotais() {
+        const dadosBanco = await this.repoDisparo.obterTotaisDisponiveis();
+        const consultores = await this.repoConsultor.buscarConsultores();
+
+        const por_indicacao: any = {
+            "FORA DO PRAZO": 0,
+            "RENOVACAO": 0,
+            "PORTABILIDADE": 0,
+            "PRAZO LIMITADO": 0,
+            "PRAZO EXCEDIDO": 0
+        };
+
+        let total_disponiveis = 0;
+
+        dadosBanco.por_indicacao.forEach((linha: any) => {
+            const ind = linha.indicacao;
+            const qtd = parseInt(linha.qtd, 10);
+            if (por_indicacao[ind] !== undefined) {
+                por_indicacao[ind] = qtd;
+            }
+            total_disponiveis += qtd;
+        });
+
+        return {
+            consultores: consultores,
+            totais: {
+                disponiveis: total_disponiveis,
+                disparados: dadosBanco.disparados_hoje,
+                por_indicacao
+            }
+        };
+    }
+
+    async separarEGerarPlanilha(limit: number, indicacao: string, seq_consultor: number) {
+        const leadsTratados = await this.repoDisparo.gerarLeadsDisparo(limit, indicacao, seq_consultor);
+
+        if (!leadsTratados || leadsTratados.length === 0) {
+            return null;
+        }
+
+        const meses = ["JANEIRO", "FEVEREIRO", "MARCO", "ABRIL", "MAIO", "JUNHO",
+            "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
+
+        const dataAtual = new Date();
+        const nomeArquivo = `${indicacao}_${dataAtual.getDate()}_${meses[dataAtual.getMonth()]}_${dataAtual.getFullYear()}.xlsx`;
+        const caminhoCompleto = path.join(process.cwd(), "public", "downloads", nomeArquivo);
+
+        const dadosFormatados = leadsTratados.map(lead => ({
+            nome: String(lead.nome),
+            numero: String(lead.numero),
+            razao_social: String(lead.razao_social),
+            cnpj: String(lead.cnpj)
+        }));
+
+        const worksheet = xlsx.utils.json_to_sheet(dadosFormatados);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, "Disparos");
+
+        xlsx.writeFile(workbook, caminhoCompleto);
+
+        return {
+            arquivo: nomeArquivo,
+            qtd_gerada: leadsTratados.length
+        };
     }
 }

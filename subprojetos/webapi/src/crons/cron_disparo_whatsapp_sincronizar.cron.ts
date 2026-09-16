@@ -109,7 +109,7 @@ export default class CronDisparoWhatsappSincronizar {
                 const isGanho = deal.status === "won";
 
                 dealsFormatados.push({
-                    id_lead: parseInt(deal.id), // ID vindo da origem do CRM
+                    id_lead: String(deal.id),
                     cnpj: this.formatarCNPJ(String(deal.companyCnpj)),
                     email_consultor: deal.owner?.email || null,
                     tipo_servico: "CLARO",

@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "form-data": "^4.0.5",
-    "puppeteer": "^24.43.1"
+    "puppeteer": "^24.43.1",
+    "xlsx": "^0.20.1"
   }
 }

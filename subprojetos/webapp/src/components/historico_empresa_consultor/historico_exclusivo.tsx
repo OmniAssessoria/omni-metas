@@ -28,7 +28,7 @@ export interface IHistoricoEmpresa {
   perfil_qtd_linhas_max: number;
   motivo_declinio: string | null;
   situacao_atendimento: string | null;
-  indicacao?: string; // Adicionado opcionalmente caso sua API retorne se era Renovação/Portabilidade na época
+  indicacao?: string; 
 }
 
 interface IDialogHistoricoProps {
@@ -125,7 +125,6 @@ export default function DialogHistoricoExclusivo({
                         </h4>
 
                         <div className="flex flex-wrap gap-2 mt-3">
-                          {/* Exibe a indicação se a API retornar (Renovação, Portabilidade, etc) */}
                           {hist.indicacao && (
                             <span className="inline-flex items-center gap-1.5 bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2.5 py-1 rounded-md text-xs font-bold uppercase">
                               <Tag className="w-3.5 h-3.5" />
