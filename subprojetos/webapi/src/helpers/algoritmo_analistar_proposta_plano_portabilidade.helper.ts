@@ -79,48 +79,53 @@ export class AnalisadorPlanosPortabilidadeHelper {
   public encontrarMelhorOfertaEconomica(analiseAtual: any) {
     const planos = PLANOS_VIVO_DISPONIVEIS;
     const linhasReq = analiseAtual.linhas_requisitos as number[];
-    const limiteMinimo = this.arredondarCentavos(
-      analiseAtual.total_valor * 0.82,
-    );
     const limiteMaximo = analiseAtual.total_valor;
-
+    const alvoGb = analiseAtual.total_gb;
+    const bonusTotal = linhasReq.length * 10;
     let planosEscolhidos = linhasReq.map(() => planos[0]);
     let totalValor = planosEscolhidos.reduce((acc, p) => acc + p.valor, 0);
 
-    if (totalValor >= limiteMaximo) return null;
+    if (totalValor > limiteMaximo) return null;
 
     const indicesOrdenados = linhasReq
       .map((gb, idx) => ({ gb, idx }))
       .sort((a, b) => b.gb - a.gb);
 
     let houveMudanca = true;
+    let melhorEconomica = null;
 
-    while (totalValor < limiteMinimo && houveMudanca) {
+    while (houveMudanca) {
+      const currentGb = planosEscolhidos.reduce((acc, p) => acc + p.gb, 0);
+      if (currentGb + bonusTotal > alvoGb) {
+        melhorEconomica = this.compilarOferta(planosEscolhidos);
+        break;
+      }
+
       houveMudanca = false;
       for (const item of indicesOrdenados) {
         const idx = item.idx;
         const planoAtual = planosEscolhidos[idx];
         const planoIndex = planos.findIndex(
-          (p) => p.gb === planoAtual.gb && p.valor === planoAtual.valor,
+          (p) => p.gb === planoAtual.gb && p.valor === planoAtual.valor
         );
 
         if (planoIndex < planos.length - 1) {
           const proximoPlano = planos[planoIndex + 1];
+          const novoTotalValor = this.arredondarCentavos(
+            totalValor - planoAtual.valor + proximoPlano.valor
+          );
 
-          if (
-            totalValor - planoAtual.valor + proximoPlano.valor <
-            limiteMaximo
-          ) {
+          if (novoTotalValor <= limiteMaximo) {
             planosEscolhidos[idx] = proximoPlano;
-            totalValor = this.arredondarCentavos(
-              totalValor - planoAtual.valor + proximoPlano.valor,
-            );
+            totalValor = novoTotalValor;
             houveMudanca = true;
-            if (totalValor >= limiteMinimo) break;
+            break;
           }
         }
       }
     }
+
+    if (melhorEconomica) return melhorEconomica;
 
     return this.compilarOferta(planosEscolhidos);
   }
@@ -128,26 +133,11 @@ export class AnalisadorPlanosPortabilidadeHelper {
   public encontrarMelhorOfertaMaisGb(analiseAtual: any, ofertaEconomica?: any) {
     const planos = PLANOS_VIVO_DISPONIVEIS;
     const linhasReq = analiseAtual.linhas_requisitos as number[];
-    const limiteMaximo = this.arredondarCentavos(
-      analiseAtual.total_valor * 1.30,
-    );
-    
-    const alvoGb = Math.max(
-      analiseAtual.total_gb,
-      ofertaEconomica ? ofertaEconomica.total_gb_com_bonus : 0,
-    );
-    const valorEco = ofertaEconomica ? ofertaEconomica.total_valor : 0;
+    const limiteMaximo = analiseAtual.total_valor;
+    let planosEscolhidos = linhasReq.map(() => planos[0]);
+    let totalValor = planosEscolhidos.reduce((acc, p) => acc + p.valor, 0);
 
-    let planosEscolhidos = ofertaEconomica
-      ? ofertaEconomica.planos_por_linha.map(
-          (p: any) =>
-            planos.find((pl) => pl.valor === p.valor && pl.gb === p.gb) ||
-            planos[0],
-        )
-      : linhasReq.map(() => planos[0]);
-
-    let totalValor = planosEscolhidos.reduce((acc: number, p: any) => acc + p.valor, 0);
-    let totalGb = planosEscolhidos.reduce((acc: number, p: any) => acc + p.gb, 0);
+    if (totalValor > limiteMaximo) return null;
 
     const indicesOrdenados = linhasReq
       .map((gb, idx) => ({ gb, idx }))
@@ -156,36 +146,39 @@ export class AnalisadorPlanosPortabilidadeHelper {
     let houveMudanca = true;
     while (houveMudanca) {
       houveMudanca = false;
+
       for (const item of indicesOrdenados) {
         const idx = item.idx;
         const planoAtual = planosEscolhidos[idx];
         const planoIndex = planos.findIndex(
-          (p) => p.gb === planoAtual.gb && p.valor === planoAtual.valor,
+          (p) => p.gb === planoAtual.gb && p.valor === planoAtual.valor
         );
 
         if (planoIndex < planos.length - 1) {
           const proximoPlano = planos[planoIndex + 1];
           const novoTotalValor = this.arredondarCentavos(
-            totalValor - planoAtual.valor + proximoPlano.valor,
+            totalValor - planoAtual.valor + proximoPlano.valor
           );
-          const novoTotalGb = totalGb - planoAtual.gb + proximoPlano.gb;
-          const novoTotalGbComBonus = novoTotalGb + 10;
 
           if (novoTotalValor <= limiteMaximo) {
             planosEscolhidos[idx] = proximoPlano;
             totalValor = novoTotalValor;
-            totalGb = novoTotalGb;
             houveMudanca = true;
-
-            if (novoTotalGbComBonus > alvoGb && totalValor > valorEco) {
-              return this.compilarOferta(planosEscolhidos);
-            }
+            break;
           }
         }
       }
     }
 
-    return null;
+    const ofertaTurbo = this.compilarOferta(planosEscolhidos);
+    if (ofertaEconomica) {
+      if (ofertaTurbo.total_valor === ofertaEconomica.total_valor &&
+        ofertaTurbo.total_gb === ofertaEconomica.total_gb) {
+        return null;
+      }
+    }
+
+    return ofertaTurbo;
   }
 
   private compilarOferta(planosEscolhidos: any[]) {
@@ -193,7 +186,7 @@ export class AnalisadorPlanosPortabilidadeHelper {
     let totalGb = 0;
     const contagemPlanos: Record<number, any> = {};
 
-    planosEscolhidos.forEach((plano, idxOriginal) => {
+    planosEscolhidos.forEach((plano) => {
       totalValor += plano.valor;
       totalGb += plano.gb;
 
@@ -207,12 +200,13 @@ export class AnalisadorPlanosPortabilidadeHelper {
       }
       contagemPlanos[idxBusca].qtd += 1;
     });
+    const bonusTotal = planosEscolhidos.length * 10;
 
     return {
       combo: Object.values(contagemPlanos),
       planos_por_linha: [...planosEscolhidos],
       total_gb: totalGb,
-      total_gb_com_bonus: totalGb + 10, 
+      total_gb_com_bonus: totalGb + bonusTotal,
       total_valor: this.arredondarCentavos(totalValor),
     };
   }

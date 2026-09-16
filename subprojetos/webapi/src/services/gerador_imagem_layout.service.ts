@@ -391,7 +391,7 @@ export default class GeradorImagemLayoutService {
             ? (analiseAtual.total_valor - ofertaEconomica.total_valor) * 24
             : 0,
           ganho_gb_turbo: ofertaMaisGb
-            ? ofertaMaisGb.total_gb + 10 - analiseAtual.total_gb // Atualizado para a nova visualização
+            ? ofertaMaisGb.total_gb_com_bonus - analiseAtual.total_gb
             : 0,
         },
       };
