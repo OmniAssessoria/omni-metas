@@ -5,6 +5,7 @@ import LoggerHelper from "../helpers/logger.help.js";
 import AtualizarBaseMotivosDecliniomniCrm from "../helpers/atualizar_base_motivos_declinio.helper.js";
 import * as xlsx from "xlsx";
 import path from "path";
+import fs from "fs";
 
 export default class DisparoWhatsappService {
   private repoDisparo: DisparoWhatsappRepository;
@@ -106,7 +107,6 @@ export default class DisparoWhatsappService {
     const dadosBanco = await this.repoDisparo.obterTotaisDisponiveis();
     const consultores = await this.repoConsultor.buscarConsultores();
 
-    
     const por_indicacao: any = {
       "FORA DO PRAZO": 0,
       RENOVACAO: 0,
@@ -246,12 +246,11 @@ export default class DisparoWhatsappService {
 
     const dataAtual = new Date();
     const nomeArquivo = `${indicacao}_${dataAtual.getDate()}_${meses[dataAtual.getMonth()]}_${dataAtual.getFullYear()}.xlsx`;
-    const caminhoCompleto = path.join(
-      process.cwd(),
-      "public",
-      "downloads",
-      nomeArquivo,
-    );
+    const folderPath = path.join(process.cwd(), "public", "downloads");
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+    }
+    const caminhoCompleto = path.join(folderPath, nomeArquivo);
 
     const dadosFormatados = leadsTratados.map((lead) => ({
       nome: String(lead.nome),

@@ -20,8 +20,7 @@ class DisparoWhatsappController {
     } catch (error: any) {
       res.status(500).json({
         status: false,
-        mensagem: "Erro ao buscar dashboard de disparos.",
-        detalhes: error.message,
+        erro: `Erro ao buscar dashboard de disparos: ${error.message}`,
       });
     }
   }
@@ -31,7 +30,12 @@ class DisparoWhatsappController {
       const { seq_consultor, indicacao, limite } = req.body;
 
       if (!seq_consultor || !indicacao || !limite || limite <= 0) {
-        res.status(400).json({ status: false, erro: "Dados inválidos." });
+        res
+          .status(400)
+          .json({
+            status: false,
+            erro: "Dados inválidos. Verifique os campos preenchidos.",
+          });
         return;
       }
 
@@ -42,12 +46,10 @@ class DisparoWhatsappController {
       );
 
       if (!resultado) {
-        res
-          .status(404)
-          .json({
-            status: false,
-            erro: "Nenhum lead elegível encontrado para esta indicação.",
-          });
+        res.status(404).json({
+          status: false,
+          erro: "Nenhum lead elegível encontrado para esta indicação.",
+        });
         return;
       }
 
@@ -59,8 +61,7 @@ class DisparoWhatsappController {
     } catch (error: any) {
       res.status(500).json({
         status: false,
-        mensagem: "Erro interno ao processar geração de disparos.",
-        detalhes: error.message,
+        erro: `Erro de Processamento / Banco de Dados: ${error.message}`,
       });
     }
   }
@@ -83,7 +84,9 @@ class DisparoWhatsappController {
           .json({ status: false, erro: "Arquivo não encontrado." });
       }
     } catch (error: any) {
-      res.status(500).json({ status: false, erro: error.message });
+      res
+        .status(500)
+        .json({ status: false, erro: `Erro ao baixar: ${error.message}` });
     }
   }
 }

@@ -177,7 +177,7 @@ export default class DisparoWhatsappRepository {
                   SELECT 1 FROM omni.disparo_whatsapp dw 
                   WHERE dw.seq_empresa = e.seq_empresa AND dw.indicacao = $1
               )
-            LIMIT $2
+            LIMIT $2::integer
         ),
         leads_limpos AS (
             SELECT 
@@ -216,7 +216,7 @@ export default class DisparoWhatsappRepository {
         ),
         inserted_disparos AS (
             INSERT INTO omni.disparo_whatsapp (seq_empresa, seq_consultor, numero, indicacao, dt_disparo)
-            SELECT seq_empresa, $3, numero_final, indicacao, CURRENT_TIMESTAMP
+            SELECT seq_empresa, $3::integer, numero_final, indicacao, CURRENT_TIMESTAMP
             FROM leads_filtrados
             RETURNING seq_empresa, numero
         )
