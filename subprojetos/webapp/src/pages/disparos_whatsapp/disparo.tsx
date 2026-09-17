@@ -58,6 +58,12 @@ export default function DisparosWhatsapp() {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const getBaseUrl = () => {
+    let url = API.defaults.baseURL || "http://192.168.0.149:3333";
+    if (url.endsWith("/")) url = url.slice(0, -1);
+    if (url.endsWith("/api")) url = url.slice(0, -4);
+    return url;
+  };
 
   useEffect(() => {
     carregarDashboard();
@@ -66,7 +72,7 @@ export default function DisparosWhatsapp() {
   const carregarDashboard = async () => {
     try {
       const response = await fetch(
-        `${API.defaults.baseURL}/api/disparo-whatsapp/dashboard`,
+        `${getBaseUrl()}/api/disparo-whatsapp/dashboard`,
       );
       if (!response.ok) return;
       const result = await response.json();
@@ -90,7 +96,7 @@ export default function DisparosWhatsapp() {
 
     try {
       const response = await fetch(
-        `${API.defaults.baseURL}/api/disparo-whatsapp/gerar`,
+        `${getBaseUrl()}/api/disparo-whatsapp/gerar`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -109,7 +115,7 @@ export default function DisparosWhatsapp() {
           error: null,
           success: `${data.qtd_gerada} leads separados! Baixando...`,
         });
-        window.location.href = `${API.defaults.baseURL}/api/disparo-whatsapp/download/${data.arquivo}`;
+        window.location.href = `${getBaseUrl()}/api/disparo-whatsapp/download/${data.arquivo}`;
         setTimeout(() => {
           setIsModalOpen(false);
           carregarDashboard();
@@ -125,7 +131,7 @@ export default function DisparosWhatsapp() {
       setStatus({
         loading: false,
         success: null,
-        error: "Erro de conexão com o servidor.",
+        error: "Erro de conexão com o servidor. Verifique o console.",
       });
     }
   };
@@ -254,14 +260,14 @@ export default function DisparosWhatsapp() {
               Geração de bases e acompanhamento de funil
             </p>
           </div>
-
           <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogTrigger asChild>
               <Button
                 size="lg"
                 className="gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold shadow-lg"
               >
-                <DownloadCloud className="w-5 h-5 text-white bg-white" /> Gerar Disparos (XLSX)
+                <DownloadCloud className="w-5 h-5 text-black" /> Gerar Disparos
+                (XLSX)
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[450px] bg-card border-border">
@@ -279,12 +285,13 @@ export default function DisparosWhatsapp() {
                     }
                     value={form.seq_consultor}
                   >
-                    <SelectTrigger className="bg-background">
+                    <SelectTrigger className="bg-background text-white border-border">
                       <SelectValue placeholder="Selecione um consultor..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-background border-border">
                       {dashboardInfo.consultores.map((c: any) => (
                         <SelectItem
+                          className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
                           key={c.seq_consultor}
                           value={String(c.seq_consultor)}
                         >
@@ -302,21 +309,38 @@ export default function DisparosWhatsapp() {
                     }
                     value={form.indicacao}
                   >
-                    <SelectTrigger className="bg-background">
+                    <SelectTrigger className="bg-background text-white border-border">
                       <SelectValue placeholder="Selecione a indicação..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FORA DO PRAZO">
+                    <SelectContent className="bg-background border-border">
+                      <SelectItem
+                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                        value="FORA DO PRAZO"
+                      >
                         Fora do Prazo
                       </SelectItem>
-                      <SelectItem value="RENOVACAO">Renovação</SelectItem>
-                      <SelectItem value="PORTABILIDADE">
+                      <SelectItem
+                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                        value="RENOVACAO"
+                      >
+                        Renovação
+                      </SelectItem>
+                      <SelectItem
+                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                        value="PORTABILIDADE"
+                      >
                         Portabilidade
                       </SelectItem>
-                      <SelectItem value="PRAZO LIMITADO">
+                      <SelectItem
+                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                        value="PRAZO LIMITADO"
+                      >
                         Prazo Limitado
                       </SelectItem>
-                      <SelectItem value="PRAZO EXCEDIDO">
+                      <SelectItem
+                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                        value="PRAZO EXCEDIDO"
+                      >
                         Prazo Excedido
                       </SelectItem>
                     </SelectContent>
@@ -325,7 +349,7 @@ export default function DisparosWhatsapp() {
                 <div className="space-y-2">
                   <Label className="text-white">Quantidade Limite</Label>
                   <Input
-                    className="bg-background"
+                    className="bg-background text-white border-border placeholder:text-gray-500"
                     type="number"
                     min="1"
                     placeholder="Ex: 100"
@@ -337,7 +361,7 @@ export default function DisparosWhatsapp() {
                 </div>
                 <Button
                   type="submit"
-                  className="w-full h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground"
+                  className="w-full h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                   disabled={status.loading}
                 >
                   {status.loading
