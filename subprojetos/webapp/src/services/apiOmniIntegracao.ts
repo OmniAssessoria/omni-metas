@@ -30,6 +30,11 @@ export const API_OMNI_SINGLE = async ({
   let pulados = 0;
   let duplicados = 0;
 
+  const pipelinesDuplicidade = [
+    "tn8gypqoymt0zyhz77b6jfaw",
+    "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed",
+  ];
+
   for (const servico of servicos) {
     console.log(
       `\n================================================================`,
@@ -238,9 +243,10 @@ export const API_OMNI_SINGLE = async ({
           servico.decisor_google_fontes_telefones ?? null,
         "Google Fontes Emails": servico.decisor_google_fontes_emails ?? null,
         "Google Fontes Sites da Empresa":
-          servico.decisor_google_fontes_sites ?? null, 
+          servico.decisor_google_fontes_sites ?? null,
         "Emails (Site da Empresa)": servico.site_empresarial_emails ?? null,
-        "Telefones (Site da Empresa)": servico.site_empresarial_telefones ?? null,
+        "Telefones (Site da Empresa)":
+          servico.site_empresarial_telefones ?? null,
       };
 
       const contactsPayload: any[] = [];
@@ -259,14 +265,13 @@ export const API_OMNI_SINGLE = async ({
         const telefonesDoSite = servico.site_empresarial_telefones.split("||");
         const formatadosSitePhones: any[] = [];
 
-        telefonesDoSite.forEach((tel:string, index: number) => {
+        telefonesDoSite.forEach((tel: string, index: number) => {
           const numLimpo = String(tel).replace(/\D/g, "");
-          
           if (numLimpo) {
             formatadosSitePhones.push({
               number: numLimpo,
               label: "Telefone do Site",
-              isMain: index === 0, 
+              isMain: index === 0,
             });
           }
         });
@@ -275,13 +280,13 @@ export const API_OMNI_SINGLE = async ({
           contactsPayload.push({
             name: "Site Empresarial",
             roleHint: "Contatos retirados do site oficial da empresa",
-            isPrimary: contactsPayload.length === 0, 
+            isPrimary: contactsPayload.length === 0,
             isDecisionMaker: false,
             phones: formatadosSitePhones,
           });
         }
       }
-      
+
       let pipelineDefinido = "manual_a0c1018c-10e2-4088-b4db-074acbcc1eed";
       let stageDefinido = "manual_12342f70-1730-43eb-8ee8-ea9cf8674637";
 
@@ -289,46 +294,84 @@ export const API_OMNI_SINGLE = async ({
         pipelineDefinido = "tn8gypqoymt0zyhz77b6jfaw";
         stageDefinido = "ku4y3zyb0k9qcspe8ckpxm7q";
         console.log(
-          `[Omni] 🔄 Roteamento Exclusivo Aplicado: Pipeline e Stage alterados para a consultora Letícia.`
+          `[Omni] 🔄 Roteamento Exclusivo Aplicado: Pipeline e Stage alterados para a consultora Letícia.`,
         );
       }
-      
-      console.log(
-        `[Passo Pré-Voo] 🔎 Verificando se o CNPJ ${cnpjLimpo} já existe no CRM...`,
-      );
-      try {
-        const checkResponse = await axios.get(`${URL_OMNI_API}/deals`, {
-          params: {
-            pipelineId: pipelineDefinido,
-            status: "all",
-            q: cnpjLimpo,
-          },
-          headers: {
-            Authorization: `Bearer ${TOKEN_AXION}`,
-            "Content-Type": "application/json",
-          },
-        });
 
-        const dealsEncontrados = checkResponse.data?.data || [];
+      let leadJaTrabalhadoPeloConsultor = false;
 
-        const leadJaExiste = dealsEncontrados.some((d: any) => {
-          const docCrm = String(d.companyCnpj || "").replace(/\D/g, "");
-          return docCrm === cnpjLimpo;
-        });
-
-        if (leadJaExiste) {
-          console.warn(
-            `[Omni] 🛡️ BLOQUEADO: O CNPJ ${cnpjFormatado} já está no pipeline do CRM!`,
-          );
-        
-          duplicados++;
-          continue;
-        }
-      } catch (checkError: any) {
-        console.error(
-          `[Omni] ⚠️ Falha na checagem de duplicidade. Tentando criar mesmo assim...`,
-          checkError.message,
+      if (emailConsultor) {
+        console.log(
+          `[Passo Pré-Voo] 🔎 Verificando se o CNPJ ${cnpjLimpo} já foi trabalhado pelo consultor: ${emailConsultor}...`,
         );
+
+        const variacoesDeCnpj = [
+          cnpjLimpo,
+          cnpjFormatado,
+          servico.cnpj,
+        ];
+
+        for (const pipelineAlvo of pipelinesDuplicidade) {
+          if (leadJaTrabalhadoPeloConsultor) break;
+
+          for (
+            let iteracao = 0;
+            iteracao < variacoesDeCnpj.length;
+            iteracao++
+          ) {
+            const termoBusca = variacoesDeCnpj[iteracao];
+            if (!termoBusca) continue;
+
+            try {
+              const checkResponse = await axios.get(`${URL_OMNI_API}/deals`, {
+                params: {
+                  pipelineId: pipelineAlvo,
+                  status: "all", 
+                  ownerId: emailConsultor, 
+                  q: termoBusca, 
+                  limit: 200, 
+                },
+                headers: {
+                  Authorization: `Bearer ${TOKEN_AXION}`,
+                  "Content-Type": "application/json",
+                },
+              });
+
+              const dealsEncontrados = checkResponse.data?.data || [];
+              const leadPertenceAoConsultor = dealsEncontrados.some(
+                (deal: any) => {
+                  const docCrm = String(deal.companyCnpj || "").replace(
+                    /\D/g,
+                    "",
+                  );
+                  return docCrm === cnpjLimpo;
+                },
+              );
+
+              if (leadPertenceAoConsultor) {
+                console.warn(
+                  `[Omni] 🛡️ BLOQUEADO: O lead ${cnpjFormatado} já existe no funil [${pipelineAlvo}] trabalhado por [${emailConsultor}]. Localizado na tentativa de formato ${iteracao + 1}.`,
+                );
+                leadJaTrabalhadoPeloConsultor = true;
+                break;
+              }
+            } catch (checkError: any) {
+              console.error(
+                `[Omni] ⚠️ Falha na checagem de duplicidade (Tentativa Formato ${iteracao + 1}: ${termoBusca}). Erro:`,
+                checkError.message,
+              );
+            }
+          }
+        }
+      } else {
+        console.warn(
+          `[Omni] ⚠️ Consultor não possui E-mail mapeado. Checagem de dono será ignorada e o lead subirá abertamente.`,
+        );
+      }
+
+      if (leadJaTrabalhadoPeloConsultor) {
+        duplicados++;
+        continue;
       }
 
       const payloadSingleCreation = {
