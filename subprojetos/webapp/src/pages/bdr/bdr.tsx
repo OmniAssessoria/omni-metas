@@ -27,7 +27,8 @@ import {
   ArrowRightLeft,
   Calendar,
   UserPlus,
-  Filter, 
+  Filter,
+  Upload, // Ícone adicionado para o botão de upload
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import API from "@/services/api";
@@ -76,13 +77,20 @@ export default function PainelBDR() {
     mensagem: "",
     etapa: "iniciando",
   });
-  
+
   const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
   const [assignConsultorId, setAssignConsultorId] = useState<string>("");
   const [assignLimit, setAssignLimit] = useState<string>("");
-  const [assignComEdocCpc, setAssignComEdocCpc] = useState<boolean>(true); // NOVO ESTADO
+  const [assignComEdocCpc, setAssignComEdocCpc] = useState<boolean>(true);
   const [isAssigning, setIsAssigning] = useState<boolean>(false);
-  
+
+  // ================= NOVOS ESTADOS PARA IMPORTAÇÃO =================
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importOrigem, setImportOrigem] = useState<string>("");
+  const [isImporting, setIsImporting] = useState<boolean>(false);
+  // =================================================================
+
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [syncLogs, setSyncLogs] = useState<{
     sucessos: any[];
@@ -180,7 +188,7 @@ export default function PainelBDR() {
         {
           seq_consultor: Number(assignConsultorId),
           quantidade: Number(assignLimit),
-          com_edoc_cpc: assignComEdocCpc, 
+          com_edoc_cpc: assignComEdocCpc,
         },
       );
 
@@ -198,7 +206,7 @@ export default function PainelBDR() {
       console.error("Erro ao atribuir empresas para o consultor:", error);
       setNotification(
         error.response?.data?.mensagem ||
-          "Ocorreu um erro crítico ao atribuir os leads.",
+        "Ocorreu um erro crítico ao atribuir os leads.",
       );
     } finally {
       setIsAssigning(false);
@@ -227,7 +235,7 @@ export default function PainelBDR() {
       const resultado = await sincronizarDadosOmniCrmBdr(
         dataInicial,
         dataFinal || dataInicial,
-        (progresso) => setProgressState({ ativo: true, ...progresso }), 
+        (progresso) => setProgressState({ ativo: true, ...progresso }),
       );
 
       setNotification(resultado.mensagem);
@@ -253,6 +261,49 @@ export default function PainelBDR() {
     }
   };
 
+  // ================= FUNÇÃO PARA IMPORTAR PLANILHA =================
+  const handleImportarBase = async () => {
+    if (!importFile || !importOrigem) {
+      setNotification("Selecione uma planilha e informe o nome da origem.");
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      // FormData para envio de arquivos
+      const formData = new FormData();
+      formData.append("planilha", importFile);
+      formData.append("origem", importOrigem);
+
+      // Ajuste o caminho da API conforme a sua rota real criada no backend
+      const response = await API.post("/api/servico-omni/importacao-base", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      setNotification(response.data.mensagem || "Base importada com sucesso!");
+
+      // Reseta e fecha modal
+      setIsImportModalOpen(false);
+      setImportFile(null);
+      setImportOrigem("");
+
+      // Atualiza os dados na tela
+      await carregarDados();
+    } catch (error: any) {
+      console.error("Erro ao importar base:", error);
+      setNotification(
+        error.response?.data?.mensagem || "Ocorreu um erro ao importar a planilha."
+      );
+    } finally {
+      setIsImporting(false);
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
+  // =================================================================
+
   return (
     <div className="h-screen w-screen flex bg-background text-foreground overflow-hidden">
       <div className="w-[280px] h-full flex-shrink-0">
@@ -267,6 +318,97 @@ export default function PainelBDR() {
           </div>
         )}
 
+        {/* MODAL: IMPORTAR BASE */}
+        {isImportModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-border p-5 bg-muted/20">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Upload className="h-6 w-6 text-primary" />
+                  Importar Planilha
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-muted"
+                  onClick={() => !isImporting && setIsImportModalOpen(false)}
+                  disabled={isImporting}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="p-6 flex flex-col gap-6">
+                <p className="text-sm text-muted-foreground">
+                  Selecione a planilha (.xlsx ou .csv) contendo os CNPJs e defina a <b>Origem</b>.
+                  Esta origem ficará gravada no banco na prioridade do cliente.
+                </p>
+
+                <div className="flex flex-col gap-5">
+                  <div className="space-y-2 relative">
+                    <Label className="font-semibold text-foreground flex items-center gap-2">
+                      Origem da Base (Prioridade)
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="Ex: Base_Feira_SP_2024"
+                      value={importOrigem}
+                      onChange={(e) => setImportOrigem(e.target.value)}
+                      disabled={isImporting}
+                      className="h-12 bg-background font-medium border-input"
+                    />
+                  </div>
+
+                  <div className="space-y-2 relative">
+                    <Label className="font-semibold text-foreground flex items-center gap-2">
+                      Arquivo (Planilha)
+                    </Label>
+                    <Input
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          setImportFile(e.target.files[0]);
+                        }
+                      }}
+                      disabled={isImporting}
+                      className="h-12 bg-background border-input file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer pt-2"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 border-t border-border p-5 bg-muted/10">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsImportModalOpen(false)}
+                  disabled={isImporting}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all"
+                  onClick={handleImportarBase}
+                  disabled={isImporting || !importOrigem || !importFile}
+                >
+                  {isImporting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Importando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-5 w-5" />
+                      Confirmar Importação
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: ATRIBUIR CONSULTOR */}
         {isAssignModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -286,9 +428,9 @@ export default function PainelBDR() {
                 </Button>
               </div>
 
-             <div className="p-6 flex flex-col gap-6">
+              <div className="p-6 flex flex-col gap-6">
                 <p className="text-sm text-muted-foreground">
-                  Selecione o consultor, o perfil do lead (com ou sem eDoc/CPC) e a quantidade 
+                  Selecione o consultor, o perfil do lead (com ou sem eDoc/CPC) e a quantidade
                   que deseja reservar no banco de dados para a fila de envio deste usuário.
                 </p>
 
@@ -391,6 +533,7 @@ export default function PainelBDR() {
           </div>
         )}
 
+        {/* MODAL: SINCRONIZAR HISTÓRICO */}
         {isSyncModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -507,6 +650,7 @@ export default function PainelBDR() {
           </div>
         )}
 
+        {/* MODAL: LOGS */}
         {isLogModalOpen && syncLogs && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -608,10 +752,22 @@ export default function PainelBDR() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              {/* BOTÃO NOVO: IMPORTAR BASE */}
+              <Button
+                variant="default" // Colocado como default para destacar
+                onClick={() => setIsImportModalOpen(true)}
+                disabled={loadingDados || isEnviando || syncing || isImporting}
+                className="flex items-center gap-2 shadow-sm transition-all flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white"
+                size="lg"
+              >
+                <Upload className="h-5 w-5" />
+                Importar Base
+              </Button>
+
               <Button
                 variant="secondary"
                 onClick={() => setIsAssignModalOpen(true)}
-                disabled={loadingDados || isEnviando || syncing}
+                disabled={loadingDados || isEnviando || syncing || isImporting}
                 className="flex items-center gap-2 shadow-sm transition-all flex-1 md:flex-none"
                 size="lg"
               >
@@ -622,7 +778,7 @@ export default function PainelBDR() {
               <Button
                 variant="default"
                 onClick={() => setIsSyncModalOpen(true)}
-                disabled={loadingDados || isEnviando || syncing}
+                disabled={loadingDados || isEnviando || syncing || isImporting}
                 className="flex items-center gap-2 shadow-md transition-all flex-1 md:flex-none"
                 size="lg"
               >
@@ -633,7 +789,7 @@ export default function PainelBDR() {
               <Button
                 variant="outline"
                 onClick={carregarDados}
-                disabled={loadingDados || syncing}
+                disabled={loadingDados || syncing || isImporting}
                 className="flex items-center gap-2 bg-background shadow-sm hover:bg-muted transition-all flex-1 md:flex-none"
                 size="lg"
               >
