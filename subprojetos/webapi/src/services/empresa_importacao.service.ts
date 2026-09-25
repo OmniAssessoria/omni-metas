@@ -21,7 +21,7 @@ class EmpresaImportacaoService {
 
     for (const linha of linhas) {
       const cnpjCru = linha["CNPJ"] || linha["cnpj"];
-      const razaoSocial = linha["Razao Social"] || linha["Razão Social"] || linha["razao social"];
+      const razaoSocial = linha["Razao Social"] || linha["Razão Social"] || linha["razao social"] || linha["razao"] || linha["razão"] || linha["Razao"];
 
       if (!cnpjCru) continue;
 
