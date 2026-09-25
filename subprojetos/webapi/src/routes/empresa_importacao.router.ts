@@ -2,7 +2,10 @@ import { Router } from "express";
 import multer from "multer";
 import EmpresaImportacaoController from "../controllers/empresa_importacao.controller";
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 15 * 1024 * 1024 }
+});
 
 class RotasEmpresaImportacao {
   private router: Router;
