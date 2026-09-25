@@ -83,14 +83,10 @@ export default function PainelBDR() {
   const [assignLimit, setAssignLimit] = useState<string>("");
   const [assignComEdocCpc, setAssignComEdocCpc] = useState<boolean>(true);
   const [isAssigning, setIsAssigning] = useState<boolean>(false);
-
-  // ================= NOVOS ESTADOS PARA IMPORTAÇÃO =================
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importOrigem, setImportOrigem] = useState<string>("");
   const [isImporting, setIsImporting] = useState<boolean>(false);
-  // =================================================================
-
   const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [syncLogs, setSyncLogs] = useState<{
     sucessos: any[];
@@ -206,7 +202,7 @@ export default function PainelBDR() {
       console.error("Erro ao atribuir empresas para o consultor:", error);
       setNotification(
         error.response?.data?.mensagem ||
-        "Ocorreu um erro crítico ao atribuir os leads.",
+          "Ocorreu um erro crítico ao atribuir os leads.",
       );
     } finally {
       setIsAssigning(false);
@@ -261,7 +257,6 @@ export default function PainelBDR() {
     }
   };
 
-  // ================= FUNÇÃO PARA IMPORTAR PLANILHA =================
   const handleImportarBase = async () => {
     if (!importFile || !importOrigem) {
       setNotification("Selecione uma planilha e informe o nome da origem.");
@@ -271,38 +266,32 @@ export default function PainelBDR() {
 
     setIsImporting(true);
     try {
-      // FormData para envio de arquivos
       const formData = new FormData();
       formData.append("planilha", importFile);
       formData.append("origem", importOrigem);
 
-      // Ajuste o caminho da API conforme a sua rota real criada no backend
-      const response = await API.post("/api/servico-omni/importacao-base", formData, {
+      const response = await API.post("/api/importacao-base", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
       setNotification(response.data.mensagem || "Base importada com sucesso!");
-
-      // Reseta e fecha modal
       setIsImportModalOpen(false);
       setImportFile(null);
       setImportOrigem("");
-
-      // Atualiza os dados na tela
       await carregarDados();
     } catch (error: any) {
       console.error("Erro ao importar base:", error);
       setNotification(
-        error.response?.data?.mensagem || "Ocorreu um erro ao importar a planilha."
+        error.response?.data?.mensagem ||
+          "Ocorreu um erro ao importar a planilha.",
       );
     } finally {
       setIsImporting(false);
       setTimeout(() => setNotification(null), 5000);
     }
   };
-  // =================================================================
 
   return (
     <div className="h-screen w-screen flex bg-background text-foreground overflow-hidden">
@@ -318,7 +307,6 @@ export default function PainelBDR() {
           </div>
         )}
 
-        {/* MODAL: IMPORTAR BASE */}
         {isImportModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -340,8 +328,9 @@ export default function PainelBDR() {
 
               <div className="p-6 flex flex-col gap-6">
                 <p className="text-sm text-muted-foreground">
-                  Selecione a planilha (.xlsx ou .csv) contendo os CNPJs e defina a <b>Origem</b>.
-                  Esta origem ficará gravada no banco na prioridade do cliente.
+                  Selecione a planilha (.xlsx ou .csv) contendo os CNPJs e
+                  defina a <b>Origem</b>. Esta origem ficará gravada no banco na
+                  prioridade do cliente.
                 </p>
 
                 <div className="flex flex-col gap-5">
@@ -430,8 +419,9 @@ export default function PainelBDR() {
 
               <div className="p-6 flex flex-col gap-6">
                 <p className="text-sm text-muted-foreground">
-                  Selecione o consultor, o perfil do lead (com ou sem eDoc/CPC) e a quantidade
-                  que deseja reservar no banco de dados para a fila de envio deste usuário.
+                  Selecione o consultor, o perfil do lead (com ou sem eDoc/CPC)
+                  e a quantidade que deseja reservar no banco de dados para a
+                  fila de envio deste usuário.
                 </p>
 
                 <div className="flex flex-col gap-5 overflow-visible">
@@ -466,7 +456,9 @@ export default function PainelBDR() {
                     </Label>
                     <Select
                       value={String(assignComEdocCpc)}
-                      onValueChange={(val) => setAssignComEdocCpc(val === "true")}
+                      onValueChange={(val) =>
+                        setAssignComEdocCpc(val === "true")
+                      }
                       disabled={isAssigning || loadingDados}
                     >
                       <SelectTrigger className="h-12 bg-background border-input">

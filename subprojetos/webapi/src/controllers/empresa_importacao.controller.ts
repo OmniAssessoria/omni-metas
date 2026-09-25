@@ -11,7 +11,7 @@ class EmpresaImportacaoController {
 
     async importarBases(req: Request, res: Response): Promise<void> {
         try {
-            const arquivo = req.file;
+            const arquivo = req.file as Express.Multer.File | undefined;
             const origem = req.body.origem;
 
             if (!arquivo) {
