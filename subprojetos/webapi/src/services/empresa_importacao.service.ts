@@ -18,30 +18,47 @@ class EmpresaImportacaoService {
     const nomePrimeiraAba = workbook.SheetNames[0];
     const aba = workbook.Sheets[nomePrimeiraAba];
     const linhas: any[] = xlsx.utils.sheet_to_json(aba);
+    const linhasValidas = linhas.filter(linha => linha["CNPJ"] || linha["cnpj"]);
+    
+    if (linhasValidas.length === 0) {
+        throw new Error("Nenhum CNPJ encontrado na planilha.");
+    }
 
-    for (const linha of linhas) {
-      const cnpjCru = linha["CNPJ"] || linha["cnpj"];
-      const razaoSocial = linha["Razao Social"] || linha["Razão Social"] || linha["razao social"] || linha["razao"] || linha["razão"] || linha["Razao"];
+    const TAMANHO_LOTE = 100;
 
-      if (!cnpjCru) continue;
+    for (let i = 0; i < linhasValidas.length; i += TAMANHO_LOTE) {
+      const lote = linhasValidas.slice(i, i + TAMANHO_LOTE);
+      const promessasLote = lote.map(async (linha) => {
+        const cnpjCru = linha["CNPJ"] || linha["cnpj"];
+        const razaoSocial = 
+            linha["Razao Social"] || linha["Razão Social"] || 
+            linha["razao social"] || linha["razao"] || 
+            linha["razão"] || linha["Razao"];
 
-      const cnpjFormatado = this.formatarCNPJ(cnpjCru);
-      const razaoMaiuscula = String(razaoSocial || "").toUpperCase();
-      const empresa = await this.repo.buscarEmpresaPorCnpj(cnpjFormatado);
+        const cnpjFormatado = this.formatarCNPJ(cnpjCru);
+        const razaoMaiuscula = String(razaoSocial || "EMPRESA SEM NOME").toUpperCase();
 
-      if (empresa) {
-        const resetarCpc = Number(empresa.qtd_servico_claro) === 0;
-        const resetarEdoc = empresa.docdrive === null || empresa.docdrive === undefined;
+        try {
+          const empresa = await this.repo.buscarEmpresaPorCnpj(cnpjFormatado);
 
-        await this.repo.atualizarEmpresa(
-          empresa.seq_empresa, 
-          origem, 
-          resetarCpc, 
-          resetarEdoc
-        );
-      } else {
-        await this.repo.inserirEmpresa(cnpjFormatado, razaoMaiuscula, origem); 
-      }
+          if (empresa) {
+            const resetarCpc = Number(empresa.qtd_servico_claro) === 0;
+            const resetarEdoc = empresa.docdrive === null || empresa.docdrive === undefined;
+
+            await this.repo.atualizarEmpresa(
+              empresa.seq_empresa, 
+              origem, 
+              resetarCpc, 
+              resetarEdoc
+            );
+          } else {
+            await this.repo.inserirEmpresa(cnpjFormatado, razaoMaiuscula, origem); 
+          }
+        } catch (error) {
+          console.error(`Falha ao processar CNPJ: ${cnpjFormatado} - Erro:`, error);
+        }
+      });
+      await Promise.all(promessasLote);
     }
   }
 }
