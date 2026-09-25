@@ -257,17 +257,21 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
 
   const consultoresElegiveis = useMemo(() => {
     return consultores.filter((c) => {
+      // Se não houver perfil definido, já descarta
       if (!c.perfil_indicacao) return false;
 
+      // Normaliza a string (remove espaços, acentos e joga para maiúsculo)
       const perfilNormalizado = String(c.perfil_indicacao)
         .trim()
         .toUpperCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
-      return (
-        perfilNormalizado === "PORTABILIDADE" || perfilNormalizado === "AMBOS"
-      );
+      // Cria um array com os perfis permitidos e verifica se o consultor se encaixa.
+      // Dessa forma, consultores de RENOVACAO ou perfis desconhecidos ficam de fora automaticamente.
+      const perfisPermitidos = ["PORTABILIDADE", "AMBOS", "CARTEIRA"];
+
+      return perfisPermitidos.includes(perfilNormalizado);
     });
   }, [consultores]);
 
@@ -443,6 +447,7 @@ export function PipeSubirPortabilidade({ dados, onBack }: ITelaDetalhesProps) {
       const response = await API.get(
         `/api/consultor/disponiveis/empresa/${seq_empresa}?indicacao=PORTABILIDADE`,
       );
+
       if (response.data && response.data.dados) {
         setConsultoresDisponiveis(response.data.dados);
       }
