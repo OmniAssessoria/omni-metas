@@ -4,7 +4,6 @@ import { createRoot } from 'react-dom/client';
 import { Routes, Route, HashRouter } from 'react-router-dom';
 import ConsultorDash from './pages/consultor_dash/ConsultorDash';
 import PipeSubirGeral from './pages/pipe/subirPipeGeral';
-import DashboardAnaliticoMultiView from './pages/dashboard/dashboard';
 import PainelBDR from './pages/bdr/bdr';
 import DisparosWhatsapp from './pages/disparos_whatsapp/disparo';
 
@@ -12,8 +11,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
       <Routes>
-        <Route path="/" element={<DashboardAnaliticoMultiView />} />
-        <Route path="/dashboard" element={<DashboardAnaliticoMultiView />} />
+        <Route path="/" element={<PipeSubirGeral />} />
         <Route path="/consultor/:id" element={<ConsultorDash />} />
         <Route path="/pipe-subir" element={<PipeSubirGeral />} />
         <Route path="/bdr" element={<PainelBDR />} />
