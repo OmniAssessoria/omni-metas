@@ -253,7 +253,7 @@ export const enviarLeadOmniCrmBdr = async (
 
     const rawCustomFieldsObj: Record<string, any> = {
       "Título do Negócio": titleCard ?? "N/A",
-      Origem: "Base Setembro BDR",
+      Origem: "Casa de Dados",
       Indicacao: "BDR",
       "Informações DECISOR (Possível decisor)": infoDecisorStr ?? "N/A",
       "Nomes Fantasias": lead.google_fontes_nomes_fantasia ?? "N/A",
