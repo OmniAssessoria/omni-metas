@@ -170,9 +170,9 @@ export default class DisparoWhatsappRepository {
             FROM omni.empresa e
             INNER JOIN omni.servico_claro s ON e.seq_empresa = s.seq_empresa
             LEFT JOIN omni.decisor d ON d.seq_empresa = e.seq_empresa
-            WHERE e.qtd_servico_claro >= 2 AND e.qtd_servico_claro <= 10 
+            WHERE e.qtd_servico_claro >= 2 AND e.qtd_servico_claro <= 12 
               AND s.indicacao = $1
-              AND s.crm = false AND s.situacao = 'ABERTO'
+              AND s.crm = false
               AND NOT EXISTS (
                   SELECT 1 FROM omni.disparo_whatsapp dw 
                   WHERE dw.seq_empresa = e.seq_empresa AND dw.indicacao = $1
