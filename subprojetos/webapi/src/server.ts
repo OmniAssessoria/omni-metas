@@ -181,26 +181,26 @@ async function Servidor() {
   // ====================================================================
   // CRON JOB 5: ROTINA DAS 06:00
   // ====================================================================
-  cron.schedule(
-    "0 06 * * *",
-    async () => {
-      try {
-        logger.info(
-          "[CRON 06:00] Iniciando dupla sincronização de ABERTOS (Teste)...",
-        );
-        const TeleconBdrCron = new CronTeleconBdrOmniSincronizar();
-        await TeleconBdrCron.sincronizarAbertosTelecom();
-        await TeleconBdrCron.sincronizarAbertosBdr();
-        logger.info("[CRON 06:00] Dupla sincronização finalizada com sucesso!");
-      } catch (error) {
-        logger.error(
-          "[SISTEMA] Erro fatal não tratado durante a execução do cron das 06:00:",
-          error,
-        );
-      }
-    },
-    { timezone: "America/Sao_Paulo" },
-  );
+  // cron.schedule(
+  //   "0 06 * * *",
+  //   async () => {
+  //     try {
+  //       logger.info(
+  //         "[CRON 06:00] Iniciando dupla sincronização de ABERTOS (Teste)...",
+  //       );
+  //       const TeleconBdrCron = new CronTeleconBdrOmniSincronizar();
+  //       await TeleconBdrCron.sincronizarAbertosTelecom();
+  //       await TeleconBdrCron.sincronizarAbertosBdr();
+  //       logger.info("[CRON 06:00] Dupla sincronização finalizada com sucesso!");
+  //     } catch (error) {
+  //       logger.error(
+  //         "[SISTEMA] Erro fatal não tratado durante a execução do cron das 06:00:",
+  //         error,
+  //       );
+  //     }
+  //   },
+  //   { timezone: "America/Sao_Paulo" },
+  // );
 
   server.setTimeout(300000);
 }
