@@ -7,11 +7,8 @@ export const PLANOS_DISPONIVEIS = [
 ];
 
 export const PLANOS_VIVO_DISPONIVEIS = [
-  { gb: 6, valor: 39.99, bonus: 10 },
-  { gb: 15, valor: 54.99, bonus: 10 },
-  { gb: 20, valor: 59.99, bonus: 10 },
-  { gb: 30, valor: 69.99, bonus: 10 },
-  { gb: 40, valor: 79.99, bonus: 10 },
-  { gb: 50, valor: 89.99, bonus: 10 },
-  { gb: 100, valor: 99.99, bonus: 10 },
+  { gb: 10, valor: 30.00, bonus: 10 },
+  { gb: 25, valor: 40.00, bonus: 10 },
+  { gb: 80, valor: 55.00, bonus: 10 },
+  { gb: 100, valor: 100.00, bonus: 10 },
 ];
