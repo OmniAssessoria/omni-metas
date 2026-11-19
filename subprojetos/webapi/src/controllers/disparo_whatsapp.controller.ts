@@ -11,6 +11,7 @@ class DisparoWhatsappController {
     this.separarLeadsDisparo = this.separarLeadsDisparo.bind(this);
     this.obterDashboard = this.obterDashboard.bind(this);
     this.baixarPlanilha = this.baixarPlanilha.bind(this);
+    this.importarRelatorioTake = this.importarRelatorioTake.bind(this);
   }
 
   async obterDashboard(req: Request, res: Response): Promise<void> {
@@ -30,12 +31,10 @@ class DisparoWhatsappController {
       const { seq_consultor, indicacao, limite } = req.body;
 
       if (!seq_consultor || !indicacao || !limite || limite <= 0) {
-        res
-          .status(400)
-          .json({
-            status: false,
-            erro: "Dados inválidos. Verifique os campos preenchidos.",
-          });
+        res.status(400).json({
+          status: false,
+          erro: "Dados inválidos. Verifique os campos preenchidos.",
+        });
         return;
       }
 
