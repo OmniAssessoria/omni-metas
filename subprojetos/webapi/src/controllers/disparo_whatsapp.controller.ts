@@ -89,6 +89,33 @@ class DisparoWhatsappController {
         .json({ status: false, erro: `Erro ao baixar: ${error.message}` });
     }
   }
+
+  async importarRelatorioTake(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.file) {
+        res.status(400).json({
+          status: false,
+          erro: "Nenhum arquivo foi enviado. Anexe um arquivo CSV ou XLSX da Take.",
+        });
+        return;
+      }
+
+      const resultado = await this.disparoWhatsappService.importarRelatorioTake(
+        req.file.buffer,
+        req.file.originalname,
+      );
+
+      res.status(200).json({
+        status: true,
+        data: resultado,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: false,
+        erro: `Erro ao importar relatório da Take: ${error.message}`,
+      });
+    }
+  }
 }
 
 export default DisparoWhatsappController;

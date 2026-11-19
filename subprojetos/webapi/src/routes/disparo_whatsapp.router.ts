@@ -1,5 +1,11 @@
 import { Router } from "express";
+import multer from "multer";
 import DisparoWhatsappController from "../controllers/disparo_whatsapp.controller.js";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
+});
 
 class RotasDisparoWhatsapp {
   private router: Router;
@@ -20,6 +26,12 @@ class RotasDisparoWhatsapp {
     this.router.post(
       "/disparo-whatsapp/gerar",
       this.disparoWhatsappController.separarLeadsDisparo
+    );
+
+    this.router.post(
+      "/disparo-whatsapp/importar-take",
+      upload.single("arquivo"),
+      this.disparoWhatsappController.importarRelatorioTake
     );
 
     this.router.get(

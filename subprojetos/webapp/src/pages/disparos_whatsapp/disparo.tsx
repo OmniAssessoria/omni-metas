@@ -32,6 +32,7 @@ import {
   Target,
   Trophy,
   XOctagon,
+  UploadCloud,
 } from "lucide-react";
 
 export default function DisparosWhatsapp() {
@@ -132,6 +133,65 @@ export default function DisparosWhatsapp() {
         loading: false,
         success: null,
         error: "Erro de conexão com o servidor. Verifique o console.",
+      });
+    }
+  };
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [arquivoTake, setArquivoTake] = useState<File | null>(null);
+  const [importStatus, setImportStatus] = useState({
+    loading: false,
+    error: null as string | null,
+    resultado: null as any | null,
+  });
+
+  const handleImportarTake = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!arquivoTake) {
+      setImportStatus({
+        loading: false,
+        error: "Selecione o arquivo CSV ou XLSX exportado da Take.",
+        resultado: null,
+      });
+      return;
+    }
+
+    setImportStatus({ loading: true, error: null, resultado: null });
+
+    try {
+      const formData = new FormData();
+      formData.append("arquivo", arquivoTake);
+
+      const response = await fetch(
+        `${getBaseUrl()}/api/disparo-whatsapp/importar-take`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const json = await response.json();
+
+      if (response.ok && json.status) {
+        setImportStatus({
+          loading: false,
+          error: null,
+          resultado: json.data,
+        });
+        setArquivoTake(null);
+        carregarDashboard();
+      } else {
+        setImportStatus({
+          loading: false,
+          error: json.erro || "Erro ao importar relatório da Take.",
+          resultado: null,
+        });
+      }
+    } catch (error) {
+      setImportStatus({
+        loading: false,
+        error: "Erro de conexão com o servidor ao enviar a planilha.",
+        resultado: null,
       });
     }
   };
@@ -260,127 +320,246 @@ export default function DisparosWhatsapp() {
               Geração de bases e acompanhamento de funil
             </p>
           </div>
-          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogTrigger asChild>
-              <Button
-                size="lg"
-                className="gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold shadow-lg"
-              >
-                <DownloadCloud className="w-5 h-5 text-black" /> Gerar Disparos
-                (XLSX)
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[450px] bg-card border-border">
-              <DialogHeader>
-                <DialogTitle className="text-xl text-white">
-                  Extrair Base de Disparo
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleGerarDisparos} className="space-y-5 mt-2">
-                <div className="space-y-2">
-                  <Label className="text-white">Consultor Responsável</Label>
-                  <Select
-                    onValueChange={(val) =>
-                      setForm({ ...form, seq_consultor: val })
-                    }
-                    value={form.seq_consultor}
+          <div className="flex flex-wrap items-center gap-3">
+            <Dialog
+              open={isImportModalOpen}
+              onOpenChange={(open) => {
+                setIsImportModalOpen(open);
+                if (!open) {
+                  setArquivoTake(null);
+                  setImportStatus({ loading: false, error: null, resultado: null });
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="gap-2 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 font-semibold shadow-sm"
+                >
+                  <UploadCloud className="w-5 h-5" /> Importar Disparos (Take)
+                </Button>
+              </DialogTrigger>
+
+              <DialogContent className="sm:max-w-[520px] bg-card border-border">
+                <DialogHeader>
+                  <DialogTitle className="text-xl text-white">
+                    Importar Relatório da Take
+                  </DialogTitle>
+                </DialogHeader>
+
+                <form onSubmit={handleImportarTake} className="space-y-4 mt-2">
+                  <div className="space-y-2">
+                    <Label className="text-white">
+                      Arquivo de Relatório (.xlsx, .xls ou .csv)
+                    </Label>
+                    <Input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="bg-background text-white border-border file:text-white file:bg-muted file:border-0 file:rounded-md file:px-3 file:py-1 file:mr-3 cursor-pointer"
+                      onChange={(e) =>
+                        setArquivoTake(e.target.files?.[0] || null)
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Colunas esperadas: ID, Nome (com CNPJ após ||), Telefone,
+                      Status, Motivo Falha e datas da Take.
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-11 text-base bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                    disabled={importStatus.loading || !arquivoTake}
                   >
-                    <SelectTrigger className="bg-background text-white border-border">
-                      <SelectValue placeholder="Selecione um consultor..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border-border">
-                      {dashboardInfo.consultores.map((c: any) => (
+                    {importStatus.loading
+                      ? "Importando e atualizando banco..."
+                      : "Processar Relatório da Take"}
+                  </Button>
+
+                  {importStatus.error && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-md text-sm">
+                      {importStatus.error}
+                    </div>
+                  )}
+
+                  {importStatus.resultado && (
+                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg space-y-2 text-sm">
+                      <p className="font-semibold text-emerald-400">
+                        Importação concluída com sucesso!
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-foreground">
+                        <div>
+                          Linhas na planilha:{" "}
+                          <strong>{importStatus.resultado.total_linhas_planilha}</strong>
+                        </div>
+                        <div>
+                          Disparos atualizados:{" "}
+                          <strong className="text-emerald-400">
+                            {importStatus.resultado.atualizados}
+                          </strong>
+                        </div>
+                        <div>
+                          Marcados como falha:{" "}
+                          <strong className="text-red-400">
+                            {importStatus.resultado.marcados_como_falha}
+                          </strong>
+                        </div>
+                        <div>
+                          Corrigidos p/ entregue:{" "}
+                          <strong className="text-blue-400">
+                            {importStatus.resultado.corrigidos_de_falha_para_entregue}
+                          </strong>
+                        </div>
+                        <div>
+                          Já com CRM (mantidos):{" "}
+                          <strong>
+                            {importStatus.resultado.ja_possuiam_crm_enriquecidos}
+                          </strong>
+                        </div>
+                        <div>
+                          Não encontrados:{" "}
+                          <strong className="text-amber-400">
+                            {importStatus.resultado.nao_encontrados?.length || 0}
+                          </strong>
+                        </div>
+                      </div>
+
+                      {importStatus.resultado.respondidos_sem_crm?.length > 0 && (
+                        <div className="mt-2 p-2.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs">
+                          <strong>Atenção:</strong>{" "}
+                          {importStatus.resultado.respondidos_sem_crm.length}{" "}
+                          cliente(s) constam como <strong>Respondido</strong> na
+                          Take mas ainda não possuem card criado no CRM.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </form>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  size="lg"
+                  className="gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold shadow-lg"
+                >
+                  <DownloadCloud className="w-5 h-5 text-black" /> Gerar Disparos
+                  (XLSX)
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[450px] bg-card border-border">
+                <DialogHeader>
+                  <DialogTitle className="text-xl text-white">
+                    Extrair Base de Disparo
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleGerarDisparos} className="space-y-5 mt-2">
+                  <div className="space-y-2">
+                    <Label className="text-white">Consultor Responsável</Label>
+                    <Select
+                      onValueChange={(val) =>
+                        setForm({ ...form, seq_consultor: val })
+                      }
+                      value={form.seq_consultor}
+                    >
+                      <SelectTrigger className="bg-background text-white border-border">
+                        <SelectValue placeholder="Selecione um consultor..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border-border">
+                        {dashboardInfo.consultores.map((c: any) => (
+                          <SelectItem
+                            className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                            key={c.seq_consultor}
+                            value={String(c.seq_consultor)}
+                          >
+                            {c.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-white">Indicação (Campanha)</Label>
+                    <Select
+                      onValueChange={(val) =>
+                        setForm({ ...form, indicacao: val })
+                      }
+                      value={form.indicacao}
+                    >
+                      <SelectTrigger className="bg-background text-white border-border">
+                        <SelectValue placeholder="Selecione a indicação..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border-border">
                         <SelectItem
                           className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
-                          key={c.seq_consultor}
-                          value={String(c.seq_consultor)}
+                          value="FORA DO PRAZO"
                         >
-                          {c.nome}
+                          Fora do Prazo
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-white">Indicação (Campanha)</Label>
-                  <Select
-                    onValueChange={(val) =>
-                      setForm({ ...form, indicacao: val })
-                    }
-                    value={form.indicacao}
+                        <SelectItem
+                          className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                          value="RENOVACAO"
+                        >
+                          Renovação
+                        </SelectItem>
+                        <SelectItem
+                          className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                          value="PORTABILIDADE"
+                        >
+                          Portabilidade
+                        </SelectItem>
+                        <SelectItem
+                          className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                          value="PRAZO LIMITADO"
+                        >
+                          Prazo Limitado
+                        </SelectItem>
+                        <SelectItem
+                          className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
+                          value="PRAZO EXCEDIDO"
+                        >
+                          Prazo Excedido
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-white">Quantidade Limite</Label>
+                    <Input
+                      className="bg-background text-white border-border placeholder:text-gray-500"
+                      type="number"
+                      min="1"
+                      placeholder="Ex: 100"
+                      value={form.limite}
+                      onChange={(e) =>
+                        setForm({ ...form, limite: e.target.value })
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                    disabled={status.loading}
                   >
-                    <SelectTrigger className="bg-background text-white border-border">
-                      <SelectValue placeholder="Selecione a indicação..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border-border">
-                      <SelectItem
-                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
-                        value="FORA DO PRAZO"
-                      >
-                        Fora do Prazo
-                      </SelectItem>
-                      <SelectItem
-                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
-                        value="RENOVACAO"
-                      >
-                        Renovação
-                      </SelectItem>
-                      <SelectItem
-                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
-                        value="PORTABILIDADE"
-                      >
-                        Portabilidade
-                      </SelectItem>
-                      <SelectItem
-                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
-                        value="PRAZO LIMITADO"
-                      >
-                        Prazo Limitado
-                      </SelectItem>
-                      <SelectItem
-                        className="text-white hover:bg-muted focus:bg-muted focus:text-white cursor-pointer"
-                        value="PRAZO EXCEDIDO"
-                      >
-                        Prazo Excedido
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-white">Quantidade Limite</Label>
-                  <Input
-                    className="bg-background text-white border-border placeholder:text-gray-500"
-                    type="number"
-                    min="1"
-                    placeholder="Ex: 100"
-                    value={form.limite}
-                    onChange={(e) =>
-                      setForm({ ...form, limite: e.target.value })
-                    }
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-                  disabled={status.loading}
-                >
-                  {status.loading
-                    ? "Processando..."
-                    : "Confirmar e Baixar Planilha"}
-                </Button>
-                {status.error && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-md text-sm text-center">
-                    {status.error}
-                  </div>
-                )}
-                {status.success && (
-                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-md text-sm text-center">
-                    {status.success}
-                  </div>
-                )}
-              </form>
-            </DialogContent>
-          </Dialog>
+                    {status.loading
+                      ? "Processando..."
+                      : "Confirmar e Baixar Planilha"}
+                  </Button>
+                  {status.error && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-md text-sm text-center">
+                      {status.error}
+                    </div>
+                  )}
+                  {status.success && (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-md text-sm text-center">
+                      {status.success}
+                    </div>
+                  )}
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* CARDS MACRO */}

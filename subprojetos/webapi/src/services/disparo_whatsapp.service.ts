@@ -214,6 +214,172 @@ export default class DisparoWhatsappService {
     };
   }
 
+  private normalizarChaveColuna(chave: string): string {
+    return chave
+      .replace(/^\uFEFF/, "") // remove BOM UTF-8
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // remove acentos
+      .trim()
+      .toLowerCase();
+  }
+
+  private extrairCnpjDoNome(nome: string): string | null {
+    if (!nome) return null;
+
+    // Prioriza o conteúdo após "||", mas também aceita CNPJ em qualquer ponto da string
+    const parteCnpj = nome.includes("||") ? nome.split("||").pop() || "" : nome;
+    const matchFormatado = parteCnpj.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
+
+    if (matchFormatado) {
+      const digitos = matchFormatado[0].replace(/\D/g, "");
+      return digitos.length === 14 ? digitos : null;
+    }
+
+    const somenteDigitos = parteCnpj.replace(/\D/g, "");
+    if (somenteDigitos.length === 14) return somenteDigitos;
+
+    return null;
+  }
+
+  private normalizarTelefone(telefone: string): string | null {
+    if (!telefone) return null;
+    let digitos = String(telefone).replace(/\D/g, "");
+    if (!digitos) return null;
+
+    if (digitos.startsWith("550")) {
+      digitos = "55" + digitos.substring(3);
+    } else if (digitos.startsWith("0")) {
+      digitos = "55" + digitos.substring(1);
+    } else if (!digitos.startsWith("55")) {
+      digitos = "55" + digitos;
+    }
+
+    return digitos.length >= 12 ? digitos : null;
+  }
+
+  private parseDataTake(valor: any): Date | null {
+    if (valor === null || valor === undefined) return null;
+    const texto = String(valor).trim();
+    if (!texto || texto === "-") return null;
+
+    // Formato Take: "01/10/2026, 06:11:34" ou "01/10/2026 06:11:34"
+    const match = texto.match(
+      /^(\d{2})\/(\d{2})\/(\d{4})[,\s]+(\d{2}):(\d{2})(?::(\d{2}))?$/,
+    );
+
+    if (match) {
+      const [, dia, mes, ano, hora, min, seg = "00"] = match;
+      return new Date(
+        Number(ano),
+        Number(mes) - 1,
+        Number(dia),
+        Number(hora),
+        Number(min),
+        Number(seg),
+      );
+    }
+
+    // Fallback para formato ISO caso o Excel tenha convertido
+    const dataFallback = new Date(texto);
+    return isNaN(dataFallback.getTime()) ? null : dataFallback;
+  }
+
+  private limparTextoTake(valor: any): string | null {
+    if (valor === null || valor === undefined) return null;
+    const texto = String(valor).trim();
+    if (!texto || texto === "-") return null;
+    return texto;
+  }
+
+  async importarRelatorioTake(buffer: Buffer, nomeArquivo: string) {
+    // codepage 65001 garante leitura correta de UTF-8 (acentos em CSV)
+    const workbook = xlsx.read(buffer, {
+      type: "buffer",
+      raw: false,
+      codepage: 65001,
+    });
+
+    const primeiraAba = workbook.SheetNames[0];
+    if (!primeiraAba) {
+      throw new Error("O arquivo enviado não possui abas válidas.");
+    }
+
+    const linhasBrutas: Record<string, any>[] = xlsx.utils.sheet_to_json(
+      workbook.Sheets[primeiraAba],
+      { defval: "", raw: false },
+    );
+
+    if (linhasBrutas.length === 0) {
+      throw new Error("A planilha da Take está vazia.");
+    }
+
+    const registrosTratados: any[] = [];
+    const errosParsing: Array<{ linha: number; motivo: string }> = [];
+
+    linhasBrutas.forEach((linhaObj, idx) => {
+      const normalizado: Record<string, any> = {};
+      for (const [k, v] of Object.entries(linhaObj)) {
+        normalizado[this.normalizarChaveColuna(k)] = v;
+      }
+
+      const idTake = this.limparTextoTake(normalizado["id"]);
+      const nome = String(normalizado["nome"] || "");
+      const telefoneRaw = String(normalizado["telefone"] || "");
+      const statusRaw = this.limparTextoTake(normalizado["status"]);
+
+      const cnpj = this.extrairCnpjDoNome(nome);
+      const numero = this.normalizarTelefone(telefoneRaw);
+
+      if (!cnpj || !numero) {
+        errosParsing.push({
+          linha: idx + 2,
+          motivo: !cnpj
+            ? `CNPJ não identificado na coluna Nome ("${nome}")`
+            : `Telefone inválido ("${telefoneRaw}")`,
+        });
+        return;
+      }
+
+      const dtRespondido = this.parseDataTake(normalizado["respondido em"]);
+      let statusTake = (statusRaw || "DESCONHECIDO").toUpperCase();
+
+      // Se houve data de resposta, garante status RESPONDIDO mesmo que a coluna Status diga Entregue/Lido
+      if (dtRespondido && statusTake !== "RESPONDIDO") {
+        statusTake = "RESPONDIDO";
+      }
+
+      registrosTratados.push({
+        linha: idx + 2,
+        id_disparo_take: idTake,
+        cnpj,
+        numero,
+        status_take: statusTake,
+        motivo_falha_take: this.limparTextoTake(normalizado["motivo falha"]),
+        dt_criado_take: this.parseDataTake(normalizado["criado em"]),
+        dt_concluido_take: this.parseDataTake(normalizado["concluido em"]),
+        dt_entregue_take: this.parseDataTake(normalizado["entregue em"]),
+        dt_lido_take: this.parseDataTake(normalizado["lido em"]),
+        dt_respondido_take: dtRespondido,
+      });
+    });
+
+    const resultadoDb =
+      await this.repoDisparo.atualizarEmLotePorRelatorioTake(registrosTratados);
+
+    this.logger.info(
+      `Importação Take (${nomeArquivo}) finalizada: ${resultadoDb.atualizados} atualizados, ${resultadoDb.nao_encontrados.length} não encontrados.`,
+    );
+
+    return {
+      arquivo: nomeArquivo,
+      total_linhas_planilha: linhasBrutas.length,
+      linhas_validas: registrosTratados.length,
+      erros_parsing: errosParsing.length,
+      ...resultadoDb,
+      detalhes_erros_parsing: errosParsing.slice(0, 50),
+    };
+  }
+
   async separarEGerarPlanilha(
     limit: number,
     indicacao: string,
